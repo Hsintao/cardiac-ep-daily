@@ -203,7 +203,27 @@ jobs:
           today="${{ steps.collect.outputs.today }}"
           python -m render.build_html \
             --data "data/${today}_AI_enhanced_${LANGUAGE}.jsonl" \
-            --out index.html
+            --out index.html \
+            --archive "archive/${today}.html" \
+            --date "${today}"
+
+          # 补齐历史归档页：archive/ 里缺哪天就补哪天。
+          # 页面是静态的，归档页必须实际存在，否则「归档页」链接会 404。
+          # 这一步也让首次部署 / data 分支重建后能自愈出全部历史页面。
+          mkdir -p archive
+          for f in data/*_AI_enhanced_${LANGUAGE}.jsonl; do
+            [ -e "$f" ] || continue
+            day=$(basename "$f" "_AI_enhanced_${LANGUAGE}.jsonl")
+            if [ ! -f "archive/${day}.html" ]; then
+              python -m render.build_html \
+                --data "$f" \
+                --out "/tmp/archive-${day}.html" \
+                --archive "archive/${day}.html" \
+                --date "$day" > /dev/null
+              echo "补齐归档页: ${day}"
+            fi
+          done
+          echo "归档页共 $(ls archive/*.html | wc -l) 个"
 
       # ------------------------------------------------------------------
       # 7. 重建 assets/file-list.txt
