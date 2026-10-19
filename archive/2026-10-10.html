@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="心脏电生理日报归档 · 2026-10-10">
+<title>归档 · 2026-10-10 · 心脏电生理日报</title>
+<script>
+/* 主题初始化：必须在样式生效前执行，避免深色用户看到白屏闪烁。
+   读取顺序：localStorage 手动选择 > 系统偏好。写入 <html data-theme>。 */
+(function () {
+    try {
+        var saved = localStorage.getItem('ep-digest-theme');
+        if (saved === 'dark' || saved === 'light') {
+            document.documentElement.setAttribute('data-theme', saved);
+        }
+    } catch (e) { /* 隐私模式下 localStorage 可能抛错，忽略即可 */ }
+})();
+
+/* 主题切换：跟随系统 → 手动选择 → 再点回到跟随系统。
+   三态循环，按钮 title 显示当前状态，localStorage 记忆手动选择。 */
+(function () {
+    var btn = document.getElementById("themeToggle");
+    if (!btn) { return; }
+    var root = document.documentElement;
+    var mql = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+
+    function current() {
+        var manual = root.getAttribute("data-theme");
+        if (manual === "dark" || manual === "light") { return manual; }
+        return (mql && mql.matches) ? "dark" : "light";
+    }
+    function label() {
+        var manual = root.getAttribute("data-theme");
+        var suffix = manual ? "" : "（跟随系统）";
+        btn.textContent = (current() === "dark" ? "☀️ 浅色" : "🌙 深色") + suffix;
+        btn.title = "当前：" + (current() === "dark" ? "深色" : "浅色") + suffix + "，点击切换";
+    }
+    btn.addEventListener("click", function () {
+        var next = current() === "dark" ? "light" : "dark";
+        root.setAttribute("data-theme", next);
+        try { localStorage.setItem("ep-digest-theme", next); } catch (e) {}
+        label();
+    });
+    if (mql && mql.addEventListener) {
+        mql.addEventListener("change", function () {
+            if (!root.getAttribute("data-theme")) { label(); }
+        });
+    }
+    label();
+})();
+</script>
+<style>
+/* ==========================================================================
+   心脏电生理每日论文检索 —— 日报样式
+   自包含、无外链、无 CDN，可离线双击打开。
+   设计目标：给临床医生每天读的日报，标题层级清晰、留白充足、标签配色区分亚专业。
+   ========================================================================== */
+
+:root {
+    /* 主色：深青蓝（医学/电生理的冷静感），配合暖色点缀区分标签 */
+    --brand: #0f766e;
+    --brand-dark: #115e59;
+    --brand-soft: #ccfbf1;
+    --accent: #b45309;
+    --accent-soft: #fef3c7;
+
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --surface-muted: #f9fafb;
+    --border: #e5e7eb;
+    --border-strong: #d1d5db;
+
+    --text: #111827;
+    --text-secondary: #4b5563;
+    --text-tertiary: #9ca3af;
+
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+
+    /* 简约取向：用边框区分层次，不用投影。投影会让页面显得厚重、密度高。 */
+    --shadow-sm: none;
+    --shadow-md: none;
+
+    /* 亚专业标签配色：每个 topic 一个色相，保证一眼可区分 */
+    --t-af: #0e7490;
+    --t-af-bg: #cffafe;
+    --t-vt: #b91c1c;
+    --t-vt-bg: #fee2e2;
+    --t-device: #6d28d9;
+    --t-device-bg: #ede9fe;
+    --t-imaging: #0369a1;
+    --t-imaging-bg: #dbeafe;
+    --t-genetics: #047857;
+    --t-genetics-bg: #d1fae5;
+    --t-other: #4b5563;
+    --t-other-bg: #e5e7eb;
+
+    /* 语义化颜色（供深色模式统一覆盖） */
+    --filter-bg: rgba(255, 255, 255, .94);
+    --filter-hover: #f0fdfa;
+    --focus-ring: rgba(15, 118, 110, .14);
+    --warn-border: #fcd34d;
+    --card-border-soft: #ccfbf1;
+
+    --link-pubmed-bg: #eff6ff;   --link-pubmed-fg: #1d4ed8;  --link-pubmed-bd: #93c5fd;  --link-pubmed-hover: #dbeafe;
+    --link-doi-bg: #f5f3ff;      --link-doi-fg: #6d28d9;     --link-doi-bd: #c4b5fd;     --link-doi-hover: #ede9fe;
+    --link-pdf-bg: #fef2f2;      --link-pdf-fg: #b91c1c;     --link-pdf-bd: #fca5a5;     --link-pdf-hover: #fee2e2;
+
+    --ai-tldr-bg: #0f766e;     --ai-tldr-fg: #fff;
+    --ai-motiv-bg: #ede9fe;    --ai-motiv-fg: #5b21b6;
+    --ai-method-bg: #dbeafe;   --ai-method-fg: #1e40af;
+    --ai-result-bg: #d1fae5;   --ai-result-fg: #065f46;
+    --ai-concl-bg: #fef3c7;    --ai-concl-fg: #92400e;
+
+    /* 简约：页头用极浅的青色底 + 细底边，而不是大面积深色渐变 */
+    --header-from: #f0fdfa;  --header-mid: #f0fdfa;  --header-to: #ecfeff;
+    --header-fg: #0f172a;
+    --header-accent: #0f766e;
+    --header-border: #d7e7e6;
+
+    color-scheme: light;
+}
+
+/* ==========================================================================
+   深色模式
+   --------------------------------------------------------------------------
+   只覆盖颜色变量，排版/间距/结构完全复用浅色定义，避免两套样式各自漂移。
+   触发方式两种，指向同一组变量：
+     1. 跟随系统（系统切深色，页面自动跟随）
+     2. 手动切换（<html data-theme="dark|light">，由页头按钮写入并 localStorage 记忆）
+   手动「浅色」优先于系统深色 —— 靠 :not([data-theme="light"]) 实现。
+   ========================================================================== */
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --brand: #2dd4bf;
+        --brand-dark: #5eead4;
+        --brand-soft: #134e4a;
+        --accent: #fbbf24;
+        --accent-soft: #422006;
+
+        --bg: #0d1117;
+        --surface: #161b22;
+        --surface-muted: #12171e;
+        --border: #262d36;
+        --border-strong: #39424e;
+
+        --text: #e6edf3;
+        --text-secondary: #a5b1bd;
+        --text-tertiary: #7d8895;
+
+        /* 暗底靠边框分层，阴影几乎不可见，调淡即可 */
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
+        --shadow-md: 0 4px 12px rgba(0, 0, 0, .5);
+
+        /* 亚专业标签：深色下低饱和背景 + 明亮文字，避免刺眼 */
+        --t-af: #67e8f9;
+        --t-af-bg: #164e63;
+        --t-vt: #fca5a5;
+        --t-vt-bg: #5f1d1d;
+        --t-device: #c4b5fd;
+        --t-device-bg: #3b2a6b;
+        --t-imaging: #93c5fd;
+        --t-imaging-bg: #1e3a5f;
+        --t-genetics: #6ee7b7;
+        --t-genetics-bg: #0f3d2e;
+        --t-other: #cbd5e1;
+        --t-other-bg: #2a323d;
+
+        --filter-bg: rgba(22, 27, 34, .94);
+        --filter-hover: #1b2430;
+        --focus-ring: rgba(45, 212, 191, .22);
+        --warn-border: #7c5a12;
+        --card-border-soft: #1d3b3a;
+        --link-pubmed-bg: #12233d; --link-pubmed-fg: #93c5fd; --link-pubmed-bd: #1e4a7a; --link-pubmed-hover: #183155;
+        --link-doi-bg: #241a3d;    --link-doi-fg: #c4b5fd;    --link-doi-bd: #4b3a7a;    --link-doi-hover: #2f2450;
+        --link-pdf-bg: #33161a;    --link-pdf-fg: #fca5a5;    --link-pdf-bd: #7a3a3a;    --link-pdf-hover: #451d24;
+        --ai-tldr-bg: #0f766e;  --ai-tldr-fg: #fff;
+        --ai-motiv-bg: #2b2145; --ai-motiv-fg: #c4b5fd;
+        --ai-method-bg: #152a45; --ai-method-fg: #93c5fd;
+        --ai-result-bg: #10352a; --ai-result-fg: #6ee7b7;
+        --ai-concl-bg: #3a2c0e; --ai-concl-fg: #fcd34d;
+        --header-fg: #e6edf3;
+        --header-from: #101b1e;
+        --header-mid: #101b1e;
+        --header-to: #111d21;
+        --header-accent: #2dd4bf;
+        --header-border: #223037;
+
+        color-scheme: dark;
+    }
+}
+
+:root[data-theme="dark"] {
+    --brand: #2dd4bf;
+    --brand-dark: #5eead4;
+    --brand-soft: #134e4a;
+    --accent: #fbbf24;
+    --accent-soft: #422006;
+
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface-muted: #12171e;
+    --border: #262d36;
+    --border-strong: #39424e;
+
+    --text: #e6edf3;
+    --text-secondary: #a5b1bd;
+    --text-tertiary: #7d8895;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, .5);
+
+    --t-af: #67e8f9;
+    --t-af-bg: #164e63;
+    --t-vt: #fca5a5;
+    --t-vt-bg: #5f1d1d;
+    --t-device: #c4b5fd;
+    --t-device-bg: #3b2a6b;
+    --t-imaging: #93c5fd;
+    --t-imaging-bg: #1e3a5f;
+    --t-genetics: #6ee7b7;
+    --t-genetics-bg: #0f3d2e;
+    --t-other: #cbd5e1;
+    --t-other-bg: #2a323d;
+
+    --filter-bg: rgba(22, 27, 34, .94);
+    --filter-hover: #1b2430;
+    --focus-ring: rgba(45, 212, 191, .22);
+    --warn-border: #7c5a12;
+    --card-border-soft: #1d3b3a;
+    --link-pubmed-bg: #12233d; --link-pubmed-fg: #93c5fd; --link-pubmed-bd: #1e4a7a; --link-pubmed-hover: #183155;
+    --link-doi-bg: #241a3d;    --link-doi-fg: #c4b5fd;    --link-doi-bd: #4b3a7a;    --link-doi-hover: #2f2450;
+    --link-pdf-bg: #33161a;    --link-pdf-fg: #fca5a5;    --link-pdf-bd: #7a3a3a;    --link-pdf-hover: #451d24;
+    --ai-tldr-bg: #0f766e;  --ai-tldr-fg: #fff;
+    --ai-motiv-bg: #2b2145; --ai-motiv-fg: #c4b5fd;
+    --ai-method-bg: #152a45; --ai-method-fg: #93c5fd;
+    --ai-result-bg: #10352a; --ai-result-fg: #6ee7b7;
+    --ai-concl-bg: #3a2c0e; --ai-concl-fg: #fcd34d;
+    --header-fg: #e6edf3;
+    --header-from: #101b1e;
+    --header-mid: #101b1e;
+    --header-to: #111d21;
+    --header-accent: #2dd4bf;
+    --header-border: #223037;
+
+    color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    font-size: 15.5px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--brand); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ---------------------------------------------------------------- 页头 */
+
+.site-header {
+    background: linear-gradient(180deg, var(--header-from) 0%, var(--header-to) 100%);
+    color: var(--header-fg);
+    padding: 26px 0 20px;
+    border-bottom: 1px solid var(--header-border);
+}
+
+.wrap {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 0 24px;
+}
+
+.site-header h1 {
+    margin: 0 0 6px;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: .3px;
+}
+
+.site-header .subtitle {
+    margin: 0;
+    font-size: 13.5px;
+    color: var(--text-secondary);
+}
+
+.header-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.header-meta .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--header-border);
+    border-radius: 999px;
+    padding: 3px 12px;
+}
+
+.header-meta .chip strong { font-weight: 700; }
+
+.header-nav {
+    margin-top: 14px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.header-nav a {
+    color: var(--header-accent);
+    font-size: 13px;
+    border: 1px solid var(--header-border);
+    background: var(--surface);
+    border-radius: 999px;
+    padding: 4px 14px;
+}
+.header-nav a:hover { background: var(--brand-soft); text-decoration: none; }
+
+/* ---------------------------------------------------------------- 筛选栏 */
+
+.filters {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--filter-bg);
+    backdrop-filter: saturate(180%) blur(8px);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 0;
+}
+
+.filter-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+.filter-row:last-child { margin-bottom: 0; }
+
+.filter-label {
+    flex: 0 0 auto;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    letter-spacing: .5px;
+    padding-top: 5px;
+    min-width: 46px;
+}
+
+.filter-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.filter-btn {
+    font: inherit;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: var(--text-secondary);
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 3px 11px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, color .15s;
+}
+.filter-btn:hover { background: var(--surface-muted); border-color: var(--border-strong); }
+.filter-btn.active {
+    background: var(--brand);
+    border-color: var(--brand);
+    /* 浅色下 brand 是深青、白字可读；深色下 brand 变亮青，需深色字才有对比度 */
+    color: var(--surface);
+    font-weight: 600;
+}
+.filter-btn .count { opacity: .65; margin-left: 3px; font-variant-numeric: tabular-nums; }
+
+.filter-btn.more-btn {
+    background: var(--surface);
+    border-style: dashed;
+    color: var(--brand-dark);
+    font-weight: 600;
+}
+.filter-btn.more-btn:hover { background: var(--filter-hover); }
+
+.search-box {
+    flex: 1 1 auto;
+    min-width: 180px;
+    font: inherit;
+    font-size: 13px;
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--text);
+}
+.search-box:focus {
+    outline: none;
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.filter-empty {
+    display: none;
+    padding: 40px 0 60px;
+    text-align: center;
+    color: var(--text-secondary);
+}
+.filter-empty.show { display: block; }
+
+/* ---------------------------------------------------------------- 分组 */
+
+main { padding: 26px 0 60px; }
+
+.topic-group { margin-bottom: 34px; }
+
+.topic-heading {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 0 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text);
+}
+.topic-heading .bar {
+    width: 4px;
+    height: 17px;
+    border-radius: 2px;
+    background: var(--brand);
+    align-self: center;
+    flex: 0 0 auto;
+}
+.topic-heading .topic-count {
+    margin-left: auto;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------- 卡片 */
+
+.paper-list { display: flex; flex-direction: column; gap: 14px; }
+
+.paper-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 18px 20px 16px;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow .18s, border-color .18s;
+}
+.paper-card:hover { box-shadow: var(--shadow-md); border-color: var(--border-strong); }
+
+.paper-card.hidden { display: none; }
+
+.paper-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.paper-index {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--brand-soft);
+    color: var(--brand-dark);
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-variant-numeric: tabular-nums;
+    margin-top: 3px;
+}
+
+.paper-main { flex: 1 1 auto; min-width: 0; }
+
+.paper-title {
+    margin: 0 0 8px;
+    font-size: 16.5px;
+    font-weight: 650;
+    line-height: 1.45;
+    color: var(--text);
+    letter-spacing: .1px;
+}
+.paper-title a { color: inherit; }
+.paper-title a:hover { color: var(--brand); text-decoration: none; }
+
+/* 元信息行：期刊 · 日期 */
+.paper-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+.paper-journal { font-weight: 600; color: var(--brand-dark); }
+.paper-date { color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.paper-meta .dot { color: var(--border-strong); }
+
+/* 标签行 */
+.tag-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.tag {
+    display: inline-block;
+    font-size: 11.5px;
+    line-height: 1.5;
+    font-weight: 600;
+    padding: 1px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.tag-topic { background: var(--t-other-bg); color: var(--t-other); }
+.tag-topic[data-topic="房颤与消融"]   { background: var(--t-af-bg);      color: var(--t-af); }
+.tag-topic[data-topic="室性心律失常"] { background: var(--t-vt-bg);      color: var(--t-vt); }
+.tag-topic[data-topic="器械治疗"]     { background: var(--t-device-bg);  color: var(--t-device); }
+.tag-topic[data-topic="影像与标测"]   { background: var(--t-imaging-bg); color: var(--t-imaging); }
+.tag-topic[data-topic="遗传与基础"]   { background: var(--t-genetics-bg);color: var(--t-genetics); }
+.tag-topic[data-topic="其他"]         { background: var(--t-other-bg);   color: var(--t-other); }
+
+.tag-type {
+    background: var(--surface);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-strong);
+    font-weight: 500;
+}
+.tag-oa {
+    background: var(--accent-soft);
+    color: var(--accent);
+    border: 1px solid var(--warn-border);
+}
+
+/* 作者 */
+.paper-authors {
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    margin: 0 0 12px;
+    line-height: 1.6;
+}
+
+/* 摘要（可折叠） */
+.abstract-block {
+    border-left: 3px solid var(--border);
+    padding: 2px 0 2px 12px;
+    margin-bottom: 12px;
+}
+.abstract-block summary {
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    list-style: none;
+    user-select: none;
+}
+.abstract-block summary::-webkit-details-marker { display: none; }
+.abstract-block summary::before {
+    content: "▸ ";
+    color: var(--text-tertiary);
+    font-size: 11px;
+}
+.abstract-block[open] summary::before { content: "▾ "; }
+.abstract-block summary:hover { color: var(--brand); }
+.abstract-body {
+    margin: 8px 0 0;
+    font-size: 13.5px;
+    color: var(--text-secondary);
+    line-height: 1.78;
+    text-align: justify;
+    word-break: break-word;
+}
+.abstract-none {
+    font-size: 13px;
+    color: var(--text-tertiary);
+    font-style: italic;
+    margin: 0;
+}
+
+/* ------------------------------------------------------- AI 中文解读 */
+
+.ai-panel {
+    background: linear-gradient(180deg, #f0fdfa 0%, var(--surface-muted) 100%);
+    border: 1px solid var(--card-border-soft);
+    border-radius: var(--radius-md);
+    padding: 14px 16px 12px;
+    margin-bottom: 12px;
+}
+
+.ai-panel-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--brand-dark);
+    margin: 0 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+.ai-panel-title::before {
+    content: "";
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--brand);
+    flex: 0 0 auto;
+}
+
+.ai-section { margin-bottom: 9px; }
+.ai-section:last-child { margin-bottom: 0; }
+
+.ai-label {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: var(--radius-sm);
+    padding: 0 7px;
+    margin-bottom: 3px;
+    letter-spacing: .4px;
+}
+.ai-label.tldr       { background: var(--ai-tldr-bg); color: var(--ai-tldr-fg); }
+.ai-label.motivation { background: var(--ai-motiv-bg); color: var(--ai-motiv-fg); }
+.ai-label.method     { background: var(--ai-method-bg); color: var(--ai-method-fg); }
+.ai-label.result     { background: var(--ai-result-bg); color: var(--ai-result-fg); }
+.ai-label.conclusion { background: var(--ai-concl-bg); color: var(--ai-concl-fg); }
+
+.ai-text {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.78;
+    color: var(--text);
+    text-align: justify;
+    word-break: break-word;
+}
+.ai-section.tldr .ai-text {
+    font-size: 14.5px;
+    font-weight: 600;
+    line-height: 1.7;
+}
+
+/* 无 AI 解读时的降级提示 */
+.ai-missing {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin: 0 0 12px;
+    padding-left: 2px;
+}
+
+/* 链接按钮 */
+.link-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border);
+}
+
+.btn-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 4px 13px;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    color: var(--text-secondary);
+    background: var(--surface);
+    transition: background .15s, color .15s, border-color .15s;
+}
+.btn-link:hover { text-decoration: none; border-color: var(--brand); color: var(--brand); background: #f0fdfa; }
+.btn-link.pubmed { border-color: var(--link-pubmed-bd); color: var(--link-pubmed-fg); background: var(--link-pubmed-bg); }
+.btn-link.pubmed:hover { background: var(--link-pubmed-hover); }
+.btn-link.doi { border-color: var(--link-doi-bd); color: var(--link-doi-fg); background: var(--link-doi-bg); }
+.btn-link.doi:hover { background: var(--link-doi-hover); }
+.btn-link.pdf { border-color: var(--link-pdf-bd); color: var(--link-pdf-fg); background: var(--link-pdf-bg); }
+.btn-link.pdf:hover { background: var(--link-pdf-hover); }
+
+/* ---------------------------------------------------------------- 空状态 */
+
+.empty-state {
+    background: var(--surface);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-lg);
+    padding: 64px 32px;
+    text-align: center;
+    margin: 20px 0;
+}
+.empty-state .icon { font-size: 40px; line-height: 1; margin-bottom: 14px; }
+.empty-state h2 { margin: 0 0 10px; font-size: 18px; font-weight: 650; }
+.empty-state p { margin: 0 auto; max-width: 520px; color: var(--text-secondary); font-size: 14px; }
+.empty-state .hint {
+    margin-top: 18px;
+    font-size: 12.5px;
+    color: var(--text-tertiary);
+}
+.empty-state code {
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* ---------------------------------------------------------------- 归档页 */
+
+.archive-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.archive-list li {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 12px 18px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    box-shadow: var(--shadow-sm);
+}
+.archive-list .topic-pill {
+    font-size: 11.5px;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 1px 9px;
+    background: var(--t-other-bg);
+    color: var(--t-other);
+    white-space: nowrap;
+    margin-top: 2px;
+}
+.archive-list .a-title { flex: 1 1 auto; font-size: 14px; min-width: 0; line-height: 1.55; }
+.archive-list .a-journal {
+    flex: 0 0 auto;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 2px;
+}
+.archive-list .a-actions {
+    flex: 0 0 auto;
+    font-size: 12px;
+    white-space: nowrap;
+    margin-top: 2px;
+}
+
+/* ---------------------------------------------------------------- 页脚 */
+
+.site-footer {
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    padding: 22px 0 30px;
+    font-size: 12.5px;
+    color: var(--text-tertiary);
+    text-align: center;
+}
+.site-footer p { margin: 0 0 5px; }
+
+/* ---------------------------------------------------------------- 响应式 */
+
+@media (max-width: 640px) {
+    .wrap { padding: 0 14px; }
+    .site-header { padding: 20px 0 16px; }
+    .site-header h1 { font-size: 19px; }
+    .paper-card { padding: 14px 15px 13px; }
+    .paper-title { font-size: 15.5px; }
+    .paper-index { display: none; }
+    .filter-label { display: none; }
+    .archive-list .a-journal { display: none; }
+    main { padding: 18px 0 44px; }
+}
+
+@media print {
+    .filters, .header-nav { display: none; }
+    .paper-card { break-inside: avoid; box-shadow: none; }
+    .abstract-block { display: block; }
+}
+
+/* ---------------------------------------------------------------- 主题切换按钮 */
+
+.theme-toggle {
+    font: inherit;
+    font-size: 13px;
+    color: var(--header-accent);
+    background: var(--surface);
+    border: 1px solid var(--header-border);
+    border-radius: 999px;
+    padding: 4px 14px;
+    cursor: pointer;
+    transition: background .15s;
+}
+.theme-toggle:hover { background: var(--brand-soft); }
+.theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* 打印时隐藏交互控件；深色下强制回到浅色，省墨且更易读 */
+@media print {
+    .theme-toggle { display: none; }
+    :root, :root[data-theme="dark"] {
+        --bg: #fff; --surface: #fff; --text: #000; --text-secondary: #333;
+        --border: #ccc; --shadow-sm: none; --shadow-md: none;
+        --header-from: #fff; --header-mid: #fff; --header-to: #fff; --header-fg: #000;
+        color-scheme: light;
+    }
+}
+
+/* 作者折叠提示：弱化处理，避免与正文争视觉权重 */
+.authors-more { color: var(--text-tertiary); }
+
+/* 归档页专属微调 */
+.archive-list .a-authors {
+    flex: 0 0 auto;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+@media (max-width: 640px) { .archive-list .a-authors { display: none; } }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+    <div class="wrap">
+        <h1>心脏电生理日报 · 归档</h1>
+        <p class="subtitle">2026-10-10 全部论文清单</p>
+        <div class="header-meta">
+<span class="chip">📅 <strong>2026-10-10</strong></span>            <span class="chip">🕒 生成时间 <strong>2026-10-20 01:03</strong></span>
+            <span class="chip">📄 论文总数 <strong>12</strong></span>
+            <span class="chip">🤖 含 AI 解读 <strong>0</strong></span>
+        </div>
+        <nav class="header-nav">
+            <a href="../index.html">← 返回主页</a>
+            <a href="#top">回到顶部</a>
+        </nav>
+    </div>
+</header>
+
+<main id="top">
+    <div class="wrap">
+
+
+        <section class="topic-group">
+            <h2 class="topic-heading">
+                <span class="bar"></span>
+                <span>房颤与消融</span>
+                <span class="topic-count">9 篇</span>
+            </h2>
+            <ul class="archive-list">
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC13649541/" target="_blank" rel="noopener noreferrer">Clinical Impact of Interlesion Distance on Acute Pulmonary Vein Isolation Success in Patients With Paroxysmal Atrial Fibrillation</a>
+                    </span>
+                    <span class="a-authors">Oyama K、Naruse Y、Arakawa Y、Kobayashi S、Nakamura H、Ishizue N、Kishihara J、Fukaya H、Nagao T、Hosoya N、Sawasaki K、Muto M、Kawahito M、Tokonami Y、Ito K、Kaneko Y、Narumi T、Sano M、Maekawa Y</span>
+                    <span class="a-journal">Circ Rep</span>
+                    <span class="a-actions">
+                        <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC13649541/pdf/?tool=EBI" target="_blank" rel="noopener noreferrer">PDF</a> ·                         <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC13649541/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42859309/" target="_blank" rel="noopener noreferrer">Body Mass Index Variability and Cardiovascular Risk: Contemporary Evidence and Clinical Implications for Diabetes Care</a>
+                    </span>
+                    <span class="a-authors">Kaze AD、Echouffo-Tcheugui JB</span>
+                    <span class="a-journal">Curr Diab Rep</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42859309/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1007/s11892-026-01648-z" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42859309/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42856043/" target="_blank" rel="noopener noreferrer">Monopolar biphasic pulsed field ablation and coronary endothelial function: the Vasc-PFA study.</a>
+                    </span>
+                    <span class="a-authors">Tasnim Mohaissen、Andreina Josefina Gil-Ramirez、Julie Norup Hertel、Charles Ye、Sevasti-Maria Chaldoupi、Benedikt Linz、Jim Hansen、Samuel N Baldwin、Jessica L Meades、Arnela Saljic、Sarah Dalgas Nissen、Thomas Jespersen、Thomas A Jepps、Dominik Linz</span>
+                    <span class="a-journal">Eur Heart J</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42856043/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1093/eurheartj/ehag781" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42856043/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42855832/" target="_blank" rel="noopener noreferrer">Arrhythmia and dementia: time to think beyond atrial fibrillation.</a>
+                    </span>
+                    <span class="a-authors">Avia Abramovitz Fouks、Emily Ramage、Vincent N Thijs</span>
+                    <span class="a-journal">Eur Heart J</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42855832/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1093/eurheartj/ehag391" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42855832/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42857974/" target="_blank" rel="noopener noreferrer">Left Bundle Branch Area Pacing Improves Atrial Function and Reverses Atrial Remodeling in Dyssynchrony Heart Failure Model</a>
+                    </span>
+                    <span class="a-authors">Weng S、Pei J、Li H、Cheng S、Huang H、Jin H、Jiang Y、Yang J、Chen G、Chen L、Gu M、Wang J、He P、Fu B、Zhang J、Li Y、Li Q、Liu X、Zhang T、Wang Y、Hu Y、Wang F、Vernooy K、Prinzen FW、Hua W</span>
+                    <span class="a-journal">J Am Heart Assoc</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42857974/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1161/jaha.125.048379" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42857974/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42858036/" target="_blank" rel="noopener noreferrer">Left Atrial Enlargement Identifies Risk of Stroke Independent of Atrial Fibrillation</a>
+                    </span>
+                    <span class="a-authors">Loft JJ、Kühl JT、Pham MHC、Sigvardsen PE、Larsen AF、Nordestgaard BG、Køber L、Lowes M、Paulsen RR、Kofoed KF</span>
+                    <span class="a-journal">J Am Heart Assoc</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42858036/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1161/jaha.126.053248" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42858036/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42859373/" target="_blank" rel="noopener noreferrer">First-in-human experience and one-year outcomes using a novel conformal pulsed-field ablation balloon catheter for pulmonary vein isolation in paroxysmal atrial fibrillation</a>
+                    </span>
+                    <span class="a-authors">Xiong S、Luo D、Luo Y、Yang G、He G、Yang Y、He J、Xu B、Cai L、Huang L、Chen H、Thomas G、Betts T、Zhang Z、Liu H</span>
+                    <span class="a-journal">J Interv Card Electrophysiol</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42859373/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1007/s10840-026-02447-y" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42859373/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42858504/" target="_blank" rel="noopener noreferrer">Cardiometabolic health-frailty phenotypes and bidirectional transitions between atrial fibrillation and heart failure: multistate trajectories and proteomic signatures</a>
+                    </span>
+                    <span class="a-authors">Cui C、Liu B、Zhang G、Du Z、Cheng W</span>
+                    <span class="a-journal">J Nutr Health Aging</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42858504/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.jnha.2026.101006" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42858504/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42855979/" target="_blank" rel="noopener noreferrer">Left Atrial Appendage Occlusion vs Oral Anticoagulation for Stroke Prevention in Atrial Fibrillation: A Meta-Analysis.</a>
+                    </span>
+                    <span class="a-authors">Ahmed Nazmy、Alaa Abdrabou Abouelmagd、Ahmed Sobhy、Mennatullah Ashour、Hassan El-Shirbiny、Moneeb Khalaph、Ahmed Yasser Shaban、Mahmoud Nazmy、Amroos Shabaan、Abdullah Farahat Elbanna、Abdelrahman Hafez、C Michael Gibson</span>
+                    <span class="a-journal">Pacing Clin Electrophysiol</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42855979/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1111/pace.70465" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42855979/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+            </ul>
+        </section>
+        <section class="topic-group">
+            <h2 class="topic-heading">
+                <span class="bar"></span>
+                <span>室性心律失常</span>
+                <span class="topic-count">1 篇</span>
+            </h2>
+            <ul class="archive-list">
+                <li>
+                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42857981/" target="_blank" rel="noopener noreferrer">Rising Obesity-Driven Cardiac Mortality Among Young Adults in the United States: A 25-Year Retrospective Analysis (1999-2023)</a>
+                    </span>
+                    <span class="a-authors">Mohan M、Mohammed O、Alam B、Narayanan S、Bhat BW、Rosenzveig A、Nanjundappa A、Kutty S</span>
+                    <span class="a-journal">J Am Heart Assoc</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42857981/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1161/jaha.126.049462" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42857981/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+            </ul>
+        </section>
+        <section class="topic-group">
+            <h2 class="topic-heading">
+                <span class="bar"></span>
+                <span>器械治疗</span>
+                <span class="topic-count">1 篇</span>
+            </h2>
+            <ul class="archive-list">
+                <li>
+                    <span class="topic-pill" data-topic="器械治疗">器械治疗</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42855941/" target="_blank" rel="noopener noreferrer">Left ventricular ejection fraction recovery under contemporary quadruple guideline-directed therapy and the need for ICD/CRT-D implantation in HFrEF: a retrospective single-center cohort study.</a>
+                    </span>
+                    <span class="a-authors">Issameddine Ajmi、Mathis Philipp Frings、Mathias Forkmann、Christian Mahnkopf</span>
+                    <span class="a-journal">Expert Rev Cardiovasc Ther</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42855941/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1080/14779072.2026.2748165" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42855941/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+            </ul>
+        </section>
+        <section class="topic-group">
+            <h2 class="topic-heading">
+                <span class="bar"></span>
+                <span>遗传与基础</span>
+                <span class="topic-count">1 篇</span>
+            </h2>
+            <ul class="archive-list">
+                <li>
+                    <span class="topic-pill" data-topic="遗传与基础">遗传与基础</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42856061/" target="_blank" rel="noopener noreferrer">The genetic landscape of myotonic dystrophy type 1: insights from nearly one million genomes.</a>
+                    </span>
+                    <span class="a-authors">Rezbieara P Rahman、Marta Futema、Elijah R Behr、Emma Matthews</span>
+                    <span class="a-journal">Brain</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42856061/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1093/brain/awag350" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42856061/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+            </ul>
+        </section>
+
+
+    </div>
+</main>
+
+<footer class="site-footer">
+    <div class="wrap">
+        <p>心脏电生理每日论文检索 · 归档视图</p>
+        <p>页面离线自包含，无外部依赖 · 生成于 2026-10-20 01:03</p>
+    </div>
+</footer>
+
+</body>
+</html>

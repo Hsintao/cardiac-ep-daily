@@ -1,0 +1,1797 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="心脏电生理日报归档 · 2026-09-24">
+<title>归档 · 2026-09-24 · 心脏电生理日报</title>
+<script>
+/* 主题初始化：必须在样式生效前执行，避免深色用户看到白屏闪烁。
+   读取顺序：localStorage 手动选择 > 系统偏好。写入 <html data-theme>。 */
+(function () {
+    try {
+        var saved = localStorage.getItem('ep-digest-theme');
+        if (saved === 'dark' || saved === 'light') {
+            document.documentElement.setAttribute('data-theme', saved);
+        }
+    } catch (e) { /* 隐私模式下 localStorage 可能抛错，忽略即可 */ }
+})();
+
+/* 主题切换：跟随系统 → 手动选择 → 再点回到跟随系统。
+   三态循环，按钮 title 显示当前状态，localStorage 记忆手动选择。 */
+(function () {
+    var btn = document.getElementById("themeToggle");
+    if (!btn) { return; }
+    var root = document.documentElement;
+    var mql = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+
+    function current() {
+        var manual = root.getAttribute("data-theme");
+        if (manual === "dark" || manual === "light") { return manual; }
+        return (mql && mql.matches) ? "dark" : "light";
+    }
+    function label() {
+        var manual = root.getAttribute("data-theme");
+        var suffix = manual ? "" : "（跟随系统）";
+        btn.textContent = (current() === "dark" ? "☀️ 浅色" : "🌙 深色") + suffix;
+        btn.title = "当前：" + (current() === "dark" ? "深色" : "浅色") + suffix + "，点击切换";
+    }
+    btn.addEventListener("click", function () {
+        var next = current() === "dark" ? "light" : "dark";
+        root.setAttribute("data-theme", next);
+        try { localStorage.setItem("ep-digest-theme", next); } catch (e) {}
+        label();
+    });
+    if (mql && mql.addEventListener) {
+        mql.addEventListener("change", function () {
+            if (!root.getAttribute("data-theme")) { label(); }
+        });
+    }
+    label();
+})();
+</script>
+<style>
+/* ==========================================================================
+   心脏电生理每日论文检索 —— 日报样式
+   自包含、无外链、无 CDN，可离线双击打开。
+   设计目标：给临床医生每天读的日报，标题层级清晰、留白充足、标签配色区分亚专业。
+   ========================================================================== */
+
+:root {
+    /* 主色：深青蓝（医学/电生理的冷静感），配合暖色点缀区分标签 */
+    --brand: #0f766e;
+    --brand-dark: #115e59;
+    --brand-soft: #ccfbf1;
+    --accent: #b45309;
+    --accent-soft: #fef3c7;
+
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --surface-muted: #f9fafb;
+    --border: #e5e7eb;
+    --border-strong: #d1d5db;
+
+    --text: #111827;
+    --text-secondary: #4b5563;
+    --text-tertiary: #9ca3af;
+
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+
+    /* 简约取向：用边框区分层次，不用投影。投影会让页面显得厚重、密度高。 */
+    --shadow-sm: none;
+    --shadow-md: none;
+
+    /* 亚专业标签配色：每个 topic 一个色相，保证一眼可区分 */
+    --t-af: #0e7490;
+    --t-af-bg: #cffafe;
+    --t-vt: #b91c1c;
+    --t-vt-bg: #fee2e2;
+    --t-device: #6d28d9;
+    --t-device-bg: #ede9fe;
+    --t-imaging: #0369a1;
+    --t-imaging-bg: #dbeafe;
+    --t-genetics: #047857;
+    --t-genetics-bg: #d1fae5;
+    --t-other: #4b5563;
+    --t-other-bg: #e5e7eb;
+
+    /* 语义化颜色（供深色模式统一覆盖） */
+    --filter-bg: rgba(255, 255, 255, .94);
+    --filter-hover: #f0fdfa;
+    --focus-ring: rgba(15, 118, 110, .14);
+    --warn-border: #fcd34d;
+    --card-border-soft: #ccfbf1;
+
+    --link-pubmed-bg: #eff6ff;   --link-pubmed-fg: #1d4ed8;  --link-pubmed-bd: #93c5fd;  --link-pubmed-hover: #dbeafe;
+    --link-doi-bg: #f5f3ff;      --link-doi-fg: #6d28d9;     --link-doi-bd: #c4b5fd;     --link-doi-hover: #ede9fe;
+    --link-pdf-bg: #fef2f2;      --link-pdf-fg: #b91c1c;     --link-pdf-bd: #fca5a5;     --link-pdf-hover: #fee2e2;
+
+    --ai-tldr-bg: #0f766e;     --ai-tldr-fg: #fff;
+    --ai-motiv-bg: #ede9fe;    --ai-motiv-fg: #5b21b6;
+    --ai-method-bg: #dbeafe;   --ai-method-fg: #1e40af;
+    --ai-result-bg: #d1fae5;   --ai-result-fg: #065f46;
+    --ai-concl-bg: #fef3c7;    --ai-concl-fg: #92400e;
+
+    /* 简约：页头用极浅的青色底 + 细底边，而不是大面积深色渐变 */
+    --header-from: #f0fdfa;  --header-mid: #f0fdfa;  --header-to: #ecfeff;
+    --header-fg: #0f172a;
+    --header-accent: #0f766e;
+    --header-border: #d7e7e6;
+
+    color-scheme: light;
+}
+
+/* ==========================================================================
+   深色模式
+   --------------------------------------------------------------------------
+   只覆盖颜色变量，排版/间距/结构完全复用浅色定义，避免两套样式各自漂移。
+   触发方式两种，指向同一组变量：
+     1. 跟随系统（系统切深色，页面自动跟随）
+     2. 手动切换（<html data-theme="dark|light">，由页头按钮写入并 localStorage 记忆）
+   手动「浅色」优先于系统深色 —— 靠 :not([data-theme="light"]) 实现。
+   ========================================================================== */
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --brand: #2dd4bf;
+        --brand-dark: #5eead4;
+        --brand-soft: #134e4a;
+        --accent: #fbbf24;
+        --accent-soft: #422006;
+
+        --bg: #0d1117;
+        --surface: #161b22;
+        --surface-muted: #12171e;
+        --border: #262d36;
+        --border-strong: #39424e;
+
+        --text: #e6edf3;
+        --text-secondary: #a5b1bd;
+        --text-tertiary: #7d8895;
+
+        /* 暗底靠边框分层，阴影几乎不可见，调淡即可 */
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
+        --shadow-md: 0 4px 12px rgba(0, 0, 0, .5);
+
+        /* 亚专业标签：深色下低饱和背景 + 明亮文字，避免刺眼 */
+        --t-af: #67e8f9;
+        --t-af-bg: #164e63;
+        --t-vt: #fca5a5;
+        --t-vt-bg: #5f1d1d;
+        --t-device: #c4b5fd;
+        --t-device-bg: #3b2a6b;
+        --t-imaging: #93c5fd;
+        --t-imaging-bg: #1e3a5f;
+        --t-genetics: #6ee7b7;
+        --t-genetics-bg: #0f3d2e;
+        --t-other: #cbd5e1;
+        --t-other-bg: #2a323d;
+
+        --filter-bg: rgba(22, 27, 34, .94);
+        --filter-hover: #1b2430;
+        --focus-ring: rgba(45, 212, 191, .22);
+        --warn-border: #7c5a12;
+        --card-border-soft: #1d3b3a;
+        --link-pubmed-bg: #12233d; --link-pubmed-fg: #93c5fd; --link-pubmed-bd: #1e4a7a; --link-pubmed-hover: #183155;
+        --link-doi-bg: #241a3d;    --link-doi-fg: #c4b5fd;    --link-doi-bd: #4b3a7a;    --link-doi-hover: #2f2450;
+        --link-pdf-bg: #33161a;    --link-pdf-fg: #fca5a5;    --link-pdf-bd: #7a3a3a;    --link-pdf-hover: #451d24;
+        --ai-tldr-bg: #0f766e;  --ai-tldr-fg: #fff;
+        --ai-motiv-bg: #2b2145; --ai-motiv-fg: #c4b5fd;
+        --ai-method-bg: #152a45; --ai-method-fg: #93c5fd;
+        --ai-result-bg: #10352a; --ai-result-fg: #6ee7b7;
+        --ai-concl-bg: #3a2c0e; --ai-concl-fg: #fcd34d;
+        --header-fg: #e6edf3;
+        --header-from: #101b1e;
+        --header-mid: #101b1e;
+        --header-to: #111d21;
+        --header-accent: #2dd4bf;
+        --header-border: #223037;
+
+        color-scheme: dark;
+    }
+}
+
+:root[data-theme="dark"] {
+    --brand: #2dd4bf;
+    --brand-dark: #5eead4;
+    --brand-soft: #134e4a;
+    --accent: #fbbf24;
+    --accent-soft: #422006;
+
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface-muted: #12171e;
+    --border: #262d36;
+    --border-strong: #39424e;
+
+    --text: #e6edf3;
+    --text-secondary: #a5b1bd;
+    --text-tertiary: #7d8895;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, .5);
+
+    --t-af: #67e8f9;
+    --t-af-bg: #164e63;
+    --t-vt: #fca5a5;
+    --t-vt-bg: #5f1d1d;
+    --t-device: #c4b5fd;
+    --t-device-bg: #3b2a6b;
+    --t-imaging: #93c5fd;
+    --t-imaging-bg: #1e3a5f;
+    --t-genetics: #6ee7b7;
+    --t-genetics-bg: #0f3d2e;
+    --t-other: #cbd5e1;
+    --t-other-bg: #2a323d;
+
+    --filter-bg: rgba(22, 27, 34, .94);
+    --filter-hover: #1b2430;
+    --focus-ring: rgba(45, 212, 191, .22);
+    --warn-border: #7c5a12;
+    --card-border-soft: #1d3b3a;
+    --link-pubmed-bg: #12233d; --link-pubmed-fg: #93c5fd; --link-pubmed-bd: #1e4a7a; --link-pubmed-hover: #183155;
+    --link-doi-bg: #241a3d;    --link-doi-fg: #c4b5fd;    --link-doi-bd: #4b3a7a;    --link-doi-hover: #2f2450;
+    --link-pdf-bg: #33161a;    --link-pdf-fg: #fca5a5;    --link-pdf-bd: #7a3a3a;    --link-pdf-hover: #451d24;
+    --ai-tldr-bg: #0f766e;  --ai-tldr-fg: #fff;
+    --ai-motiv-bg: #2b2145; --ai-motiv-fg: #c4b5fd;
+    --ai-method-bg: #152a45; --ai-method-fg: #93c5fd;
+    --ai-result-bg: #10352a; --ai-result-fg: #6ee7b7;
+    --ai-concl-bg: #3a2c0e; --ai-concl-fg: #fcd34d;
+    --header-fg: #e6edf3;
+    --header-from: #101b1e;
+    --header-mid: #101b1e;
+    --header-to: #111d21;
+    --header-accent: #2dd4bf;
+    --header-border: #223037;
+
+    color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    font-size: 15.5px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--brand); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ---------------------------------------------------------------- 页头 */
+
+.site-header {
+    background: linear-gradient(180deg, var(--header-from) 0%, var(--header-to) 100%);
+    color: var(--header-fg);
+    padding: 26px 0 20px;
+    border-bottom: 1px solid var(--header-border);
+}
+
+.wrap {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 0 24px;
+}
+
+.site-header h1 {
+    margin: 0 0 6px;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: .3px;
+}
+
+.site-header .subtitle {
+    margin: 0;
+    font-size: 13.5px;
+    color: var(--text-secondary);
+}
+
+.header-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.header-meta .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--header-border);
+    border-radius: 999px;
+    padding: 3px 12px;
+}
+
+.header-meta .chip strong { font-weight: 700; }
+
+.header-nav {
+    margin-top: 14px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.header-nav a {
+    color: var(--header-accent);
+    font-size: 13px;
+    border: 1px solid var(--header-border);
+    background: var(--surface);
+    border-radius: 999px;
+    padding: 4px 14px;
+}
+.header-nav a:hover { background: var(--brand-soft); text-decoration: none; }
+
+/* ---------------------------------------------------------------- 筛选栏 */
+
+.filters {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--filter-bg);
+    backdrop-filter: saturate(180%) blur(8px);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 0;
+}
+
+.filter-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+.filter-row:last-child { margin-bottom: 0; }
+
+.filter-label {
+    flex: 0 0 auto;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    letter-spacing: .5px;
+    padding-top: 5px;
+    min-width: 46px;
+}
+
+.filter-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.filter-btn {
+    font: inherit;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: var(--text-secondary);
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 3px 11px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, color .15s;
+}
+.filter-btn:hover { background: var(--surface-muted); border-color: var(--border-strong); }
+.filter-btn.active {
+    background: var(--brand);
+    border-color: var(--brand);
+    /* 浅色下 brand 是深青、白字可读；深色下 brand 变亮青，需深色字才有对比度 */
+    color: var(--surface);
+    font-weight: 600;
+}
+.filter-btn .count { opacity: .65; margin-left: 3px; font-variant-numeric: tabular-nums; }
+
+.filter-btn.more-btn {
+    background: var(--surface);
+    border-style: dashed;
+    color: var(--brand-dark);
+    font-weight: 600;
+}
+.filter-btn.more-btn:hover { background: var(--filter-hover); }
+
+.search-box {
+    flex: 1 1 auto;
+    min-width: 180px;
+    font: inherit;
+    font-size: 13px;
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--text);
+}
+.search-box:focus {
+    outline: none;
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.filter-empty {
+    display: none;
+    padding: 40px 0 60px;
+    text-align: center;
+    color: var(--text-secondary);
+}
+.filter-empty.show { display: block; }
+
+/* ---------------------------------------------------------------- 分组 */
+
+main { padding: 26px 0 60px; }
+
+.topic-group { margin-bottom: 34px; }
+
+.topic-heading {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 0 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text);
+}
+.topic-heading .bar {
+    width: 4px;
+    height: 17px;
+    border-radius: 2px;
+    background: var(--brand);
+    align-self: center;
+    flex: 0 0 auto;
+}
+.topic-heading .topic-count {
+    margin-left: auto;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------- 卡片 */
+
+.paper-list { display: flex; flex-direction: column; gap: 14px; }
+
+.paper-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 18px 20px 16px;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow .18s, border-color .18s;
+}
+.paper-card:hover { box-shadow: var(--shadow-md); border-color: var(--border-strong); }
+
+.paper-card.hidden { display: none; }
+
+.paper-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.paper-index {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--brand-soft);
+    color: var(--brand-dark);
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-variant-numeric: tabular-nums;
+    margin-top: 3px;
+}
+
+.paper-main { flex: 1 1 auto; min-width: 0; }
+
+.paper-title {
+    margin: 0 0 8px;
+    font-size: 16.5px;
+    font-weight: 650;
+    line-height: 1.45;
+    color: var(--text);
+    letter-spacing: .1px;
+}
+.paper-title a { color: inherit; }
+.paper-title a:hover { color: var(--brand); text-decoration: none; }
+
+/* 元信息行：期刊 · 日期 */
+.paper-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+.paper-journal { font-weight: 600; color: var(--brand-dark); }
+.paper-date { color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.paper-meta .dot { color: var(--border-strong); }
+
+/* 标签行 */
+.tag-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.tag {
+    display: inline-block;
+    font-size: 11.5px;
+    line-height: 1.5;
+    font-weight: 600;
+    padding: 1px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.tag-topic { background: var(--t-other-bg); color: var(--t-other); }
+.tag-topic[data-topic="房颤与消融"]   { background: var(--t-af-bg);      color: var(--t-af); }
+.tag-topic[data-topic="室性心律失常"] { background: var(--t-vt-bg);      color: var(--t-vt); }
+.tag-topic[data-topic="器械治疗"]     { background: var(--t-device-bg);  color: var(--t-device); }
+.tag-topic[data-topic="影像与标测"]   { background: var(--t-imaging-bg); color: var(--t-imaging); }
+.tag-topic[data-topic="遗传与基础"]   { background: var(--t-genetics-bg);color: var(--t-genetics); }
+.tag-topic[data-topic="其他"]         { background: var(--t-other-bg);   color: var(--t-other); }
+
+.tag-type {
+    background: var(--surface);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-strong);
+    font-weight: 500;
+}
+.tag-oa {
+    background: var(--accent-soft);
+    color: var(--accent);
+    border: 1px solid var(--warn-border);
+}
+
+/* 作者 */
+.paper-authors {
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    margin: 0 0 12px;
+    line-height: 1.6;
+}
+
+/* 摘要（可折叠） */
+.abstract-block {
+    border-left: 3px solid var(--border);
+    padding: 2px 0 2px 12px;
+    margin-bottom: 12px;
+}
+.abstract-block summary {
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    list-style: none;
+    user-select: none;
+}
+.abstract-block summary::-webkit-details-marker { display: none; }
+.abstract-block summary::before {
+    content: "▸ ";
+    color: var(--text-tertiary);
+    font-size: 11px;
+}
+.abstract-block[open] summary::before { content: "▾ "; }
+.abstract-block summary:hover { color: var(--brand); }
+.abstract-body {
+    margin: 8px 0 0;
+    font-size: 13.5px;
+    color: var(--text-secondary);
+    line-height: 1.78;
+    text-align: justify;
+    word-break: break-word;
+}
+.abstract-none {
+    font-size: 13px;
+    color: var(--text-tertiary);
+    font-style: italic;
+    margin: 0;
+}
+
+/* ------------------------------------------------------- AI 中文解读 */
+
+.ai-panel {
+    background: linear-gradient(180deg, #f0fdfa 0%, var(--surface-muted) 100%);
+    border: 1px solid var(--card-border-soft);
+    border-radius: var(--radius-md);
+    padding: 14px 16px 12px;
+    margin-bottom: 12px;
+}
+
+.ai-panel-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--brand-dark);
+    margin: 0 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+.ai-panel-title::before {
+    content: "";
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--brand);
+    flex: 0 0 auto;
+}
+
+.ai-section { margin-bottom: 9px; }
+.ai-section:last-child { margin-bottom: 0; }
+
+.ai-label {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: var(--radius-sm);
+    padding: 0 7px;
+    margin-bottom: 3px;
+    letter-spacing: .4px;
+}
+.ai-label.tldr       { background: var(--ai-tldr-bg); color: var(--ai-tldr-fg); }
+.ai-label.motivation { background: var(--ai-motiv-bg); color: var(--ai-motiv-fg); }
+.ai-label.method     { background: var(--ai-method-bg); color: var(--ai-method-fg); }
+.ai-label.result     { background: var(--ai-result-bg); color: var(--ai-result-fg); }
+.ai-label.conclusion { background: var(--ai-concl-bg); color: var(--ai-concl-fg); }
+
+.ai-text {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.78;
+    color: var(--text);
+    text-align: justify;
+    word-break: break-word;
+}
+.ai-section.tldr .ai-text {
+    font-size: 14.5px;
+    font-weight: 600;
+    line-height: 1.7;
+}
+
+/* 无 AI 解读时的降级提示 */
+.ai-missing {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin: 0 0 12px;
+    padding-left: 2px;
+}
+
+/* 链接按钮 */
+.link-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border);
+}
+
+.btn-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 4px 13px;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    color: var(--text-secondary);
+    background: var(--surface);
+    transition: background .15s, color .15s, border-color .15s;
+}
+.btn-link:hover { text-decoration: none; border-color: var(--brand); color: var(--brand); background: #f0fdfa; }
+.btn-link.pubmed { border-color: var(--link-pubmed-bd); color: var(--link-pubmed-fg); background: var(--link-pubmed-bg); }
+.btn-link.pubmed:hover { background: var(--link-pubmed-hover); }
+.btn-link.doi { border-color: var(--link-doi-bd); color: var(--link-doi-fg); background: var(--link-doi-bg); }
+.btn-link.doi:hover { background: var(--link-doi-hover); }
+.btn-link.pdf { border-color: var(--link-pdf-bd); color: var(--link-pdf-fg); background: var(--link-pdf-bg); }
+.btn-link.pdf:hover { background: var(--link-pdf-hover); }
+
+/* ---------------------------------------------------------------- 空状态 */
+
+.empty-state {
+    background: var(--surface);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-lg);
+    padding: 64px 32px;
+    text-align: center;
+    margin: 20px 0;
+}
+.empty-state .icon { font-size: 40px; line-height: 1; margin-bottom: 14px; }
+.empty-state h2 { margin: 0 0 10px; font-size: 18px; font-weight: 650; }
+.empty-state p { margin: 0 auto; max-width: 520px; color: var(--text-secondary); font-size: 14px; }
+.empty-state .hint {
+    margin-top: 18px;
+    font-size: 12.5px;
+    color: var(--text-tertiary);
+}
+.empty-state code {
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* ---------------------------------------------------------------- 归档页 */
+
+.archive-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.archive-list li {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 12px 18px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    box-shadow: var(--shadow-sm);
+}
+.archive-list .topic-pill {
+    font-size: 11.5px;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 1px 9px;
+    background: var(--t-other-bg);
+    color: var(--t-other);
+    white-space: nowrap;
+    margin-top: 2px;
+}
+.archive-list .a-title { flex: 1 1 auto; font-size: 14px; min-width: 0; line-height: 1.55; }
+.archive-list .a-journal {
+    flex: 0 0 auto;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 2px;
+}
+.archive-list .a-actions {
+    flex: 0 0 auto;
+    font-size: 12px;
+    white-space: nowrap;
+    margin-top: 2px;
+}
+
+/* ---------------------------------------------------------------- 页脚 */
+
+.site-footer {
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    padding: 22px 0 30px;
+    font-size: 12.5px;
+    color: var(--text-tertiary);
+    text-align: center;
+}
+.site-footer p { margin: 0 0 5px; }
+
+/* ---------------------------------------------------------------- 响应式 */
+
+@media (max-width: 640px) {
+    .wrap { padding: 0 14px; }
+    .site-header { padding: 20px 0 16px; }
+    .site-header h1 { font-size: 19px; }
+    .paper-card { padding: 14px 15px 13px; }
+    .paper-title { font-size: 15.5px; }
+    .paper-index { display: none; }
+    .filter-label { display: none; }
+    .archive-list .a-journal { display: none; }
+    main { padding: 18px 0 44px; }
+}
+
+@media print {
+    .filters, .header-nav { display: none; }
+    .paper-card { break-inside: avoid; box-shadow: none; }
+    .abstract-block { display: block; }
+}
+
+/* ---------------------------------------------------------------- 主题切换按钮 */
+
+.theme-toggle {
+    font: inherit;
+    font-size: 13px;
+    color: var(--header-accent);
+    background: var(--surface);
+    border: 1px solid var(--header-border);
+    border-radius: 999px;
+    padding: 4px 14px;
+    cursor: pointer;
+    transition: background .15s;
+}
+.theme-toggle:hover { background: var(--brand-soft); }
+.theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* 打印时隐藏交互控件；深色下强制回到浅色，省墨且更易读 */
+@media print {
+    .theme-toggle { display: none; }
+    :root, :root[data-theme="dark"] {
+        --bg: #fff; --surface: #fff; --text: #000; --text-secondary: #333;
+        --border: #ccc; --shadow-sm: none; --shadow-md: none;
+        --header-from: #fff; --header-mid: #fff; --header-to: #fff; --header-fg: #000;
+        color-scheme: light;
+    }
+}
+
+/* 作者折叠提示：弱化处理，避免与正文争视觉权重 */
+.authors-more { color: var(--text-tertiary); }
+
+/* 归档页专属微调 */
+.archive-list .a-authors {
+    flex: 0 0 auto;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+@media (max-width: 640px) { .archive-list .a-authors { display: none; } }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+    <div class="wrap">
+        <h1>心脏电生理日报 · 归档</h1>
+        <p class="subtitle">2026-09-24 全部论文清单</p>
+        <div class="header-meta">
+<span class="chip">📅 <strong>2026-09-24</strong></span>            <span class="chip">🕒 生成时间 <strong>2026-10-20 01:03</strong></span>
+            <span class="chip">📄 论文总数 <strong>86</strong></span>
+            <span class="chip">🤖 含 AI 解读 <strong>0</strong></span>
+        </div>
+        <nav class="header-nav">
+            <a href="../index.html">← 返回主页</a>
+            <a href="#top">回到顶部</a>
+        </nav>
+    </div>
+</header>
+
+<main id="top">
+    <div class="wrap">
+
+
+        <section class="topic-group">
+            <h2 class="topic-heading">
+                <span class="bar"></span>
+                <span>房颤与消融</span>
+                <span class="topic-count">48 篇</span>
+            </h2>
+            <ul class="archive-list">
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42780719/" target="_blank" rel="noopener noreferrer">Temporal Changes in Nonlinear Heart Rate Variability Following Pulmonary Vein Isolation for Paroxysmal Atrial Fibrillation.</a>
+                    </span>
+                    <span class="a-authors">Ting-Wei Ernie Liao、Li-Wei Lo、Yenn-Jiang Lin、Shih-Lin Chang、Yu-Feng Hu、Fa-Po Chung、Tze-Fan Chao、Jo-Nan Liao、Hui-Wen Yang、Men-Tzung Lo、Shih-Ann Chen</span>
+                    <span class="a-journal">Acta Cardiol Sin</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42780719/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.6515/ACS.202609_42%285%29.20260112C" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42780719/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42780649/" target="_blank" rel="noopener noreferrer">Epicardial Fragmentation Mapping in Brugada Syndrome: A Three-Patient Case Series with Literature Review.</a>
+                    </span>
+                    <span class="a-authors">Cheng-Han Chan、Chin-Yu Lin</span>
+                    <span class="a-journal">Acta Cardiol Sin</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42780649/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.6515/ACS.202609_42%285%29.20251227A" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42780649/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42780633/" target="_blank" rel="noopener noreferrer">Leveraging AI-ECG Technology for Early Notification and Tracking of AF Development (LATENT): Study Rationale and Design of a Randomized Controlled Trial.</a>
+                    </span>
+                    <span class="a-authors">Chiao-Chin Lee、Wen-Yu Lin、Wei-Ting Liu、Chiao-Hsiang Chang、Yu-Jr Lin、Shu-Chen Chang、Yu-Lan Liu、Da-Wei Chang、Pang-Yen Liu、Tzu-Chiao Lin、Dung-Jang Tsai、Hsin-Hui Chen、Wei-Shiang Lin、Chin-Sheng Lin、Chin Lin</span>
+                    <span class="a-journal">Acta Cardiol Sin</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42780633/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.6515/ACS.202609_42%285%29.20260124A" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42780633/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42784943/" target="_blank" rel="noopener noreferrer">Dual direct current external cardioversion in refractory atrial fibrillation: a systematic review and single-arm meta-analysis.</a>
+                    </span>
+                    <span class="a-authors">Mohammed Ayyad、Ahmed Ayyad、Dana SayyedAhmad、Sagar Patel、Abdelrahman Ali、Khaled Alabdallah、Joseph Allencherril</span>
+                    <span class="a-journal">Am J Emerg Med</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42784943/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.ajem.2026.09.026" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42784943/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42781643/" target="_blank" rel="noopener noreferrer">Preserved Ejection Fraction Despite Progressive Functional Decline in a Patient With Single-Ventricle Physiology Without Documented Successful Surgical Palliation.</a>
+                    </span>
+                    <span class="a-authors">Mohamad Karaali、Elias Hanna、Georges Ghanem、Walid Tarcha</span>
+                    <span class="a-journal">Cureus</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42781643/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.7759/cureus.115087" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42781643/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42781665/" target="_blank" rel="noopener noreferrer">Successful pulsed field ablation for refractory premature ventricular contractions using a novel dual-energy focal catheter: a case report.</a>
+                    </span>
+                    <span class="a-authors">Kohei Ukita、Roman Mamaev、Sorin Stefan Popescu、Roland Richard Tilz</span>
+                    <span class="a-journal">Eur Heart J Case Rep</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42781665/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1093/ehjcr/ytag689" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42781665/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42780912/" target="_blank" rel="noopener noreferrer">Predicting cognitive performance in patients with atrial fibrillation by 24-hour Holter electrocardiography: the potential role of an arrhythmic fingerprint.</a>
+                    </span>
+                    <span class="a-authors">Andrea Saglietto、Luca Congiu、Rachele Marcato、Martina Amanzio、Cristiano Manco、Eleonora Bertello、Carola Griffith Brookles、Elena Cavallone、Gaia Miceli、Luca Ridolfi、Carla Giustetto、Veronica Dusi、Federico Ferraris、Gaetano Maria De Ferrari、Stefania Scarsoglio、Matteo Anselmino</span>
+                    <span class="a-journal">Eur Heart J Open</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42780912/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1093/ehjopen/oeag137" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42780912/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42781957/" target="_blank" rel="noopener noreferrer">Beyond the classical triangle: morphological variations of the Triangle of Koch in human hearts and their clinical implications.</a>
+                    </span>
+                    <span class="a-authors">Apurba Patra、Rajiv Kumar、Vandana Tiwari、Priti Chaudhary、Adil Asghar、Jerzy Walocha、Marcin Kuniewicz、Barbara Gach-Kuniewicz、Marcin Jakiel、Daniel Rams</span>
+                    <span class="a-journal">Folia Morphol (Warsz)</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42781957/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.5603/fm.113968" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42781957/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42785754/" target="_blank" rel="noopener noreferrer">Atrial fibrillation and coronary artery disease: interactions, outcomes and evolving management strategies.</a>
+                    </span>
+                    <span class="a-authors">Ashley Verburg、Dominik Linz、Tasnim Mohaissen、Jurriën Ten Berg</span>
+                    <span class="a-journal">Heart</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42785754/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1136/heartjnl-2026-328218" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42785754/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42785611/" target="_blank" rel="noopener noreferrer">Clinical implications of adjunctive posterior wall isolation according to ablation modality: A subanalysis of the CORNERSTONE AF trial.</a>
+                    </span>
+                    <span class="a-authors">Shinsuke Miyazaki、Junichi Nitta、Osamu Inaba、Atsushi Takahashi、Hitoshi Hachiya、Yasutoshi Nagata、Tatsuya Hayashi、Shinsuke Iwai、Yasuteru Yamauchi、Akira Mizukami、Yuichi Ono、Makoto Suzuki、Keita Handa、Atsushi Suzuki、Jun Nakajima、Yukio Sekiguchi、Yukihiro Inamura、Yasuaki Tanaka、Shigeki Kusa、Akihiro Hirakawa、Tetsuo Sasano</span>
+                    <span class="a-journal">Heart Rhythm</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42785611/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.hrthm.2026.09.031" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42785611/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42785610/" target="_blank" rel="noopener noreferrer">Atrial fibrillation cycle length dynamics during pulmonary vein isolation and posterior wall pulsed field ablation.</a>
+                    </span>
+                    <span class="a-authors">Lorenzo Bianchini、Marco Schiavone、Alessio Gasperetti、Vincenzo Mirco La Fazia、Nicoletta Ventrella、Sanghamitra Mohanty、Petr Peichl、Gaetano Fassini、Elio Zito、PremGeeta Torlapati、Massimo Moltrasio、Fabrizio Tundo、Giovanni B Forleo、Luigi Di Biase、Josef Kautzner、Andrea Natale、Claudio Tondo</span>
+                    <span class="a-journal">Heart Rhythm</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42785610/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.hrthm.2026.09.036" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42785610/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42785609/" target="_blank" rel="noopener noreferrer">Catheter ablation for atrial fibrillation in very young adults: Multicentric data from the AF-YOUNG registry.</a>
+                    </span>
+                    <span class="a-authors">Florian Doldi、Friederike Pavel、Fabienne Kreimer、Julian Wolfes、Jana Ackmann、Gerrit Frommeyer、Jakob Lüker、Fatih Güner、Julia Köbe、Daniel Steven、Lars Eckardt</span>
+                    <span class="a-journal">Heart Rhythm</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42785609/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.hrthm.2026.09.028" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42785609/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42785608/" target="_blank" rel="noopener noreferrer">Anatomical approach from aortic sinus of Valsalva for para-Hisian premature ventricular contractions: Safety and outcomes.</a>
+                    </span>
+                    <span class="a-authors">Masafumi Sugawara、Jakub Sroubek、Justin Lee、Bryan Baranowski、Mandeep Bhargava、Thomas Callahan、Mina Chung、Thomas Dresing、Ayman Hussein、Mohamed Kanj、Arshneel Kochar、Robert Koeth、David Martin、Walid Saliba、Tyler Taigen、Niraj Varma、Arwa Younis、Oussama Wazni、Pasquale Santangeli、Koji Higuchi</span>
+                    <span class="a-journal">Heart Rhythm</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42785608/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.hrthm.2026.09.034" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42785608/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42782286/" target="_blank" rel="noopener noreferrer">[Atrial fibrillation : An overview of the various treatment options].</a>
+                    </span>
+                    <span class="a-authors">Laura Fischbach、Stephan Willems、Arian Sultan</span>
+                    <span class="a-journal">Herz</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42782286/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1007/s00059-026-05391-9" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42782286/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42786670/" target="_blank" rel="noopener noreferrer">Postoperative Atrial Fibrillation and Long-Term Outcomes After Isolated Coronary Artery Bypass Grafting</a>
+                    </span>
+                    <span class="a-authors">Soares Moreira H、Brandão B、Abreu A、Leite-Moreira A、Máximo J、Andrade M、Bastos P、Ferreira J</span>
+                    <span class="a-journal">Interdiscip Cardiovasc Thorac Surg</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42786670/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1093/icvts/ivag258" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42786670/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42786657/" target="_blank" rel="noopener noreferrer">Clinical Outcomes of Left Atrial Appendage Occlusion During Cardiac Surgery in Patients Without Atrial Fibrillation: A Systematic Review and Meta-Analysis</a>
+                    </span>
+                    <span class="a-authors">Song Q、Tu X、Zheng Z、Song L、Fan C</span>
+                    <span class="a-journal">J Am Heart Assoc</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42786657/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1161/jaha.125.049033" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42786657/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42786624/" target="_blank" rel="noopener noreferrer">Social Determinants of Guideline-Directed Oral Anticoagulation Prescription in Patients With Atrial Fibrillation Without Contraindications: Findings From the American Heart Association Get With the Guidelines-Atrial Fibrillation Registry</a>
+                    </span>
+                    <span class="a-authors">Osawa I、Shimada YJ</span>
+                    <span class="a-journal">J Am Heart Assoc</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42786624/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1161/jaha.126.050448" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42786624/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42781049/" target="_blank" rel="noopener noreferrer">Efficacy and Safety of 60 W Versus 90 W, 4-s Radiofrequency Applications to the Esophagus-Adjacent Left Atrial Posterior Wall During Pulmonary Vein Isolation: A Pilot Study.</a>
+                    </span>
+                    <span class="a-authors">Hideharu Okamatsu、Ken Okumura、Kakeru Tomaru、Junya Matsura、Kodai Negishi、Takuo Tsurugi、Yasuaki Tanaka、Masayoshi Uehara、Junjiro Koyama、Hirofumi Tomita</span>
+                    <span class="a-journal">J Arrhythm</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42781049/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1002/joa3.70476" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42781049/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC13601934/" target="_blank" rel="noopener noreferrer">A Special Muscle Fiber Surviving After Septal Line Ablation of Mitral‐Isthmus Dependent Atrial Flutter</a>
+                    </span>
+                    <span class="a-authors">Yamada T、Akrawinthawong K、Miyazaki Y、Mori S</span>
+                    <span class="a-journal">J Arrhythm</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42787446/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1002/joa3.70480" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC13601934/pdf/?tool=EBI" target="_blank" rel="noopener noreferrer">PDF</a> ·                         <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC13601934/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC13601987/" target="_blank" rel="noopener noreferrer">Effectiveness of Bachmann&#39;s Bundle Pacing in a Patient With Severe Heart Failure and Refractory Atrial Fibrillation</a>
+                    </span>
+                    <span class="a-authors">Murase Y、Ogawa Y、Imai H、Mamiya K、Kawaguchi K</span>
+                    <span class="a-journal">J Arrhythm</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42787434/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1002/joa3.70466" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC13601987/pdf/?tool=EBI" target="_blank" rel="noopener noreferrer">PDF</a> ·                         <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC13601987/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC13602821/" target="_blank" rel="noopener noreferrer">Association Between Temperature Management Using Passive Thermal Insulation and a Modified Aldrete Score During Cryoablation of Paroxysmal Atrial Fibrillation Under General Anesthesia</a>
+                    </span>
+                    <span class="a-authors">Yamaguchi A、Takemoto M、Nagata T、Goya R、Sadasue Y、Nagaoka K、Terauchi N、Inoue H、Mito T、Kurachi M、Tsuchihashi T、Matsuno K、Okamoto T</span>
+                    <span class="a-journal">J Arrhythm</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42787973/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1002/joa3.70460" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC13602821/pdf/?tool=EBI" target="_blank" rel="noopener noreferrer">PDF</a> ·                         <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC13602821/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42786026/" target="_blank" rel="noopener noreferrer">Racial Differences in the Incidence and Outcomes of Postoperative Atrial Fibrillation After Isolated Coronary Artery Bypass Grafting: A Systematic Review.</a>
+                    </span>
+                    <span class="a-authors">Asia Fields、Jasmine Vo、Adham Elsherbini、Amin Hasheminia、Navid Shabani Barzegar、Mauricio Rodriguez、Yasir Abu-Omar、Mohammad El-Diasty</span>
+                    <span class="a-journal">J Cardiothorac Vasc Anesth</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42786026/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1053/j.jvca.2026.07.053" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42786026/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783043/" target="_blank" rel="noopener noreferrer">Effects of Non-Alcoholic Fatty Liver Disease on the Inpatient Outcomes of Patients Admitted for Atrial Fibrillation: An Analysis from the National Inpatient Sample Database (NIS 2016-2019).</a>
+                    </span>
+                    <span class="a-authors">Xiuhong Lyu、Bolun Liu、Yiting Li</span>
+                    <span class="a-journal">J Cardiovasc Dev Dis</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783043/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.3390/jcdd13090436" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42783043/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783038/" target="_blank" rel="noopener noreferrer">The Price of Redo Mitral Valve Replacement: Determinants of Major Adverse Postoperative Events.</a>
+                    </span>
+                    <span class="a-authors">Barış Timur、Zinar Apaydın</span>
+                    <span class="a-journal">J Cardiovasc Dev Dis</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783038/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.3390/jcdd13090431" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42783038/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783032/" target="_blank" rel="noopener noreferrer">Effect of Left Atrial Appendage Closure on Cardiac Function.</a>
+                    </span>
+                    <span class="a-authors">Qi Wang、Xin Li、Qi Zou、Fei Yu、Hao Hu、Xiaowei Zhang、Yujin Wang</span>
+                    <span class="a-journal">J Cardiovasc Dev Dis</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783032/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.3390/jcdd13090425" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42783032/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783014/" target="_blank" rel="noopener noreferrer">Long-Term Clinical Outcomes After Procedural Hemopericardium Requiring Pericardiocentesis During Atrial Fibrillation Ablation.</a>
+                    </span>
+                    <span class="a-authors">Soohyun Kim、Soyoon Park、Hwajung Kim、Young Choi、Yong-Seog Oh、Sung-Hwan Kim</span>
+                    <span class="a-journal">J Cardiovasc Dev Dis</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783014/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.3390/jcdd13090407" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42783014/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42781648/" target="_blank" rel="noopener noreferrer">Demographic Profile of Cardiac Resynchronization Therapy Recipients in a Saudi Tertiary Center: A Descriptive Single-Center Study.</a>
+                    </span>
+                    <span class="a-authors">Alhanouf Muneer Alotaibi、Jamilah S AlRahimi、Amjad Amjed SaemalDahar</span>
+                    <span class="a-journal">J Cardiovasc Echogr</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42781648/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.4103/jcecho.jcecho_156_25" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42781648/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42781162/" target="_blank" rel="noopener noreferrer">High Incidence of Short-term Subsequent Atrial Fibrillation Following Restrictive Filling Mitral Flow Profile in Patients without Structural Heart Disease.</a>
+                    </span>
+                    <span class="a-authors">Tomoo Nagai、Hitomi Horinouchi、Yuji Ikari</span>
+                    <span class="a-journal">J Cardiovasc Echogr</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42781162/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.4103/jcecho.jcecho_8_26" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42781162/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42800391/" target="_blank" rel="noopener noreferrer">Atrioventricular block and optimal synchronous pacing on ECG in a single lead VDD pacing population</a>
+                    </span>
+                    <span class="a-authors">Mascia G、Barca L、Minghini A、Bianco D、Xhakupi H、Damele A、Sanguineti M、Montin A、Zulian E、Di Donna P、Porto I</span>
+                    <span class="a-journal">J Electrocardiol</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42800391/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.jelectrocard.2026.154445" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42800391/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783865/" target="_blank" rel="noopener noreferrer">4D Flow MRI Characterization of Left Atrial Vortical Flow in Atrial Fibrillation Following Catheter Ablation.</a>
+                    </span>
+                    <span class="a-authors">Omar Hassan、Hadi Hassan、Shuvam Prasai、Fiza Rajput、Julio Garcia</span>
+                    <span class="a-journal">J Imaging</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783865/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.3390/jimaging12090441" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42783865/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42782161/" target="_blank" rel="noopener noreferrer">Association of Early-Onset Atrial Fibrillation and Estimated Atrial Fibrillation Burden with Mortality in Critically Ill Adults: A Landmark Cohort Study.</a>
+                    </span>
+                    <span class="a-authors">Anar Mammadli、Ayse Irem Demirtola、Onur Yildirim、Ardi Rreka、Erdem Diker</span>
+                    <span class="a-journal">J Intensive Care Med</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42782161/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1177/08850666261490858" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42782161/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42782031/" target="_blank" rel="noopener noreferrer">Abnormal Cardiac PET Imaging in ATTR Amyloidosis.</a>
+                    </span>
+                    <span class="a-authors">Mihir Shah、Jacob Agronin、Jared Hassler、Glenn Gerhard、Sanjana Kashinath、David Laslett、Carly Fabrizio</span>
+                    <span class="a-journal">JACC Case Rep</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42782031/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.jaccas.2026.108678" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42782031/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42782230/" target="_blank" rel="noopener noreferrer">Stellate Ganglion Block Reduces the Incidence of Postoperative Atrial Fibrillation After Coronary Artery Bypass Grafting.</a>
+                    </span>
+                    <span class="a-authors">Shunping Tian、Chao Chen、Wei Liang、Jiajia Yin、Wei Zhou、Meng Wang、Shantian Feng、Xun Pu、Zhi Xing、Jianyou Zhang、Zhuan Zhang</span>
+                    <span class="a-journal">JACC Clin Electrophysiol</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42782230/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.jacep.2026.07.006" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42782230/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42848334/" target="_blank" rel="noopener noreferrer">Increased Heart Failure Risk After Low-Voltage-Area Ablation in Patients With Paroxysmal Atrial Fibrillation</a>
+                    </span>
+                    <span class="a-authors">Ochi M、Sunaga A、Uematsu H、Kato S、Ooka H、Kudo S、Okamoto S、Nanto K、Hata Y、Kusuda M、Ariyasu W、Fujii S、Masuda M</span>
+                    <span class="a-journal">JACC Clin Electrophysiol</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42848334/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.jacep.2026.08.022" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42848334/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42820875/" target="_blank" rel="noopener noreferrer">Impact of Interelectrode Spacing on Ventricular Tachycardia Substrate Mapping: Insights Into 3-Dimensional Characteristics of the Arrhythmogenic Substrate</a>
+                    </span>
+                    <span class="a-authors">Iioka Y、Komatsu Y、Shinoda Y、Hanaki Y、Oda Y、Hayashi Y、Harano Y、Matsuoka Y、Ogawa K、Kimata A、Yamasaki H、Igarashi M、Ishizu T、Nogami A</span>
+                    <span class="a-journal">JACC Clin Electrophysiol</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42820875/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.jacep.2026.08.021" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42820875/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783438/" target="_blank" rel="noopener noreferrer">Comparative Efficacy of Rebamipide, Pantoprazole, and Their Combination for Gastroprotection in Patients with Atrial Fibrillation Receiving Direct Oral Anticoagulants: The Randomized REGATA Study.</a>
+                    </span>
+                    <span class="a-authors">Natalya M Vorobyeva、Irina P Malaya、Vadim D Zakiev、Antonina A Masharova、Tatiana P Pinchuk、Irina V Kostomarova、Valentina S Ostapenko、Yulia V Kotovskaya、Olga N Tkacheva</span>
+                    <span class="a-journal">Med Sci (Basel)</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783438/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.3390/medsci14050565" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42783438/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783426/" target="_blank" rel="noopener noreferrer">Atrial Fibrillation in Retinal Artery Occlusion: A Systematic Review and Meta-Analysis.</a>
+                    </span>
+                    <span class="a-authors">Aurelia Mihaela Nica、Madalina Andreea Beldie、Samer Andrei Nica、Minela Aida Maranduca、Cosmin Victor Ganea、Paula Cristina Morariu、Maria Mihaela Godun、Roxana Elena Ciuntu、Camelia Margareta Bogdanici、Mariana Floria</span>
+                    <span class="a-journal">Med Sci (Basel)</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783426/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.3390/medsci14050553" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42783426/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783389/" target="_blank" rel="noopener noreferrer">Switching from Vitamin K Antagonists to Direct Oral Anticoagulants in Frail Elderly Patients with Atrial Fibrillation: Systematic Review and Meta-Analysis.</a>
+                    </span>
+                    <span class="a-authors">Paschalis Karakasis、Ricardo Gómez-Huelgas、Stylianos Tzeis、Konstantinos Vlachos、Konstantinos C Siontis、Alberto M Marra、Konstantinos Pamporis、Antonios P Antoniadis、Eleftheria Lefkou、Valentin A Kokorin、Dimitrios Patoulias、Nikolaos Fragakis</span>
+                    <span class="a-journal">Med Sci (Basel)</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783389/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.3390/medsci14050516" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42783389/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783386/" target="_blank" rel="noopener noreferrer">Exploratory Modeling of Postoperative Atrial Fibrillation After Cardiac Surgery with Cardiopulmonary Bypass Using Inflammatory Biomarkers and Clinical-Surgical Factors.</a>
+                    </span>
+                    <span class="a-authors">Rosa Michel Martínez-Contreras、Marina María de Jesús Romero-Prado、Karla Mayela Bravo-Villagra、Aneth Karine Sánchez-Soto、Eliseo Portilla-de Buen、Guillermo Alejandro Muñoz-Benavides、Ramón Arreola-Torres、José Marco Medina-Carrillo、Jorge Straffon-Castañeda、Joel Regalado-Silva、Ana Rebeca Jaloma-Cruz</span>
+                    <span class="a-journal">Med Sci (Basel)</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783386/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.3390/medsci14050513" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42783386/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783797/" target="_blank" rel="noopener noreferrer">Longitudinal Plasma Lipidomic Changes in Chinese Patients with Nonvalvular Atrial Fibrillation During 12 Weeks of Edoxaban Treatment.</a>
+                    </span>
+                    <span class="a-authors">Cheng Cui、Junhao Chen、Haodi Chai、Dongyang Liu</span>
+                    <span class="a-journal">Metabolites</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783797/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.3390/metabo16090672" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42783797/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783755/" target="_blank" rel="noopener noreferrer">Targeted Quantitative Metabolomics and Lipidomics Reveal Dysregulated Metabolic Networks and a Serum Candidate Biomarker for Atrial Fibrillation.</a>
+                    </span>
+                    <span class="a-authors">Yuqing Zhang、Yunpeng Xie、Xinyu Liu、Zhen Ning、Guowang Xu、Yunlong Xia、Xinjie Zhao</span>
+                    <span class="a-journal">Metabolites</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783755/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.3390/metabo16090630" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42783755/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42784423/" target="_blank" rel="noopener noreferrer">Esophageal Temperature Changes During Pulsed Field Ablation With Three Catheter Systems.</a>
+                    </span>
+                    <span class="a-authors">Kanto Saida、Takunori Aoyama、Hitoshi Hirano、Noboru Ichihara</span>
+                    <span class="a-journal">Pacing Clin Electrophysiol</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42784423/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1111/pace.70439" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42784423/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42784417/" target="_blank" rel="noopener noreferrer">Contact Strategies and Isolation Endpoints in Pulsed Field Ablation of Persistent Left Superior Vena Cava: A Case Series.</a>
+                    </span>
+                    <span class="a-authors">Lu Bai、Ruikun Jia、Xinmeng Wang、Jinling Fu、Kaijun Cui</span>
+                    <span class="a-journal">Pacing Clin Electrophysiol</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42784417/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1111/pace.70451" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42784417/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42786368/" target="_blank" rel="noopener noreferrer">Central Composite Design-Optimized Dabigatran Etexilate Cubosomes for Sustained Oral Release and Enhanced In Vivo Pharmacokinetics</a>
+                    </span>
+                    <span class="a-authors">Bhatt AH、Patel HP、Shaikh PS、Patel PR、Naik DK、Rathod HG、Vyas BA、Maulvi FA</span>
+                    <span class="a-journal">Pharm Res</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42786368/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1007/s11095-026-04208-y" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42786368/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/41237814/" target="_blank" rel="noopener noreferrer">Left Atrial Diameter Index Predicts Cerebrovascular Events after Postoperative Atrial Fibrillation following Coronary Artery Bypass Grafting</a>
+                    </span>
+                    <span class="a-authors">Doğan AC、Demir AR、Yazıcı AA、Yazıcı B、Kalkan AK</span>
+                    <span class="a-journal">Thorac Cardiovasc Surg</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/41237814/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1055/a-2747-7537" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/41237814/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42784270/" target="_blank" rel="noopener noreferrer">Multimodal Characterization of Atrial Fibrillation: From Patient-Specific Anatomy and Electrophysiology to Standardized Atrial Mapping.</a>
+                    </span>
+                    <span class="a-authors">Tiantian Wang、Quan Zou、Huan Yang</span>
+                    <span class="a-journal">Tomography</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42784270/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.3390/tomography12090132" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42784270/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42778795/" target="_blank" rel="noopener noreferrer">Antidepressant use and the risk of atrial fibrillation and ventricular arrhythmia: A systematic review and meta-analysis.</a>
+                    </span>
+                    <span class="a-authors">Aimen Amirat、Mousa Almasalma、Alaa Ashraf Mohamed、Mohamed Mohamed Elhosary、Batoul Abusalah、Alaa Mohamed、Mohamed Mansour</span>
+                    <span class="a-journal">Eur J Clin Pharmacol</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42778795/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1007/s00228-026-04188-3" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42778795/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42778865/" target="_blank" rel="noopener noreferrer">Atrial fibrillation and atrial flutter in China: trends and projections to 2050 from GBD 2023.</a>
+                    </span>
+                    <span class="a-authors">Rui Wu、Zijun Zhou、Boxuan Sun、Jiahui Li、Liming Yu、Huishan Wang</span>
+                    <span class="a-journal">Intern Emerg Med</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42778865/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1007/s11739-026-04529-1" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42778865/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+            </ul>
+        </section>
+        <section class="topic-group">
+            <h2 class="topic-heading">
+                <span class="bar"></span>
+                <span>室性心律失常</span>
+                <span class="topic-count">15 篇</span>
+            </h2>
+            <ul class="archive-list">
+                <li>
+                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42784429/" target="_blank" rel="noopener noreferrer">Correlation of QT Dispersion in Patients with Acute Myocardial Infarction and Reperfusion Arrhythmias Following Primary Percutaneous Coronary Intervention: A Prospective Study.</a>
+                    </span>
+                    <span class="a-authors">Kabilash Manivalli Peterpalaniswami、Aravind C S Chandrasekaran、Krishnaswamy Madhavan、Janardanan Subramonia Kumar</span>
+                    <span class="a-journal">Ann Afr Med</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42784429/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.4103/aam.aam_625_26" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42784429/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42781698/" target="_blank" rel="noopener noreferrer">A Giant in Plain Sight: Multimodality Imaging of a Left Ventricular Fibroma.</a>
+                    </span>
+                    <span class="a-authors">Michael Sammaan、Michael Moore、Suhair Shebani</span>
+                    <span class="a-journal">Cureus</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42781698/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.7759/cureus.115105" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42781698/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42780895/" target="_blank" rel="noopener noreferrer">Case Report: Brugada syndrome uncovered by delivery in a 32-year-old patient.</a>
+                    </span>
+                    <span class="a-authors">Peng Liu、Ruilong Gao、Yaliu Yang、Zhengqin Zhai、Yifeng Zhou</span>
+                    <span class="a-journal">Front Cardiovasc Med</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42780895/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.3389/fcvm.2026.1902265" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42780895/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42851273/" target="_blank" rel="noopener noreferrer">Post-induction residual time: a novel sensing phenomenon during induced ventricular fibrillation in subcutaneous ICD recipients</a>
+                    </span>
+                    <span class="a-authors">Lopez C、Mondragon I、Benjamin M、Tomas L、Aversa E、Abello M、Armentano J、Chaves J</span>
+                    <span class="a-journal">Front Cardiovasc Med</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42851273/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.3389/fcvm.2026.1949877" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42851273/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42780630/" target="_blank" rel="noopener noreferrer">Pharmacological management and outcomes of sustained ventricular tachycardia in children and adolescents: a single-center retrospective study.</a>
+                    </span>
+                    <span class="a-authors">Jinghao Li、Hong Wang、Yanlin Xing、Ce Wang、Yunming Xu、Yanqiu Chu</span>
+                    <span class="a-journal">Front Pediatr</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42780630/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.3389/fped.2026.1835079" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42780630/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42785606/" target="_blank" rel="noopener noreferrer">Acute effects of physical exercise in patients with arrhythmogenic cardiomyopathy harboring plakophilin-2 variants.</a>
+                    </span>
+                    <span class="a-authors">Fernando G Beltrami、Kyle G P J M Boyle、Elsie L C Nix、Fu Guan、Martin Reiner、Corinna Brunckhorst、Firat Duru、Christina M Spengler、Ardan M Saguner</span>
+                    <span class="a-journal">Heart Rhythm</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42785606/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.hrthm.2026.09.032" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42785606/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783065/" target="_blank" rel="noopener noreferrer">Ventricular Arrhythmias: Epidemiology, Diagnosis and Treatment.</a>
+                    </span>
+                    <span class="a-authors">Antonio Di Monaco、Massimo Grimaldi</span>
+                    <span class="a-journal">J Cardiovasc Dev Dis</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783065/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.3390/jcdd13090458" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42783065/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783051/" target="_blank" rel="noopener noreferrer">Coronary Arterial Anomalies in Adults with Congenital Heart Disease: From Detection to Management Strategies.</a>
+                    </span>
+                    <span class="a-authors">Ahmed Wahba、Sameh M Said</span>
+                    <span class="a-journal">J Cardiovasc Dev Dis</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783051/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.3390/jcdd13090444" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42783051/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783044/" target="_blank" rel="noopener noreferrer">Arrhythmic Mitral Valve Prolapse as a Regional Stretch-Induced Cardiomyopathy with Fibro-Inflammatory Signature: A Conceptual Review.</a>
+                    </span>
+                    <span class="a-authors">Mili Dave、Shaaf Ahmad、Kirkwood Adams、Adam Akerman、Jinny Ha、Ross J Simpson、Faisal F Syed</span>
+                    <span class="a-journal">J Cardiovasc Dev Dis</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783044/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.3390/jcdd13090437" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42783044/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783027/" target="_blank" rel="noopener noreferrer">Monocyte-to-High-Density-Lipoprotein Ratio Is Associated with Ventricular Arrhythmia in Patients with Implantable Cardioverter-Defibrillators: A Cross-Sectional Study.</a>
+                    </span>
+                    <span class="a-authors">Murat Küçükukur、Cenk Ekmekçi</span>
+                    <span class="a-journal">J Cardiovasc Dev Dis</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783027/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.3390/jcdd13090420" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42783027/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42781164/" target="_blank" rel="noopener noreferrer">Phenotypic Heterogeneity in Mitral Valve Prolapse: Insights from a Case Series.</a>
+                    </span>
+                    <span class="a-authors">Irene Landi、Luca Favarato、Paolo Toritto、Enrico Iengo、Lorenzo Zuliani、Stefano Martina、Tommaso Della Giustina、Abdalla Eltayeb Abdelkader、Olga Vriz</span>
+                    <span class="a-journal">J Cardiovasc Echogr</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42781164/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.4103/jcecho.jcecho_180_25" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42781164/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42785590/" target="_blank" rel="noopener noreferrer">Growth of Cardiac Fibromas During Infancy.</a>
+                    </span>
+                    <span class="a-authors">Kelsey Jurow、Francesca Sperotto、Tal Geva、Lynn A Sleeper、Rebecca S Beroukhim</span>
+                    <span class="a-journal">J Cardiovasc Magn Reson</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42785590/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.jocmr.2026.102799" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42785590/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42800147/" target="_blank" rel="noopener noreferrer">Hypertrophic obstructive cardiomyopathy with associated pulmonary arteriopathy: A histopathologic perspective from sudden cardiac death</a>
+                    </span>
+                    <span class="a-authors">Gangwal P、Pulagura SSK、Meshram V、Jaggi RS、Khera S</span>
+                    <span class="a-journal">J Forensic Leg Med</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42800147/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.jflm.2026.103266" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42800147/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42782228/" target="_blank" rel="noopener noreferrer">Acute Modulation of Arrhythmogenic Ventricular Substrate Following Cardiac Stereotactic Body Radiation Therapy.</a>
+                    </span>
+                    <span class="a-authors">Negar Raissi-Dehkordi、Nastaran Raissi-Dehkordi、Jonathan A Salas、Weihow Hsue、Julia Wilson、Myles S Miller、Spencer Moavenzadeh、Michele M Kim、Sarah Hagan、Jeffrey Arkles、David J Callans、Timothy M Markman、Francis E Marchlinski、Keith A Cengel、Cory M Tschabrunn</span>
+                    <span class="a-journal">JACC Clin Electrophysiol</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42782228/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.jacep.2026.08.009" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42782228/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783455/" target="_blank" rel="noopener noreferrer">Translating Population-Based Epidemiology into Clinical Recognition of Coronary Artery Spasm: Prevalence, Incidence, and Geographic-Seasonal Variation in Taiwan.</a>
+                    </span>
+                    <span class="a-authors">Alexander T H Wu、Ming-Jui Hung、Claire Hung、Nicholas G Kounis、Ian Y Chen、Patrick Hu、Chi-Tai Yeh、Ming-Yow Hung</span>
+                    <span class="a-journal">Med Sci (Basel)</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783455/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.3390/medsci14050582" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42783455/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+            </ul>
+        </section>
+        <section class="topic-group">
+            <h2 class="topic-heading">
+                <span class="bar"></span>
+                <span>器械治疗</span>
+                <span class="topic-count">5 篇</span>
+            </h2>
+            <ul class="archive-list">
+                <li>
+                    <span class="topic-pill" data-topic="器械治疗">器械治疗</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42787811/" target="_blank" rel="noopener noreferrer">Pregnancy-Associated Spontaneous Coronary Artery Dissection in the Third Trimester Requiring Multistent Percutaneous Coronary Intervention: A Case Report</a>
+                    </span>
+                    <span class="a-authors">Liu S、Layton A、Chastain H</span>
+                    <span class="a-journal">Case Rep Cardiol</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42787811/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1155/cric/5560692" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42787811/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="器械治疗">器械治疗</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42785747/" target="_blank" rel="noopener noreferrer">Response to &#39;Upgrade procedures of pacemakers or implantable cardioverter-defibrillators require creative clinical decision making and careful planning that begins at the first implantation&#39;.</a>
+                    </span>
+                    <span class="a-authors">Daniel Keene、Nandita Kaza、Haran Burri、Archana Rao、Jens Cosedis Nielsen</span>
+                    <span class="a-journal">Europace</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42785747/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1093/europace/euag240" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42785747/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="器械治疗">器械治疗</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42785746/" target="_blank" rel="noopener noreferrer">Upgrade procedures of pacemakers or implantable cardioverter-defibrillators require creative clinical decision making and careful planning that begins at the first implantation.</a>
+                    </span>
+                    <span class="a-authors">Alexander H Maass、Hessel F Groenveld、Michiel Rienstra</span>
+                    <span class="a-journal">Europace</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42785746/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1093/europace/euag174" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42785746/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="器械治疗">器械治疗</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42781222/" target="_blank" rel="noopener noreferrer">Electrocardiographic Identification and Correction of Left Ventricular Pacing Latency.</a>
+                    </span>
+                    <span class="a-authors">T R Muralidharan、D R Nivetha、S Sanjith、M Venkat Naveen、A Arun Shriram、K V Logavengatesh、R Swaminathan Veerasamy、C S Aravind、Kavitha Babu</span>
+                    <span class="a-journal">J Cardiovasc Echogr</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42781222/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.4103/jcecho.jcecho_1_26" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42781222/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="器械治疗">器械治疗</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783494/" target="_blank" rel="noopener noreferrer">Left Bundle Branch Area Pacing in Heart Failure: A Physiological Alternative to Conventional Biventricular Cardiac Resynchronization Therapy and a Step Towards Personalized Device Therapy.</a>
+                    </span>
+                    <span class="a-authors">Ioanna Koniari、Andreas Gerakaris、Efthimia Kapsali、Stamatios Kanellopoulos、Georgia Xygka、Asimenia Katsea、Eftychia Petropoulou、Anastasia Mavromati、Rafail Koros、Georgios Leventopoulos、Angelos Perperis、Georgios Kollias、Periklis Davlouros</span>
+                    <span class="a-journal">J Pers Med</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783494/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.3390/jpm16090463" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42783494/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+            </ul>
+        </section>
+        <section class="topic-group">
+            <h2 class="topic-heading">
+                <span class="bar"></span>
+                <span>遗传与基础</span>
+                <span class="topic-count">10 篇</span>
+            </h2>
+            <ul class="archive-list">
+                <li>
+                    <span class="topic-pill" data-topic="遗传与基础">遗传与基础</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42780784/" target="_blank" rel="noopener noreferrer">Selective inhibition of LY294002 across cloned human cardiac ion channels: implications for atrium-selective therapy in atrial fibrillation.</a>
+                    </span>
+                    <span class="a-authors">Rui Niu、Jiawei Li、Huanle Fang、Wei Zhao、Chao Dong、Ningjuan Han、Mengyuan Chen、Lie Ma、Liang Li、Yun Fan、Bing Zhu、Beibei Bie、Jie Wu、Hiroshi Matsuura、Minoru Horie</span>
+                    <span class="a-journal">Front Pharmacol</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42780784/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.3389/fphar.2026.1899932" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42780784/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="遗传与基础">遗传与基础</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42781027/" target="_blank" rel="noopener noreferrer">Atrial fibrillation and left bundle branch block followed by Brugada phenocopy induced by Entrectinib in a female Caucasian patient with metastatic non-small cell lung cancer: a case report.</a>
+                    </span>
+                    <span class="a-authors">Helen Triantafyllidi、Vasiliki Dragona、Charalambos Varlamos</span>
+                    <span class="a-journal">Int Cancer Conf J</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42781027/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1007/s13691-026-00890-2" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42781027/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="遗传与基础">遗传与基础</span>
+                    <span class="a-title">
+                        <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC13602817/" target="_blank" rel="noopener noreferrer">Prediction of Atrial Fibrillation Risk Through the Integration of Genetic Information and Artificial Intelligence‐Based Electrocardiogram Data</a>
+                    </span>
+                    <span class="a-authors">Yang P、Park H、Kwon O、Park J、Kim D、Yu H、Kim T、Uhm J、Joung B、Pak H</span>
+                    <span class="a-journal">J Arrhythm</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42787646/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1002/joa3.70463" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC13602817/pdf/?tool=EBI" target="_blank" rel="noopener noreferrer">PDF</a> ·                         <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC13602817/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="遗传与基础">遗传与基础</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42807583/" target="_blank" rel="noopener noreferrer">Macrophage Immunometabolism in Epicardial Adipose Tissue and Obesity-Related Atrial Fibrillation</a>
+                    </span>
+                    <span class="a-authors">Xia L、Sun X、Xie L、Liu S、Phanaksri T、Yu Z、Jiang Z、Cao X</span>
+                    <span class="a-journal">J Inflamm Res</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42807583/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.2147/jir.s640949" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42807583/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="遗传与基础">遗传与基础</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783501/" target="_blank" rel="noopener noreferrer">Impact of Cytochrome P450 and P-glycoprotein Gene Polymorphisms on the Risk of Hemorrhagic Complications in Older Patients with Non-Valvular Atrial Fibrillation Treated with Rivaroxaban.</a>
+                    </span>
+                    <span class="a-authors">Ivan V Sychev、Andrey P Kondrakhin、Sherzod P Abdullaev、Pavel O Bochkov、Svetlana N Tuchkova、Lyubov V Selivanova、Denis S Fedorinov、Olga A Milovanova、Karin B Mirzaev、Dmitry A Sychev</span>
+                    <span class="a-journal">J Pers Med</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42783501/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.3390/jpm16090470" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42783501/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="遗传与基础">遗传与基础</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42782039/" target="_blank" rel="noopener noreferrer">Transthyretin Cardiac Amyloidosis in a Safety-Net Hospital: A Case Series of 10 Afro-Caribbean Patients.</a>
+                    </span>
+                    <span class="a-authors">Keston Rattan、Elizabeth L Allison、Wayne-Andrew Palmer、Inna Bukharovich</span>
+                    <span class="a-journal">JACC Case Rep</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42782039/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.jaccas.2026.109013" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42782039/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="遗传与基础">遗传与基础</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42782034/" target="_blank" rel="noopener noreferrer">Sustained Ventricular Tachycardia as the First Presentation of Hereditary Transthyretin Amyloidosis With the Glu109Gln Mutation.</a>
+                    </span>
+                    <span class="a-authors">Thomas Weiss、Sie K Fensman、Astrid J Terkelsen、Torsten B Rasmussen、Steen H Poulsen</span>
+                    <span class="a-journal">JACC Case Rep</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42782034/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.jaccas.2026.110323" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42782034/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="遗传与基础">遗传与基础</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42788914/" target="_blank" rel="noopener noreferrer">Complete Atrioventricular Block in an HLA-B27-Positive Woman Without Overt Spondyloarthritis</a>
+                    </span>
+                    <span class="a-authors">Batista Lage JG、Tavares Pinheiro MV、Ferreira de Souza O、Minati Barbosa R、Temer Teixeira Goldwasser B、Hanae Kasai-Brunswick T、Bastos Carvalho A</span>
+                    <span class="a-journal">JACC Case Rep</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42788914/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.jaccas.2026.110449" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42788914/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="遗传与基础">遗传与基础</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42784636/" target="_blank" rel="noopener noreferrer">Shared genetic architecture of HCM and AF: Elevated NPPA/ANP is linked to atrial electrical remodeling.</a>
+                    </span>
+                    <span class="a-authors">A Z M Fahim Siddique、Xinru Wang、Ruyi Du、Yuchen Wang、Qi Wang、Yuanyuan Guo、Tiankai Li</span>
+                    <span class="a-journal">PLoS One</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42784636/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1371/journal.pone.0357969" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42784636/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="遗传与基础">遗传与基础</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42779895/" target="_blank" rel="noopener noreferrer">Calmodulin mutation N54I causes autosomal dominant CPVT in mice.</a>
+                    </span>
+                    <span class="a-authors">Daniel J Blackwell、Nieves Gomez-Hurtado、Kyungsoo Kim、Paxton A Ritschel、Carlos Tellet-Cabiya、Huan He、Jose R Pinto、Eric Delpire、Bjorn C Knollmann</span>
+                    <span class="a-journal">bioRxiv</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42779895/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.64898/2026.09.12.751164" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42779895/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+            </ul>
+        </section>
+        <section class="topic-group">
+            <h2 class="topic-heading">
+                <span class="bar"></span>
+                <span>其他</span>
+                <span class="topic-count">8 篇</span>
+            </h2>
+            <ul class="archive-list">
+                <li>
+                    <span class="topic-pill" data-topic="其他">其他</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42779071/" target="_blank" rel="noopener noreferrer">The Impacts of Hypocalcemia on QT Interval Duration.</a>
+                    </span>
+                    <span class="a-authors">Nicole Kupchik、Sarah Vance</span>
+                    <span class="a-journal">Am J Nurs</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42779071/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1097/AJN.0000000000000377" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42779071/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="其他">其他</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42780366/" target="_blank" rel="noopener noreferrer">Adaptive feature fusion based semi-supervised federated learning system for ECG arrhythmia detection.</a>
+                    </span>
+                    <span class="a-authors">Silla Ann Regi、Jagadeesan Srinivasan、Thanapal Pandi</span>
+                    <span class="a-journal">Front Artif Intell</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42780366/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.3389/frai.2026.1913613" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42780366/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="其他">其他</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42785612/" target="_blank" rel="noopener noreferrer">Effects of flecainide therapy on cardiac device performance: A prospective multicenter longitudinal study.</a>
+                    </span>
+                    <span class="a-authors">Francesco Santoro、Francesco Paolo Niglio、Pietro Palmisano、Martina Molinari、Giuseppe Sgarito、Alessandro Paoletti Perini、Domenico Gianfrancesco、Francesco Bartolomucci、Laura Perrotta、Davide Genovese、Francesco Campo、Girolamo D&#39;Arienzo、Pier Luigi Pellegrino、Natale Daniele Brunetti</span>
+                    <span class="a-journal">Heart Rhythm</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42785612/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.hrthm.2026.09.035" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42785612/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="其他">其他</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42785607/" target="_blank" rel="noopener noreferrer">Preclinical impact of new variable loop circular catheter waveform.</a>
+                    </span>
+                    <span class="a-authors">Luigi Di Biase、Fengwei Zou、Tara Gomez、Eric Byun、Qi Chen、Amanda McCormac、Christopher Beeckler、Jacopo Marazzato、Marco Schiavone、Sanghamitra Mohanty、Vincenzo Mirco La Fazia、Vito Grupposo、Domingo Ynoa、Aung Lin、Dhanunjaya Lakkireddy、Andrea Natale、Nils Guttenplan、Xiao-Dong Zhang</span>
+                    <span class="a-journal">Heart Rhythm</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42785607/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.hrthm.2026.09.033" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42785607/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="其他">其他</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42785605/" target="_blank" rel="noopener noreferrer">Electrosurgical energy-traction coupling for assisted release of entrapped septal pacing leads: An ex vivo mechanical study.</a>
+                    </span>
+                    <span class="a-authors">Binbin Luo、Longfu Jiang、Guofang Chen、Haihang Luo、Weilin Chen、Yuelin Zhang</span>
+                    <span class="a-journal">Heart Rhythm</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42785605/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.hrthm.2026.09.027" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42785605/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="其他">其他</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42784991/" target="_blank" rel="noopener noreferrer">Double transition in ventricular preexcitation.</a>
+                    </span>
+                    <span class="a-authors">Laszlo Littmann、J Warren Holshouser</span>
+                    <span class="a-journal">J Electrocardiol</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42784991/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.jelectrocard.2026.154454" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42784991/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="其他">其他</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42848335/" target="_blank" rel="noopener noreferrer">Radiofrequency-Facilitated Left Bundle Branch Area Pacing as a Bailout Strategy in Patients With Septal Resistance</a>
+                    </span>
+                    <span class="a-authors">Bastidas O、Aristizabal JM、Ruiz LM、Marín JE、Niño CD、Borja W、Ocampo D、Diaz-Ayala MC、Díaz A、Diaz JC</span>
+                    <span class="a-journal">JACC Clin Electrophysiol</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42848335/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.jacep.2026.08.025" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42848335/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+                <li>
+                    <span class="topic-pill" data-topic="其他">其他</span>
+                    <span class="a-title">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42820879/" target="_blank" rel="noopener noreferrer">Retrograde Right Bundle Branch Block in Tachycardia Uncovering AVRT Using a Right-Sided Accessory Pathway</a>
+                    </span>
+                    <span class="a-authors">Malas W、Ezzeddine FM</span>
+                    <span class="a-journal">JACC Clin Electrophysiol</span>
+                    <span class="a-actions">
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/42820879/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.jacep.2026.08.017" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42820879/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
+                </li>
+            </ul>
+        </section>
+
+
+    </div>
+</main>
+
+<footer class="site-footer">
+    <div class="wrap">
+        <p>心脏电生理每日论文检索 · 归档视图</p>
+        <p>页面离线自包含，无外部依赖 · 生成于 2026-10-20 01:03</p>
+    </div>
+</footer>
+
+</body>
+</html>
