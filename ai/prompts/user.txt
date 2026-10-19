@@ -1,0 +1,14 @@
+请阅读下面这篇心脏电生理论文的摘要，输出中文五段式解读。
+
+请严格按 system 消息中给出的 json 格式输出（只输出 json 对象本身，
+不要加任何前后缀说明文字），键名固定为：tldr、motivation、method、
+result、conclusion。
+
+期刊：{journal}
+亚专业：{topic}
+标题：{title}
+
+摘要原文：
+{abstract}
+
+再次提醒：输出必须是一个合法的 json 对象，五个字段的值均为中文字符串。

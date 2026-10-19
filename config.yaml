@@ -1,0 +1,229 @@
+# 心脏电生理每日论文检索 —— 检索配置
+#
+# 改检索范围只需要动这个文件，不用改代码。
+#
+# ⚠️ 两个不要改回的参数（都有实测依据）：
+#   1. date_field: edat —— PubMed 入库日。
+#      实测 EP 期刊近 2 天 [dp] 命中 0 篇、[edat] 命中 16 篇。[dp] 是印刷日期，
+#      在版文章常被标成未来日期，用它做日报会漏掉当天全部内容。
+#   2. 检索走 [jour] + [tiab]，不要用 [MeSH]。
+#      实测 "cardiac electrophysiology"[MeSH] 近 30 天 0 篇、两年仅 46 篇，
+#      因为新文章常处于未标引状态。
+
+# PubMed 日期字段：edat（入库日）| dp（出版日）| pdat（预发布）
+date_field: edat
+
+# 除今天外再往前回溯的天数。设为 1 是为了兜住时区差与 PubMed 入库延迟，
+# 宁可重复（后面会去重）也不要漏。
+lookback_days: 1
+
+# 单日论文上限，防止极端日期生成过大页面
+max_papers: 200
+
+# 请求超时（秒）与重试次数
+timeout: 30
+max_retries: 3
+
+# NCBI 要求带上联系方式；填了 NCBI_API_KEY 可把速率从 3/秒 提到 10/秒
+ncbi_email: ""
+
+# ---------------------------------------------------------------------------
+# 期刊白名单：心脏电生理核心期刊
+# ---------------------------------------------------------------------------
+journals:
+  - "Heart Rhythm"
+  - "JACC Clin Electrophysiol"
+  - "Europace"
+  - "Circ Arrhythm Electrophysiol"
+  - "J Cardiovasc Electrophysiol"
+  - "Pacing Clin Electrophysiol"
+  - "Heart Rhythm O2"
+  - "J Interv Card Electrophysiol"
+  - "Indian Pacing Electrophysiol J"
+
+# ---------------------------------------------------------------------------
+# 主题词：在标题/摘要中检索（[tiab]）
+# 选词原则：用临床术语而非解剖学宽泛词（如 "heart" 会引入大量无关文献）
+#
+# ⚠️ 不要加回裸词 ablation / pacing（实测证据，2026-10-17~18 窗口）：
+#   - "ablation"[tiab] 命中 36 篇，绝大多数不是心脏消融：肿瘤/组织消融
+#     （"laser-induced spinal cord nerve ablation"、"Barrett's Esophagus ... ablation"）、
+#     纳米平台，以及机器学习论文的「消融实验」（"diffusion-based ablation study"）。
+#     换成 "catheter ablation" 后只剩 4 篇，全部相关。
+#   - "pacing"[tiab] 命中 7 篇，含 Lupus 的质性研究（英文 pacing = 踱步）
+#     与 SLE 病例报告。心脏起搏必须写成 "cardiac pacing" / "leadless pacing" 这类组合词。
+# 原则：宁可少召回，也不要让日报出现与电生理无关的论文。
+# ---------------------------------------------------------------------------
+topics:
+  - "atrial fibrillation"
+  - "atrial flutter"
+  - "catheter ablation"
+  - "ablation of atrial"
+  - "pulsed field ablation"
+  - "ventricular tachycardia"
+  - "ventricular arrhythmia"
+  - "premature ventricular complex"
+  - "cardiac resynchronization"
+  - "implantable cardioverter"
+  - "defibrillator"
+  - "pacemaker"
+  - "leadless pacing"
+  - "transcatheter pacing"
+  - "cardiac pacing"
+  - "electroanatomic mapping"
+  - "sudden cardiac death"
+  - "left atrial appendage"
+  - "supraventricular tachycardia"
+  - "atrioventricular node"
+  - "electrocardiogram"
+  - "cardiac electrophysiology"
+
+# ---------------------------------------------------------------------------
+# 亚专业标签映射
+# 按声明顺序匹配，先命中者优先 —— 所以更具体的规则要写在更宽泛的前面
+# （例如 "pulsed field ablation" 放在 "ablation" 之前）。
+# 匹配对象是「标题 + 摘要 + 期刊」的小写子串。
+#
+# ⚠️ 顺序陷阱（实测踩过）：机制类论文的标题常同时含临床词，
+#   例如 "Optogenetic cardioversion of atrial fibrillation" 会被
+#   房颤与消融先命中，读者以为是临床研究，其实是基础研究。
+#   因此「遗传与基础」必须排在「房颤与消融」/「室性心律失常」之前 ——
+#   机制关键词（optogenetic / ion channel / cardiomyocyte ...）一旦出现，
+#   说明论文的重心在机理而非临床术式。
+#   同理「影像与标测」放在器械治疗前会抢走大量论文（"mapping" 太宽）。
+# ---------------------------------------------------------------------------
+topic_rules:
+  # 放在最前：机制类关键词特异性最高，命中即代表基础/遗传研究
+  遗传与基础:
+    - "optogenetic"
+    - "channelopathy"
+    - "ion channel"
+    - "cardiomyocyte"
+    - "induced pluripotent"
+    - "stem cell"
+    - "mutation"
+    - "genetic"
+  房颤与消融:
+    - "pulmonary vein isolation"
+    - "pulsed field ablation"
+    - "cryoablation"
+    - "catheter ablation"
+    - "af ablation"
+    - "left atrial appendage"
+    - "atrial fibrillation"
+    - "atrial flutter"
+  室性心律失常:
+    - "catheter ablation of ventricular"
+    - "ventricular tachycardia"
+    - "ventricular fibrillation"
+    - "ventricular arrhythmia"
+    - "premature ventricular"
+    - "arrhythmic storm"
+    - "brugada"
+    - "long qt"
+    - "sudden cardiac death"
+  器械治疗:
+    - "cardiac resynchronization"
+    - "implantable cardioverter"
+    - "subcutaneous icd"
+    - "lead extraction"
+    - "device therapy"
+    - "defibrillator"
+    - "pacemaker"
+    - "leadless"
+    # 不写裸 "pacing"：英文 pacing 也指「踱步」，会误伤质性研究/病例报告
+    - "cardiac pacing"
+    - "pacing system"
+  影像与标测:
+    - "electroanatomic mapping"
+    - "intracardiac echocardiograph"
+    - "magnetic resonance"
+    - "computed tomography"
+    - "echocardiograph"
+    - "fluoroscop"
+    - "mapping"
+    - "substrate"
+    - "imaging"
+
+# ---------------------------------------------------------------------------
+# 相关性过滤（实现见 daily_ep/relevance.py，读取见 daily_ep/relevance_config.py）
+#
+# 为什么需要：检索式的 [tiab] 是无语境子串匹配，只要摘要里出现 "atrial
+# fibrillation" / "defibrillator" / "ablation" 就会被命中，哪怕主题完全无关。
+#
+# 复现方式（⚠️ 不要引用绝对篇数：PubMed 当天仍在持续入库，不同时刻窗口命中数
+# 不同，34/39/43 都对。请用固定日期复现，结果可重复）：
+#     python3 -m daily_ep.collect --days 2 --date 2026-10-18 --out /tmp/check.jsonl
+# 参考量级：保留约 4~5 成，其余为噪声。log 里会打印「相关性过滤：N 篇 → M 篇」。
+#
+# 典型噪声（都已进 tests/test_relevance.py 的回归用例）：
+#   - 缺血性卒中 ×3（摘要提了一句「患者合并房颤」）
+#   - "airway ablation in a rat model of COPD"（气道消融，被 ablation 词组命中）
+#   - 髂动脉支架病例报告（AF/起搏器只是 incidental 合并症）← 曾误判满分，已修
+#   - 下肢缺血坏疽、头颈皮瓣重建、儿科急诊模拟教学、教室拥挤与心率变异性
+#
+# 为什么单纯加心脏锚定不够（实测被否）：(主题词) AND (heart OR cardiac ...)
+#   只能滤掉一小部分，最差的几条全部留下 —— 因为它们摘要里本来就含
+#   "cardiac"/"heart"。所以改成加权打分，锚定只是可选的硬门槛（见下）。
+#
+# 评分规则（常量见 daily_ep/relevance.py）：
+#   强信号：标题 ×1.0 / 摘要首句 ×0.8 / 其余句 ×0.35，
+#           累加时按 1.0→0.6→0.4 递减（避免两条 incidental 词就顶到满分）
+#   半强信号 +0.26（猝死遗传检测、AI-ECG/心电成像）
+#   中性信号 +0.08/个，心脏语境 +0.12
+#   negative -0.30/个；非心脏部位消融、血管器械等重罚 -0.55
+#   两处「伴随提及」上下文（was noted / history of / were excluded / unlike ...）
+#   命中强信号时 ×0.3                                 ← 防 incidental 假阳性
+#   标题出现非心脏解剖部位（iliac/carotid/flap/airway/renal artery ...）
+#   且标题无任何心脏词 → 直接判无关                 ← 最稳的一条
+#   最终分数截断到 [0, 1]
+# ---------------------------------------------------------------------------
+relevance:
+  # 总开关。设 false 完全关闭过滤（页面会重新出现噪声，仅调试/对照用）
+  enabled: true
+
+  # 判定阈值：score >= threshold 才保留。
+  # 0.35 是用 tests/test_relevance.py 的真实样本标定的：11 篇必须保留的电生理
+  # 论文全部通过，典型噪声全部滤掉。调低=更宽松，调高=更严格。
+  # 经验值：0.25 宽 / 0.35 默认 / 0.50 严
+  # ⚠️ 觉得漏了关心的论文，先看采集日志的丢弃明细（会打印分数与原因），
+  #    再决定是调阈值还是补信号规则 —— 优先补规则。
+  threshold: 0.35
+
+  # 期刊白名单直通开关（默认开启）：
+  #   true  —— 来自 journals 白名单期刊的论文**不做评分过滤**，直接保留。
+  #            EP 专业期刊本身就是目标领域，即使是基础/影像子方向也不该被误杀。
+  #            （实测会生效：JACC Clin Electrophysiol 的编述评分仅 0.12 但被保留）
+  #   false —— 白名单期刊的论文也要按 threshold 打分过滤。
+  # 注意：直通的论文会单独计数，日志里显示「其中白名单期刊直通 N 篇」。
+  whitelist_bypass: true
+
+  # 心脏语境硬门槛（可关闭，默认开启）——**已接线生效**。
+  #   true  —— 非白名单论文全文必须出现心脏语境词（heart/cardiac/arrhythmia/
+  #            electrophysiolog*/tachycardia/supraventricular/pacing 等，见 CARDIAC_CONTEXT），
+  #            否则直接判无关（score=0）。用来挡住「通篇没有心脏语境却有强信号词」
+  #            的漏网，例如器械/材料学论文里的 ablation/defibrillator。
+  #   false —— 不做此门槛，只看加权分数。
+  # 注意：这是**必要但不充分**条件 —— 锚定本身不足以判相关（实测会放过卒中/
+  #       外科论文），真正把关的是加权评分；本开关只是额外的前置过滤。
+  # 期刊白名单直通的论文不受此开关影响。
+  require_cardiac_context: true
+
+# ---------------------------------------------------------------------------
+# 数据源开关与优先级（数值越小越先采集，也是去重时保留哪条的优先级）
+# 只有 pubmed 是必需的；其余源失败不影响整体
+# ---------------------------------------------------------------------------
+sources:
+  pubmed:
+    enabled: true
+    priority: 10
+  europepmc:
+    enabled: true
+    priority: 20
+  # 预印本：命中率不稳定，默认关闭，需要时打开
+  medrxiv:
+    enabled: false
+    priority: 30
+  biorxiv:
+    enabled: false
+    priority: 30

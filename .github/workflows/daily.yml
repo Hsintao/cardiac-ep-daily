@@ -1,0 +1,289 @@
+# 心脏电生理每日论文检索 —— 每日定时采集 + AI 解读 + 发布
+#
+# 架构（与参考项目 daily-arXiv-ai-enhanced 一致的双分支设计）：
+#   main 分支：代码（daily_ep / ai / render / config.yaml / workflow）
+#   data 分支：孤儿分支，只放 data/*.jsonl 与 assets/file-list.txt
+#   前端经 raw.githubusercontent.com/<owner>/<repo>/data/... 直接读数据，无需服务器
+#
+# ⚠️ 三个必须照做的坑（参考项目注释里明确记录，改错会静默损坏数据）：
+#   1. data 分支只有数据没有代码，必须先 checkout data，再从 main 叠加代码。
+#      先 checkout main 再 checkout data 是不行的：第二次 checkout 会替换整个
+#      工作树，而不是把两者合并，结果就是「有代码没历史数据」或反之。
+#   2. 提交前必须 `git reset` 然后只 add data/ 与 assets/。叠加步骤会把
+#      daily_ep/ ai/ render/ 等代码放进索引，不 reset 就会把代码提交到 data 分支。
+#   3. 本 workflow 与 backfill.yml 共用同一个 concurrency group，
+#      cancel-in-progress: false（排队而不是取消，保证每天的内容不丢）。
+
+name: 心脏电生理每日论文
+
+on:
+  # UTC 22:00 = 北京次日 06:00。
+  # cron 走 UTC，不受夏令时影响（国内无夏令时，但 UTC 写法可避免任何歧义）。
+  # 选北京清晨是因为 PubMed 的 [edat] 入库集中在 UTC 凌晨，此时抓当天最全。
+  schedule:
+    - cron: "0 22 * * *"
+
+  # 手动触发：可指定抓取最近 N 天、或跳过 AI（省 token / 无 Key 时自测）
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "抓取最近 N 天（默认 2；1 = 只看今天）"
+        required: false
+        default: "2"
+      no_ai:
+        description: "跳过 AI 增强（true = 只抓元数据 + 渲染）"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+# 与 backfill.yml 共用同一分组：两边都会推送 data 分支，排队避免互相冲突。
+concurrency:
+  group: daily-ep-data
+  cancel-in-progress: false
+
+# 推送 data 分支需要写权限（默认 GITHUB_TOKEN 是只读的）
+permissions:
+  contents: write
+
+jobs:
+  daily:
+    runs-on: ubuntu-latest
+    # 兜底超时：任何环节挂死（NCBI 卡住、LLM 连接僵死）都应在 1 小时内失败，
+    # 而不是烧满 GitHub 默认的 6 小时。
+    timeout-minutes: 60
+
+    steps:
+      # ------------------------------------------------------------------
+      # 1. 先 checkout data 分支（只有数据），代码稍后从 main 叠加
+      # ------------------------------------------------------------------
+      - name: Checkout data 分支
+        uses: actions/checkout@v4
+        with:
+          ref: data
+          fetch-depth: 1
+
+      # ------------------------------------------------------------------
+      # 2. 从 main 叠加代码
+      #    data 分支上没有 pyproject.toml / daily_ep / ai / render，
+      #    不叠加这一步后面所有 python 命令都会 ImportError / 找不到文件。
+      #    用 FETCH_HEAD 而不是 origin/main：单分支 clone 下即使 fetch 过，
+      #    origin/main 也不是一个有效 ref。
+      # ------------------------------------------------------------------
+      - name: 从 main 叠加代码
+        run: |
+          git fetch origin main --depth 1
+          git checkout FETCH_HEAD -- \
+            pyproject.toml \
+            config.yaml \
+            daily_ep \
+            ai \
+            render \
+            templates \
+            prompts \
+            run.sh \
+            README.md
+          echo "已从 main 取回代码 / code overlaid from main"
+          ls -d daily_ep ai render config.yaml pyproject.toml
+
+      # ------------------------------------------------------------------
+      # 3. Python 环境（setup-python@v5 + pip 缓存）
+      # ------------------------------------------------------------------
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          # 用 [ai] extra 拿到 openai SDK；后两步若判定不需要 AI 也无妨。
+          pip install -e ".[ai]"
+
+      # ------------------------------------------------------------------
+      # 4. 采集
+      # ------------------------------------------------------------------
+      - name: 采集论文
+        id: collect
+        env:
+          NCBI_API_KEY: ${{ secrets.NCBI_API_KEY }}
+          NCBI_EMAIL: ${{ vars.EMAIL }}
+        run: |
+          set -euo pipefail
+          TODAY=$(date -u "+%Y-%m-%d")
+          DAYS="${{ inputs.days }}"
+          DAYS="${DAYS:-2}"
+
+          echo "抓取最近 ${DAYS} 天（输出以今天 ${TODAY} 命名）"
+
+          # 今日文件已存在时重新生成：data 分支 checkout 下来可能已有当天文件
+          # （手动重跑 / 上一次部分成功），不删会追加出重复记录。
+          rm -f "data/${TODAY}.jsonl" "data/${TODAY}.jsonl.tmp"
+
+          mkdir -p data
+          python -m daily_ep.collect --days "${DAYS}" --out "data/${TODAY}.jsonl"
+
+          if [ ! -f "data/${TODAY}.jsonl" ]; then
+            echo "❌ 采集失败：未生成 data/${TODAY}.jsonl"
+            exit 1
+          fi
+
+          COUNT=$(wc -l < "data/${TODAY}.jsonl")
+          echo "采集到 ${COUNT} 篇"
+
+          # 0 篇不算失败（周末 / 节假日 / 入库延迟都合法），但要大声提示：
+          # 若连工作日都是 0，多半是查询串或页面结构出了问题。
+          if [ "${COUNT}" -eq 0 ]; then
+            echo "⚠️ 警告：本次采集结果为 0 篇，请确认是否为周末/节假日或检索条件变更"
+          fi
+
+          echo "today=${TODAY}" >> "$GITHUB_OUTPUT"
+          echo "count=${COUNT}" >> "$GITHUB_OUTPUT"
+
+      # ------------------------------------------------------------------
+      # 5. AI 增强（无 Key 自动降级 --no-ai，绝不让 workflow 失败）
+      # ------------------------------------------------------------------
+      - name: AI 中文解读
+        id: enhance
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # 固定配置：DeepSeek 的 base_url 不带 /v1 后缀（官方文档规定）。
+          # Secret 里显式设置了就尊重它，否则回落到这个正确默认值。
+          OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL || 'https://api.deepseek.com' }}
+          MODEL_NAME: ${{ vars.MODEL_NAME || 'deepseek-flash' }}
+          LANGUAGE: ${{ vars.LANGUAGE || 'Chinese' }}
+        run: |
+          set -euo pipefail
+          today="${{ steps.collect.outputs.today }}"
+          no_ai="${{ inputs.no_ai }}"
+
+          SKIP_AI="false"
+          if [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "⚠️ 未配置 OPENAI_API_KEY，自动降级为 --no-ai（只输出元数据）"
+            SKIP_AI="true"
+          fi
+          if [ "${no_ai}" = "true" ]; then
+            echo "ℹ️ 手动指定 no_ai=true，跳过 AI 增强"
+            SKIP_AI="true"
+          fi
+
+          echo "BASE_URL=${OPENAI_BASE_URL}  MODEL=${MODEL_NAME}  LANGUAGE=${LANGUAGE}"
+
+          if [ "${SKIP_AI}" = "true" ]; then
+            python ai/enhance.py --data "data/${today}.jsonl" --no-ai
+          else
+            python ai/enhance.py --data "data/${today}.jsonl" || {
+              echo "⚠️ AI 增强失败，降级为 --no-ai（元数据照常发布）"
+              python ai/enhance.py --data "data/${today}.jsonl" --no-ai
+            }
+          fi
+
+          # 产物名以 LANGUAGE 为准：无 AI 时 enhance.py 会直通生成同名文件，
+          # 这里兜一层，保证后续渲染总能拿到文件。
+          AI_FILE="data/${today}_AI_enhanced_${LANGUAGE}.jsonl"
+          RAW_FILE="data/${today}.jsonl"
+          if [ ! -f "${AI_FILE}" ]; then
+            echo "ℹ️ 未生成 ${AI_FILE}，用原始文件 ${RAW_FILE} 继续渲染"
+            cp "${RAW_FILE}" "${AI_FILE}"
+          fi
+          echo "ai_file=${AI_FILE}" >> "$GITHUB_OUTPUT"
+
+      # ------------------------------------------------------------------
+      # 6. 渲染 HTML（发布用，进 data 分支）
+      # ------------------------------------------------------------------
+      - name: 渲染 HTML
+        env:
+          LANGUAGE: ${{ vars.LANGUAGE || 'Chinese' }}
+        run: |
+          set -euo pipefail
+          today="${{ steps.collect.outputs.today }}"
+          python -m render.build_html \
+            --data "data/${today}_AI_enhanced_${LANGUAGE}.jsonl" \
+            --out index.html
+
+      # ------------------------------------------------------------------
+      # 7. 重建 assets/file-list.txt
+      #    必须在 data 分支的工作树上做：此时 data/ 含有全部历史文件。
+      #    若在 main 检出上生成，列表只会有当天文件，会把站点日期选择器
+      #    里的历史条目全部抹掉。
+      # ------------------------------------------------------------------
+      - name: 重建 assets/file-list.txt
+        run: |
+          set -euo pipefail
+          mkdir -p assets
+          ls data/*.jsonl | sed 's|data/||' | sort > assets/file-list.txt
+          echo "文件清单共 $(wc -l < assets/file-list.txt) 行"
+
+      # ------------------------------------------------------------------
+      # 8. 只提交 data/ 与 assets/ 到 data 分支
+      # ------------------------------------------------------------------
+      - name: 提交到 data 分支
+        env:
+          EMAIL: ${{ vars.EMAIL || 'github-actions[bot]@users.noreply.github.com' }}
+          NAME: ${{ vars.NAME || 'github-actions[bot]' }}
+        run: |
+          set -euo pipefail
+          git config user.email "${EMAIL}"
+          git config user.name "${NAME}"
+          today="${{ steps.collect.outputs.today }}"
+
+          # ⚠️ 关键：叠加代码那一步把 daily_ep/ ai/ render/ pyproject.toml 等
+          # 放进了索引。必须先整体 reset，再只 add 数据，否则代码会被提交到
+          # data 分支（下次 checkout data 时就会污染工作树）。
+          git reset -q
+
+          # index.html 也要提交：页面是**完全静态**的（数据在构建时内联），
+          # 浏览器不 fetch JSONL。若只推数据不推页面，Pages 上的首页会永远是空的。
+          # 归档页同理 —— 缺了它，历史日期的链接会 404。
+          git add data/*.jsonl assets/file-list.txt index.html
+          [ -d archive ] && git add archive/*.html || true
+
+          echo "即将提交 / staged:"
+          git diff --staged --name-only
+
+          if git diff --staged --quiet; then
+            echo "没有数据变更需要提交"
+          else
+            COUNT="${{ steps.collect.outputs.count }}"
+            git commit -m "data: ${today} 心脏电生理论文（${COUNT} 篇）"
+            echo "已提交到 data 分支"
+          fi
+
+      # ------------------------------------------------------------------
+      # 9. 推送（失败时 pull --rebase 重试）
+      #    虽然 concurrency 已经串行化了两个 workflow，但人工操作或其他
+      #    仓库事件仍可能造成远端领先，重试是最后的保险。
+      # ------------------------------------------------------------------
+      - name: 推送到 data 分支
+        env:
+          EMAIL: ${{ vars.EMAIL || 'github-actions[bot]@users.noreply.github.com' }}
+          NAME: ${{ vars.NAME || 'github-actions[bot]' }}
+        run: |
+          set -uo pipefail
+          git config user.email "${EMAIL}"
+          git config user.name "${NAME}"
+          git config pull.rebase true
+          git config rebase.autoStash true
+
+          for i in 1 2 3; do
+            if git push origin data; then
+              echo "✅ 推送成功"
+              exit 0
+            fi
+            echo "推送失败，拉取远端变更后重试（第 ${i} 次）"
+            git pull origin data --no-edit --rebase || true
+          done
+          echo "❌ 3 次尝试后推送仍失败"
+          exit 1
+
+      - name: 汇总
+        if: always()
+        run: |
+          echo "日期 / date        : ${{ steps.collect.outputs.today }}"
+          echo "采集篇数 / collected: ${{ steps.collect.outputs.count }}"
+          echo "AI 文件 / ai file   : ${{ steps.enhance.outputs.ai_file }}"
+          echo "数据分支 / branch   : data"

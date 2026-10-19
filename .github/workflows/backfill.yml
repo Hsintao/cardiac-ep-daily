@@ -1,0 +1,215 @@
+# 一次性（可重复运行）workflow：给历史数据补 AI 中文解读。
+#
+# 为什么需要它：daily.yml 只处理当天抓到的内容。当 data 分支被写入历史日期的
+# 原始 data/<date>.jsonl（例如本地补抓或从别处迁入）时，这些文件还没有 AI 解读，
+# 站点就只能回落到显示英文摘要。
+#
+# 本 workflow 就地处理这些原始文件：凡是 data/<date>.jsonl 没有对应
+# <date>_AI_enhanced_<LANGUAGE>.jsonl 的，逐个跑 enhance.py，把结果提交回 data 分支。
+#
+# 手动触发。默认一次只处理一天，避免单次失败丢掉一整批工作；把 days 设为 0 则处理全部。
+
+name: 补跑历史 AI 解读
+
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "本次处理多少个待补日期（0 = 全部）"
+        required: false
+        default: "1"
+      only_date:
+        description: "只处理指定日期 YYYY-MM-DD（设置后忽略 days）"
+        required: false
+        default: ""
+      max_workers:
+        description: "enhance.py 并发数"
+        required: false
+        default: "4"
+
+# 与 daily.yml 共用同一分组：两边都会推送 data 分支，排队避免互相冲突。
+concurrency:
+  group: daily-ep-data
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      # ------------------------------------------------------------------
+      # 1. 先 checkout data 分支（只有数据）
+      # ------------------------------------------------------------------
+      - name: Checkout data 分支
+        uses: actions/checkout@v4
+        with:
+          ref: data
+          fetch-depth: 1
+
+      # ------------------------------------------------------------------
+      # 2. 从 main 叠加代码
+      #    data 分支没有 pyproject.toml / ai/，不叠加就无法运行。
+      #    先 main 后 data 是不行的：第二次 checkout 会替换工作树而不是合并。
+      # ------------------------------------------------------------------
+      - name: 从 main 叠加代码
+        run: |
+          git fetch origin main --depth 1
+          git checkout FETCH_HEAD -- \
+            pyproject.toml \
+            config.yaml \
+            daily_ep \
+            ai \
+            render \
+            templates \
+            prompts
+          echo "已从 main 取回代码 / code overlaid from main"
+          ls -d daily_ep ai render pyproject.toml
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[ai]"
+
+      # ------------------------------------------------------------------
+      # 3. 找出待补日期
+      # ------------------------------------------------------------------
+      - name: 计算待补日期
+        id: pending
+        env:
+          LANGUAGE: ${{ vars.LANGUAGE || 'Chinese' }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "${{ inputs.only_date }}" ]; then
+            if [ ! -f "data/${{ inputs.only_date }}.jsonl" ]; then
+              echo "❌ data/${{ inputs.only_date }}.jsonl 不存在"
+              exit 1
+            fi
+            echo "${{ inputs.only_date }}" > /tmp/pending.txt
+          else
+            # 判定标准：有原始 <date>.jsonl，但没有 <date>_AI_enhanced_<LANGUAGE>.jsonl
+            for f in data/*.jsonl; do
+              [ -e "$f" ] || continue
+              base=$(basename "$f" .jsonl)
+              case "$base" in
+                *_AI_enhanced_*) continue ;;   # 已是产物文件，跳过
+              esac
+              if [ ! -f "data/${base}_AI_enhanced_${LANGUAGE}.jsonl" ]; then
+                echo "$base"
+              fi
+            done | sort > /tmp/pending.txt
+          fi
+
+          TOTAL=$(wc -l < /tmp/pending.txt)
+          LIMIT="${{ inputs.days }}"
+          if [ -z "${LIMIT}" ] || [ "${LIMIT}" = "0" ]; then
+            LIMIT=${TOTAL}
+          fi
+          head -n "${LIMIT}" /tmp/pending.txt > /tmp/todo.txt
+
+          echo "待补总数 / pending total: ${TOTAL}"
+          echo "本次处理 / this run: $(wc -l < /tmp/todo.txt)"
+          cat /tmp/todo.txt
+
+          echo "count=$(wc -l < /tmp/todo.txt)" >> "$GITHUB_OUTPUT"
+
+      # ------------------------------------------------------------------
+      # 4. 逐个日期补 AI
+      # ------------------------------------------------------------------
+      - name: 补跑 AI 解读
+        if: steps.pending.outputs.count != '0'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL || 'https://api.deepseek.com' }}
+          MODEL_NAME: ${{ vars.MODEL_NAME || 'deepseek-flash' }}
+          LANGUAGE: ${{ vars.LANGUAGE || 'Chinese' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "❌ 未配置 OPENAI_API_KEY，补跑 AI 无从谈起（本 workflow 不做降级）"
+            exit 1
+          fi
+          echo "BASE_URL=${OPENAI_BASE_URL}  MODEL=${MODEL_NAME}"
+
+          while read -r day; do
+            [ -z "$day" ] && continue
+            echo "=================================================="
+            echo "处理 / Processing: ${day}"
+            echo "=================================================="
+            python ai/enhance.py \
+              --data "data/${day}.jsonl" \
+              --max_workers "${{ inputs.max_workers }}"
+          done < /tmp/todo.txt
+
+      # ------------------------------------------------------------------
+      # 5. 只提交 data/ 与 assets/ 到 data 分支
+      # ------------------------------------------------------------------
+      - name: 提交到 data 分支
+        if: steps.pending.outputs.count != '0'
+        env:
+          EMAIL: ${{ vars.EMAIL || 'github-actions[bot]@users.noreply.github.com' }}
+          NAME: ${{ vars.NAME || 'github-actions[bot]' }}
+          LANGUAGE: ${{ vars.LANGUAGE || 'Chinese' }}
+        run: |
+          set -euo pipefail
+          git config user.email "${EMAIL}"
+          git config user.name "${NAME}"
+
+          # ⚠️ 叠加步骤把代码放进了索引。先整体 reset，再只 add 数据，
+          # 否则代码会被提交到 data 分支。
+          git reset -q
+
+          # 与 daily.yml 一致地重建清单，让新补的日期出现在站点日期选择器里。
+          mkdir -p assets
+          ls data/*.jsonl | sed 's|data/||' | sort > assets/file-list.txt
+          git add data/*.jsonl assets/file-list.txt
+
+          echo "即将提交 / staged:"
+          git diff --staged --name-only | head -20
+
+          if git diff --staged --quiet; then
+            echo "没有变更需要提交"
+          else
+            DAYS=$(tr '\n' ' ' < /tmp/todo.txt)
+            git commit -m "data: 补跑 AI 中文解读（${DAYS}）"
+            echo "已提交"
+          fi
+
+      - name: 推送到 data 分支
+        if: steps.pending.outputs.count != '0'
+        env:
+          EMAIL: ${{ vars.EMAIL || 'github-actions[bot]@users.noreply.github.com' }}
+          NAME: ${{ vars.NAME || 'github-actions[bot]' }}
+        run: |
+          set -uo pipefail
+          git config user.email "${EMAIL}"
+          git config user.name "${NAME}"
+          git config pull.rebase true
+          git config rebase.autoStash true
+
+          for i in 1 2 3; do
+            if git push origin data; then
+              echo "✅ 推送成功"
+              exit 0
+            fi
+            echo "推送失败，拉取远端变更后重试（第 ${i} 次）"
+            git pull origin data --no-edit --rebase || true
+          done
+          echo "❌ 3 次尝试后推送仍失败"
+          exit 1
+
+      - name: 汇总
+        if: always()
+        run: |
+          echo "本次处理天数 / days processed: ${{ steps.pending.outputs.count }}"

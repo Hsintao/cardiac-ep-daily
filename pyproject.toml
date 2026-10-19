@@ -1,0 +1,28 @@
+[project]
+name = "daily-ep"
+version = "0.1.0"
+description = "心脏电生理每日论文检索：PubMed/Europe PMC 采集 + DeepSeek 中文解读 + 静态日报"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "PyYAML>=6.0",
+    "requests>=2.31.0",
+    "Jinja2>=3.1.0",
+]
+
+[project.optional-dependencies]
+# AI 增强层（ai/enhance.py）需要。无 Key 时可用 --no-ai 完全跳过。
+ai = [
+    "openai>=1.40.0",
+]
+dev = [
+    "pytest>=8.0.0",
+]
+
+# 根目录与 daily_ep/render/ai 都是包，显式声明保证 `pip install -e .` 后
+# `python -m daily_ep.collect` 与 `python -m render.build_html` 都能直接跑。
+[tool.setuptools]
+packages = ["daily_ep", "daily_ep.sources", "ai", "render"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
