@@ -149,15 +149,31 @@
             ["result", "结果"],
             ["conclusion", "结论与意义"],
         ];
+        /* 一句话结论常驻展开（信息密度最高，值得直接看到）；
+           其余四段（动机/方法/结果/结论）收进 <details>，默认折叠。
+           两列布局下卡片本来就高，折叠后一屏能看更多篇。 */
         var html = '<div class="ai-panel"><div class="ai-panel-head">● AI 中文解读</div>';
+        var detailCount = 0;
+        var detailHtml = "";
         sections.forEach(function (pair) {
             var key = pair[0], label = pair[1], value = ai[key];
             if (!value) { return; }
-            var cls = key === "tldr" ? "ai-tldr" : "ai-section";
-            html += '<div class="' + cls + '">' +
+            if (key === "tldr") {
+                html += '<div class="ai-tldr">' +
+                    '<span class="ai-label tldr">' + escapeHtml(label) + "</span>" +
+                    "<p>" + escapeHtml(value) + "</p></div>";
+                return;
+            }
+            detailCount += 1;
+            detailHtml += '<div class="ai-section">' +
                 '<span class="ai-label ' + key + '">' + escapeHtml(label) + "</span>" +
                 "<p>" + escapeHtml(value) + "</p></div>";
         });
+        if (detailHtml) {
+            html += '<details class="ai-details">' +
+                '<summary class="ai-details-summary">展开完整解读（动机 · 方法 · 结果 · 结论）</summary>' +
+                '<div class="ai-details-body">' + detailHtml + "</div></details>";
+        }
         return html + "</div>";
     }
 

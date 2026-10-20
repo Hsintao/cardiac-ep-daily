@@ -1450,3 +1450,57 @@ main { padding: 26px 0 60px; }
 
 /* 论文列表容器 */
 .paper-container { display: grid; }
+
+/* ==========================================================================
+   AI 解读折叠区
+   --------------------------------------------------------------------------
+   一句话结论常驻显示（最重要的信息）；动机/方法/结果/结论收进 <details>。
+   用原生 details/summary，不依赖 JS，键盘可操作、屏幕阅读器可识别。
+   ========================================================================== */
+
+.ai-details {
+    margin-top: 10px;
+    border-top: 1px dashed var(--border);
+    padding-top: 8px;
+}
+
+.ai-details-summary {
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--primary-color);
+    padding: 6px 0;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    user-select: none;
+}
+.ai-details-summary::-webkit-details-marker { display: none; }
+.ai-details-summary::before {
+    content: "▸";
+    font-size: 10px;
+    transition: transform .18s ease;
+    color: var(--text-tertiary);
+}
+.ai-details[open] > .ai-details-summary::before {
+    transform: rotate(90deg);
+}
+.ai-details-summary:hover { color: var(--secondary-color); }
+
+.ai-details-body {
+    padding-top: 10px;
+    animation: ai-expand .18s ease;
+}
+@keyframes ai-expand {
+    from { opacity: 0; transform: translateY(-3px); }
+    to { opacity: 1; transform: none; }
+}
+
+/* 折叠区展开后，段落左缘与一句话结论对齐，视觉不突兀 */
+.ai-details-body .ai-section p { margin-top: 4px; }
+
+@media (prefers-reduced-motion: reduce) {
+    .ai-details-summary::before { transition: none; }
+    .ai-details-body { animation: none; }
+}
