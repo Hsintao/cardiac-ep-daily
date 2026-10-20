@@ -345,9 +345,11 @@ a:hover { text-decoration: underline; }
 
 /* ------------------------------------------------------------ 页头 */
 
+/* 顶栏不吸顶：它本身很高（标题 + 日期 + 统计），钉在屏幕上会一直吞掉正文。
+   吸顶的位置留给更常用的筛选栏（见下方 .filters，滚动时它才是始终需要的）。
+   z-index 仍需保留：日期下拉面板要盖住吸顶的筛选栏。 */
 .site-header {
-    position: sticky;
-    top: 0;
+    position: relative;
     z-index: 100;
     background: var(--header-bg);
     -webkit-backdrop-filter: saturate(180%) blur(10px);
@@ -438,6 +440,8 @@ a:hover { text-decoration: underline; }
 
 /* ------------------------------------------------------------ 筛选栏 */
 
+/* 筛选栏吸顶：顶栏已随页面滚走，这里 top:0 不会再被压在下面。
+   手机端屏幕更小（<=640px），改回随页面滚走，见文件末尾的媒体查询。 */
 .filters {
     position: sticky;
     top: 0;
@@ -1522,10 +1526,8 @@ main { padding: 26px 0 60px; }
 
 @media (max-width: 640px) {
 
-    /* ---------- 1) 顶栏：跟随页面滚走 ---------- */
-    /* 用 relative 而不是 static：static 会让 z-index 失效，日期下拉面板
-       反而被后面的筛选栏盖住。relative 不吸顶，但保住层级。 */
-    .site-header { position: relative; padding: 10px 0 8px; }
+    /* ---------- 1) 顶栏：跟随页面滚走（基础样式不再吸顶，这里只压缩高度） ---------- */
+    .site-header { padding: 10px 0 8px; }
 
     .header-top { padding-top: 0; padding-bottom: 6px; gap: 8px; }
     .site-logo { gap: 8px; }
