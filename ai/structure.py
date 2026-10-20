@@ -97,6 +97,40 @@ def is_meaningful(values: Dict[str, object], min_length: int = MIN_FIELD_LENGTH)
     return False
 
 
+# 截断特征：模型输出被 max_tokens 砍断时，字段常以省略号结尾。
+# **只按结尾特征判断，不看长度** —— 长度是弱信号：
+# 短字段可能是「摘要未报告结果」这类合法简答，按长度判会大量误伤。
+_TRUNCATION_SUFFIXES = ("…", "...", "……")
+
+
+def find_truncated_fields(values: Dict[str, object]) -> list:
+    """返回**看起来被截断**的字段名列表。
+
+    为什么需要它：``is_meaningful`` 只要求「至少一个字段有实质内容」，
+    模型偶尔产出 ``{"motivation": "HFrEF……", ...其余完整}`` 这种单字段被
+    截断的结果时，仍会被判成功写盘，汇总行照样显示「失败 0 篇」。
+    实测在 2026-10-16 的 PMID 42885734 上出现过，肉眼极难发现。
+
+    判据：字段非空，且以省略号结尾。省略号是被 token 上限砍断的典型形态，
+    而模型在正常作答时不会用省略号收尾（真实数据 3820 个字段中 0 例）。
+
+    调用方会把这些字段**剔除**（置空串），保留其余完整字段 —— 与
+    「部分响应保留可用字段」的既有契约一致。
+
+    纯函数，不读网络/磁盘。
+    """
+    if not isinstance(values, dict):
+        return []
+    truncated = []
+    for name in AI_FIELDS:
+        raw = values.get(name)
+        if isinstance(raw, str):
+            text = raw.strip()
+            if text and text.endswith(_TRUNCATION_SUFFIXES):
+                truncated.append(name)
+    return truncated
+
+
 def normalized_ai_dict(values: Dict[str, object]) -> Dict[str, str]:
     """补齐缺失字段为真正的空字符串（而不是占位文本）。
 
@@ -117,5 +151,7 @@ __all__ = [
     "MIN_FIELD_LENGTH",
     "Structure",
     "is_meaningful",
+    "find_truncated_fields",
+    "MIN_FIELD_CHARS",
     "normalized_ai_dict",
 ]

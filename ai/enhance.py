@@ -37,7 +37,13 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from ai import json_repair, runtime  # noqa: E402
-from ai.structure import AI_FIELDS, Structure, is_meaningful, normalized_ai_dict  # noqa: E402
+from ai.structure import (  # noqa: E402
+    AI_FIELDS,
+    Structure,
+    find_truncated_fields,
+    is_meaningful,
+    normalized_ai_dict,
+)
 
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 DEFAULT_LANGUAGE = "Chinese"
@@ -210,6 +216,24 @@ def call_model(client, config: Dict, messages: List[Dict[str, str]]) -> Dict[str
             raise runtime.EmptyResponseError(
                 f"响应解析成功但无有效内容（前 200 字符：{content[:200]!r}）"
             )
+        # 单字段被 max_tokens 截断时（如 motivation 只剩 "HFrEF……"），
+        # is_meaningful 会因其它字段完整而放行，汇总仍显示「失败 0 篇」，
+        # 但残缺字段比缺失更误导读者。
+        #
+        # 处理方式与「部分响应保留可用字段」的既有契约保持一致：
+        # **剔除**被截断的字段（置空串），保留完整字段，而不是整条重试/丢弃。
+        # 渲染层对空串字段不渲染，读者看到的只是少一段，不会看到半句话。
+        truncated = find_truncated_fields(values)
+        if truncated:
+            values = dict(values)
+            for name in truncated:
+                values[name] = ""
+            print(
+                f"  剔除疑似截断字段：{', '.join(truncated)}",
+                file=sys.stderr,
+            )
+            if not is_meaningful(values):
+                raise runtime.EmptyResponseError("剔除截断字段后已无有效内容，重试")
         return values
 
     return runtime.invoke_with_retry(
@@ -424,6 +448,11 @@ def _load_dotenv_if_present() -> None:
     不会进仓库。云端用 GitHub Secrets，环境变量已就绪，这里读不到文件也无害。
     ``override=False``：环境变量优先于 .env，避免覆盖 CI 注入的凭据。
     """
+    # EP_ENHANCE_NO_DOTENV=1 可显式关闭加载。测试里必须设置它 —— 否则
+    # 「删除 OPENAI_API_KEY 模拟无 Key」的用例会被 .env 里的真实 Key 复活，
+    # 既破坏测试隔离，又真的会调用线上 API（消耗额度）。
+    if os.environ.get("EP_ENHANCE_NO_DOTENV", "").strip() in ("1", "true", "yes"):
+        return
     try:
         from dotenv import load_dotenv
     except ImportError:  # python-dotenv 是可选依赖
