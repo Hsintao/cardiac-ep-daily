@@ -575,7 +575,19 @@ main { padding: 26px 0 60px; }
 
 /* ------------------------------------------------------------ 论文卡片 */
 
-.paper-list { display: flex; flex-direction: column; gap: 14px; }
+.paper-list {
+    /* 两列网格（参考项目用的是 auto-fill + minmax，这里按需求固定两列）。
+       卡片高度不一致，用 align-items:start 防止同一行被拉齐留白。 */
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    align-items: start;
+}
+
+/* 窄屏 / 平板竖屏回落单列：两列在 <900px 时标题会挤成三行，反而更难读 */
+@media (max-width: 900px) {
+    .paper-list { grid-template-columns: minmax(0, 1fr); }
+}
 
 .paper-card {
     background: var(--surface);
@@ -1437,4 +1449,4 @@ main { padding: 26px 0 60px; }
 }
 
 /* 论文列表容器 */
-.paper-container { display: block; }
+.paper-container { display: grid; }
