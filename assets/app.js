@@ -18,7 +18,6 @@
         topicFilters: document.getElementById("topicFilters"),
         journalFilters: document.getElementById("journalFilters"),
         search: document.getElementById("textSearch"),
-        chipDate: document.getElementById("chipDate"),
         chipTotal: document.getElementById("chipTotal"),
         chipAI: document.getElementById("chipAI"),
         chipNoAbs: document.getElementById("chipNoAbs"),
@@ -92,7 +91,6 @@
             if (p.AI && p.AI.tldr) { aiCount += 1; }
             if (p.no_abstract) { noAbsCount += 1; }
         });
-        el.chipDate.textContent = state.day;
         el.chipTotal.textContent = papers.length;
         el.chipAI.textContent = aiCount;
         if (noAbsCount > 0) {

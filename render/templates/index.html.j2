@@ -38,19 +38,14 @@
         <h1>心脏电生理每日论文检索</h1>
         <p class="subtitle">Cardiac Electrophysiology Daily Digest · 按亚专业分组的文献速览</p>
 
+        {# 统计与主题切换合并为一行，避免多占一条空白行 #}
         <div class="header-meta">
-            <span class="chip">📅 日报日期 <strong id="chipDate">{{ default_date }}</strong></span>
-            <span class="chip">🕒 生成时间 <strong>{{ generated_at }}</strong></span>
             <span class="chip">📄 论文总数 <strong id="chipTotal">—</strong></span>
             <span class="chip">🤖 含 AI 解读 <strong id="chipAI">—</strong></span>
             <span class="chip" id="chipNoAbsWrap" hidden>📝 无摘要 <strong id="chipNoAbs">—</strong></span>
-        </div>
-
-        <nav class="header-nav">
-            <a href="#top">回到顶部</a>
             <button type="button" class="theme-toggle" id="themeToggle"
                     aria-label="切换深色/浅色模式" title="切换深色/浅色模式">🌗 主题</button>
-        </nav>
+        </div>
 
         <div class="date-bar">
             <label class="date-bar-label" for="dateToggle">日期</label>
@@ -62,7 +57,6 @@
                 </button>
                 <div class="date-panel" id="datePanel" role="listbox" hidden>
                     <div class="date-panel-head">
-                        <span>共 {{ days | length }} 天</span>
                         <button type="button" class="date-panel-latest" id="jumpLatest">跳到最新 →</button>
                     </div>
                     <div class="date-panel-body">
@@ -81,7 +75,6 @@
                     </div>
                 </div>
             </div>
-            <span class="date-bar-hint">共 {{ days | length }} 天 · 选择后本页即切换</span>
         </div>
     </div>
 </header>
@@ -115,7 +108,7 @@
 
 <footer class="site-footer">
     <div class="wrap">
-        <p>数据来源：PubMed / Europe PMC · AI 解读由 DeepSeek 生成 · 共 {{ days | length }} 天归档</p>
+        <p>数据来源：PubMed / Europe PMC</p>
     </div>
 </footer>
 

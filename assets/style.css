@@ -677,7 +677,7 @@ main { padding: 26px 0 60px; }
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-/* ---------------------------------------------------------------- 归档页 */
+/* ---------------------------------------------------------------- 日期导航 */
 
 .archive-list {
     list-style: none;
@@ -771,6 +771,8 @@ main { padding: 26px 0 60px; }
     transition: background .15s;
 }
 .theme-toggle:hover { background: var(--brand-soft); }
+/* 与统计 chip 同一行时垂直居中、字重一致 */
+.header-meta .theme-toggle { align-self: center; }
 .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* 打印时隐藏交互控件；深色下强制回到浅色，省墨且更易读 */
