@@ -2867,10 +2867,30 @@ main { padding: 26px 0 60px; }
         if (mode !== "single" && mode !== "range") { mode = "single"; }
         state.mode = mode;
         pendingStart = null;
+        clearPreview();
         if (el.dateRangeBar) { el.dateRangeBar.hidden = mode !== "range"; }
         if (el.clearRange) { el.clearRange.hidden = true; }
         syncModeButtons();
-        restoreActiveDays();
+        if (mode === "single") {
+            /* 从区间视图切回单日：直接落到区间内最新一天的单日结果。
+               否则正文还是区间、日期面板里整段区间高亮也留着，看起来就像
+               「单日」被区间高亮盖住了。 */
+            if (state.rangeView) {
+                switchDay(state.day || cfg.defaultDate);
+                return;
+            }
+            restoreActiveDays();
+            setDefaultHint();
+            return;
+        }
+        /* 切到区间：当前正文保持不变。已经在区间视图时恢复区间高亮；
+           单日视图则清掉单日高亮，等待用户重新点选起始日（不预设起点，
+           避免用户第一次点其它日期时被当成结束日，意外选出一大段区间）。 */
+        if (state.rangeView) {
+            restoreActiveDays();
+        } else {
+            clearCellMarks();
+        }
         setDefaultHint();
     }
 
