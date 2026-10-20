@@ -370,8 +370,12 @@ def build_pages(
 
     out_path = Path(out_path)
     archive_dir = out_path.parent / "archive"
-    # 首页列出全部往期（含当天）；归档页列出除自己以外的往期
-    archives = discover_archives(archive_dir, exclude="" if day == "" else "")
+    # 首页要列出全部日期（含当天）。当天归档页是在写完首页之后才落盘的，
+    # 所以扫描结果里不会有它 —— 必须把 day 并进去，否则首页的
+    # 「往期（N 天）」会永远少一天，且当天的归档页也点不到。
+    archives = discover_archives(archive_dir)
+    if day and day not in archives:
+        archives = sorted([*archives, day], reverse=True)
     context = build_context(items, date=day, generated_at=generated_at, archives=archives)
 
     style = read_style()
