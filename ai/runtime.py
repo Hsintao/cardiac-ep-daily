@@ -31,6 +31,8 @@ import time
 from typing import Callable, Optional, Tuple
 from urllib.parse import urlparse
 
+import httpx
+
 # --------------------------------------------------------------------------
 # DeepSeek 固定配置（契约，勿改）
 # --------------------------------------------------------------------------
@@ -311,6 +313,54 @@ def reasoning_effort() -> str:
 # --------------------------------------------------------------------------
 
 
+# NO_PROXY 里出现 ``[::1]`` 这类带方括号的 IPv6 写法时，httpx 会把它交给
+# urlparse 解析端口，直接抛 ``InvalidURL: Invalid port: ':1]'``。
+# 这是**在构造客户端阶段**就崩，连请求都发不出去，所以必须在建 client 前清理。
+_IPV6_BRACKET_RE = re.compile(r"\[[0-9a-fA-F:.]+\]")
+
+
+def sanitize_no_proxy(value: str) -> str:
+    """把 NO_PROXY 里 httpx 无法解析的条目剔掉。
+
+    保留 ``localhost``/``127.0.0.1`` 等有效条目，只移除带方括号的 IPv6 写法
+    （``[::1]``、``[::]``）—— 它们对本地服务绕过代理通常并非必需，而会直接
+    让 httpx 崩溃。
+    """
+    if not value:
+        return value
+    kept = []
+    for part in value.split(","):
+        item = part.strip()
+        if not item:
+            continue
+        if _IPV6_BRACKET_RE.search(item):
+            continue
+        kept.append(item)
+    return ",".join(kept)
+
+
+def build_http_client() -> httpx.Client:
+    """构造 httpx 客户端，并规避 NO_PROXY 的 IPv6 写法导致的构造期崩溃。
+
+    这里显式读取 proxy 环境变量并自己解析，而不是让 httpx 隐式读：
+    httpx 对 ``no_proxy`` 的解析在遇到 ``[::1]`` 时会抛 InvalidURL。
+    """
+    proxy_env = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy") or \
+        os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy") or ""
+    no_proxy = os.environ.get("NO_PROXY") or os.environ.get("no_proxy") or ""
+    clean_no_proxy = sanitize_no_proxy(no_proxy)
+
+    kwargs: dict = {"timeout": request_timeout()}
+    if proxy_env:
+        kwargs["proxy"] = proxy_env
+    # 把清理后的 no_proxy 放回环境：httpx 仍会读环境变量来判定绕过规则，
+    # 但此时内容已不再含会让它崩溃的条目。
+    if no_proxy:
+        os.environ["NO_PROXY"] = clean_no_proxy
+        os.environ["no_proxy"] = clean_no_proxy
+    return httpx.Client(**kwargs)
+
+
 def build_client_kwargs(config: dict) -> dict:
     """构造 openai SDK 客户端参数。
 
@@ -322,7 +372,31 @@ def build_client_kwargs(config: dict) -> dict:
         "base_url": normalize_base_url(config["base_url"]),
         "timeout": request_timeout(),
         "max_retries": 0,  # 重试由本模块的 invoke_with_retry 统一管理
+        # 显式给 http_client：避免 httpx 读取带 [::1] 的 NO_PROXY 时构造失败
+        "http_client": build_http_client(),
     }
+
+
+def _sdk_supports_reasoning_effort() -> bool:
+    """当前安装的 openai SDK 是否接受 ``reasoning_effort`` 参数。
+
+    ``reasoning_effort`` 是较新版本 SDK 才有的关键字参数。旧版本（如 1.51.x）
+    的 ``Completions.create()`` 没有它，传进去会抛
+    ``TypeError: got an unexpected keyword argument 'reasoning_effort'`` ——
+    注意这是**本地签名校验**失败，请求根本没发出去，所以不会体现在 HTTP 状态上，
+    表现为「所有论文都失败」而不是 4xx。
+
+    因此这里做能力探测：支持才传。关闭思考模式只是省 token 的优化，
+    缺了它并不影响功能正确性。
+    """
+    try:
+        import inspect
+
+        from openai.resources.chat.completions import Completions
+
+        return "reasoning_effort" in inspect.signature(Completions.create).parameters
+    except Exception:  # noqa: BLE001 - 探测失败时保守地不传
+        return False
 
 
 def build_request_kwargs(model_name: str, messages: list) -> dict:
@@ -341,7 +415,7 @@ def build_request_kwargs(model_name: str, messages: list) -> dict:
         "temperature": _env_float("AI_TEMPERATURE", 0.3, minimum=0.0, maximum=2.0),
     }
     effort = reasoning_effort()
-    if effort:
+    if effort and _sdk_supports_reasoning_effort():
         kwargs["reasoning_effort"] = effort
     return kwargs
 

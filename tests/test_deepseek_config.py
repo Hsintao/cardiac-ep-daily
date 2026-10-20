@@ -95,9 +95,23 @@ def test_request_kwargs_enable_json_mode_and_disable_thinking():
     assert kwargs["model"] == "deepseek-flash"
     # DeepSeek JSON 模式的硬性要求之一
     assert kwargs["response_format"] == {"type": "json_object"}
-    # 关闭思考模式降本提速
-    assert kwargs["reasoning_effort"] == "none"
     assert kwargs["max_tokens"] > 0
+    # 关闭思考模式降本提速 —— 但**仅当 SDK 支持该参数时**才传。
+    # openai 1.51.x 的 Completions.create() 没有 reasoning_effort，
+    # 硬传会抛 TypeError（本地签名校验失败，请求根本发不出去）。
+    if runtime._sdk_supports_reasoning_effort():
+        assert kwargs["reasoning_effort"] == "none"
+    else:
+        assert "reasoning_effort" not in kwargs
+
+
+def test_reasoning_effort_never_crashes_old_sdk(monkeypatch):
+    """回归：SDK 不支持时绝不能把 reasoning_effort 塞进请求参数。"""
+    monkeypatch.setattr(runtime, "_sdk_supports_reasoning_effort", lambda: False)
+    kwargs = runtime.build_request_kwargs(runtime.MODEL_NAME, [{"role": "user", "content": "hi"}])
+    assert "reasoning_effort" not in kwargs
+    # 其余参数不受影响
+    assert kwargs["response_format"] == {"type": "json_object"}
 
 
 def test_reasoning_effort_can_be_omitted(monkeypatch):
