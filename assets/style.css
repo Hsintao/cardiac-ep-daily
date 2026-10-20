@@ -1504,3 +1504,108 @@ main { padding: 26px 0 60px; }
     .ai-details-summary::before { transition: none; }
     .ai-details-body { animation: none; }
 }
+
+/* ==========================================================================
+   移动端（<= 640px）
+   --------------------------------------------------------------------------
+   实测（390x844）：旧样式顶栏 210px + 筛选区 316px = 526px，首屏就被占掉
+   62%；360x640 更是 549px / 86%。而且两者都是 sticky，往下读论文时一直压在
+   正文上面 —— 这就是「下滑时标题和期刊名占大半个屏」的来源。
+
+   目标：手机上把屏幕让给论文内容。
+     · 顶栏、筛选区都不再 sticky，随页面滚走，下滑时正文独占全屏；
+     · 首屏高度压缩：副标题 / emoji 隐藏，控件与统计 chip 缩小；
+     · 主题 / 期刊按钮改成单行横向滑动，不再换行堆成一大片；
+     · 期刊不再折叠：手机上直接横向滑动查看全部，避免「展开全部」按钮
+       被样式藏掉后点了却没反应。
+   ========================================================================== */
+
+@media (max-width: 640px) {
+
+    /* ---------- 1) 顶栏：跟随页面滚走 ---------- */
+    /* 用 relative 而不是 static：static 会让 z-index 失效，日期下拉面板
+       反而被后面的筛选栏盖住。relative 不吸顶，但保住层级。 */
+    .site-header { position: relative; padding: 10px 0 8px; }
+
+    .header-top { padding-top: 0; padding-bottom: 6px; gap: 8px; }
+    .site-logo { gap: 8px; }
+    .logo-mark { width: 28px; height: 28px; font-size: 14px; border-radius: 8px; }
+    .site-title { font-size: 16px; }
+    .header-left .subtitle { display: none; }   /* 副标题在手机上纯占地方 */
+
+    .header-right { gap: 8px; }
+    .date-toggle { padding: 5px 10px; font-size: 12.5px; min-width: 0; }
+    .date-toggle-icon { display: none; }         /* emoji 在部分机型显示异常，手机上省掉 */
+    .theme-toggle { padding: 5px 10px; font-size: 12.5px; }
+
+    /* 统计 chip 压成一行小字 */
+    .header-stats { padding-bottom: 2px; gap: 6px; font-size: 11.5px; }
+    .header-stats .chip { padding: 2px 9px; font-size: 11.5px; }
+
+    /* ---------- 2) 筛选区：同样滚走，单行横向滑动 ---------- */
+    .filters { position: static; padding: 8px 0; }
+
+    .filter-row {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 6px;
+    }
+    .filter-row:last-child { margin-bottom: 0; }
+
+    /* 小标签（主题/期刊/检索）内联在左侧，不再单独占一行 */
+    .filter-label {
+        display: inline-flex;
+        flex: 0 0 auto;
+        min-width: 0;
+        font-size: 11px;
+        padding-top: 0;
+    }
+
+    .filter-buttons {
+        flex: 1 1 auto;
+        min-width: 0;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        gap: 6px;
+        padding-bottom: 1px;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+    }
+    .filter-buttons::-webkit-scrollbar { display: none; }
+
+    .filter-btn {
+        flex: 0 0 auto;          /* 不压缩，靠横向滚动 */
+        white-space: nowrap;
+        font-size: 12px;
+        padding: 3px 10px;
+    }
+
+    /* 手机上期刊全部可见（横向滑动）：隐藏「展开全部」，
+       否则它会把按钮藏起来、点了却展不开，成了死按钮 */
+    .filter-buttons .extra-journal { display: inline-flex !important; }
+    .filter-btn.more-btn { display: none !important; }
+
+    /* 检索框矮一些 */
+    .search-box { font-size: 13px; padding: 6px 12px; min-width: 0; }
+
+    /* ---------- 3) 内容区：更紧凑 ---------- */
+    .topic-heading { margin: 16px 0 8px; font-size: 15px; }
+
+    .paper-card-header { padding: 14px 15px 0; }
+    .paper-card-content { padding: 10px 15px 12px; }
+    .paper-card-footer { padding: 10px 15px 12px; }
+    .paper-card-header .paper-title { font-size: 15px; line-height: 1.45; }
+    /* 序号徽标在手机上已隐藏，期刊/日期行与标题左缘对齐 */
+    .paper-card-header .paper-meta { margin-left: 0; font-size: 12px; }
+
+    .paper-card .tag-row { margin-bottom: 8px; gap: 5px; }
+    .paper-card .tag { font-size: 11px; padding: 1px 8px; }
+
+    .paper-authors { font-size: 12px; margin-bottom: 8px; }
+
+    /* AI 面板收紧 */
+    .ai-panel { padding: 10px 12px; margin-top: 10px; }
+    .ai-tldr p { font-size: 13.5px; line-height: 1.65; }
+}
