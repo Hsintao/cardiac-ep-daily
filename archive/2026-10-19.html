@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light dark">
-<meta name="description" content="心脏电生理日报归档 · 2026-10-19">
-<title>归档 · 2026-10-19 · 心脏电生理日报</title>
+<meta name="description" content="心脏电生理每日论文检索 · 2026-10-19">
+<title>心脏电生理日报 · 2026-10-19</title>
 <script>
 /* 主题初始化：必须在样式生效前执行，避免深色用户看到白屏闪烁。
    读取顺序：localStorage 手动选择 > 系统偏好。写入 <html data-theme>。 */
@@ -16,39 +16,6 @@
             document.documentElement.setAttribute('data-theme', saved);
         }
     } catch (e) { /* 隐私模式下 localStorage 可能抛错，忽略即可 */ }
-})();
-
-/* 主题切换：跟随系统 → 手动选择 → 再点回到跟随系统。
-   三态循环，按钮 title 显示当前状态，localStorage 记忆手动选择。 */
-(function () {
-    var btn = document.getElementById("themeToggle");
-    if (!btn) { return; }
-    var root = document.documentElement;
-    var mql = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
-
-    function current() {
-        var manual = root.getAttribute("data-theme");
-        if (manual === "dark" || manual === "light") { return manual; }
-        return (mql && mql.matches) ? "dark" : "light";
-    }
-    function label() {
-        var manual = root.getAttribute("data-theme");
-        var suffix = manual ? "" : "（跟随系统）";
-        btn.textContent = (current() === "dark" ? "☀️ 浅色" : "🌙 深色") + suffix;
-        btn.title = "当前：" + (current() === "dark" ? "深色" : "浅色") + suffix + "，点击切换";
-    }
-    btn.addEventListener("click", function () {
-        var next = current() === "dark" ? "light" : "dark";
-        root.setAttribute("data-theme", next);
-        try { localStorage.setItem("ep-digest-theme", next); } catch (e) {}
-        label();
-    });
-    if (mql && mql.addEventListener) {
-        mql.addEventListener("change", function () {
-            if (!root.getAttribute("data-theme")) { label(); }
-        });
-    }
-    label();
 })();
 </script>
 <style>
@@ -906,157 +873,849 @@ main { padding: 26px 0 60px; }
 /* 展开时用 class 切换，比 hidden 属性更稳（display:flex 会覆盖 [hidden]） */
 .archive-nav.expanded .archive-nav-days { display: none; }
 
-/* 归档页专属微调 */
-.archive-list .a-authors {
-    flex: 0 0 auto;
+/* ---------------------------------------------------------------- 日期选择器 */
+
+.date-bar {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--header-border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+}
+
+.date-bar-label { color: var(--text-tertiary); }
+
+.date-bar-hint { color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+
+.date-select { position: relative; }
+
+.date-toggle {
+    font: inherit;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    color: var(--header-accent);
+    background: var(--surface);
+    border: 1px solid var(--header-border);
+    border-radius: 8px;
+    padding: 5px 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 132px;
+    justify-content: space-between;
+}
+.date-toggle:hover { background: var(--brand-soft); }
+.date-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.date-toggle-caret { color: var(--text-tertiary); font-size: 11px; }
+
+.date-panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 40;
+    width: 340px;
+    max-height: 60vh;
+    overflow-y: auto;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, .14);
+    padding: 12px;
+}
+.date-panel[hidden] { display: none; }
+
+.date-panel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     font-size: 12px;
     color: var(--text-tertiary);
-    max-width: 260px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
 }
-@media (max-width: 640px) { .archive-list .a-authors { display: none; } }
+.date-panel-latest { color: var(--brand); }
+
+.date-month + .date-month { margin-top: 10px; }
+
+.date-month-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.date-month-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+}
+
+.date-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 30px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+    background: var(--surface-muted);
+    border: 1px solid transparent;
+}
+.date-cell:hover { background: var(--brand-soft); text-decoration: none; }
+.date-cell.current {
+    background: var(--brand);
+    color: var(--surface);
+    font-weight: 700;
+    border-color: var(--brand);
+}
+
+@media print { .date-bar { display: none; } }
+
 </style>
 </head>
 <body>
 
 <header class="site-header">
     <div class="wrap">
-        <h1>心脏电生理日报 · 归档</h1>
-        <p class="subtitle">2026-10-19 全部论文清单</p>
+        <h1>心脏电生理每日论文检索</h1>
+        <p class="subtitle">Cardiac Electrophysiology Daily Digest · 按亚专业分组的文献速览</p>
         <div class="header-meta">
-<span class="chip">📅 <strong>2026-10-19</strong></span>            <span class="chip">🕒 生成时间 <strong>2026-10-20 09:31</strong></span>
+<span class="chip">📅 日报日期 <strong>2026-10-19</strong></span>            <span class="chip">🕒 生成时间 <strong>2026-10-20 09:57</strong></span>
             <span class="chip">📄 论文总数 <strong>8</strong></span>
             <span class="chip">🤖 含 AI 解读 <strong>6</strong></span>
-        </div>
+<span class="chip">📝 无摘要 <strong>2</strong></span>        </div>
         <nav class="header-nav">
-            <a href="../index.html">← 返回主页</a>
-            <a href="#top">回到顶部</a>
+<a href="../archive/2026-10-19.html">本篇归档页</a><a href="../index.html">最新一期</a>            <a href="#top">回到顶部</a>
+            <button type="button" class="theme-toggle" id="themeToggle"
+                    aria-label="切换深色/浅色模式" title="切换深色/浅色模式">🌗 主题</button>
         </nav>
+
+        <div class="date-bar">
+            <label class="date-bar-label" for="dateToggle">日期</label>
+            <div class="date-select" id="dateSelect">
+                <button type="button" class="date-toggle" id="dateToggle"
+                        aria-haspopup="listbox" aria-expanded="false"
+                        aria-controls="datePanel">
+                    <span class="date-toggle-text">2026-10-19</span>
+                    <span class="date-toggle-caret" aria-hidden="true">▾</span>
+                </button>
+                <div class="date-panel" id="datePanel" role="listbox" hidden>
+                    <div class="date-panel-head">
+                        <span>共 29 天</span>
+<a class="date-panel-latest" href="../index.html">跳到最新一期 →</a>                    </div>
+                    <div class="date-panel-body">
+                        <div class="date-month">
+                            <div class="date-month-label">2026 年 10 月</div>
+                            <div class="date-month-days">
+                                <a href="../archive/2026-10-19.html"
+                                   class="date-cell current"
+                                   role="option" aria-selected="true">19</a>
+                                <a href="../archive/2026-10-18.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">18</a>
+                                <a href="../archive/2026-10-17.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">17</a>
+                                <a href="../archive/2026-10-16.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">16</a>
+                                <a href="../archive/2026-10-15.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">15</a>
+                                <a href="../archive/2026-10-14.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">14</a>
+                                <a href="../archive/2026-10-13.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">13</a>
+                                <a href="../archive/2026-10-12.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">12</a>
+                                <a href="../archive/2026-10-11.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">11</a>
+                                <a href="../archive/2026-10-10.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">10</a>
+                                <a href="../archive/2026-10-09.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">09</a>
+                                <a href="../archive/2026-10-08.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">08</a>
+                                <a href="../archive/2026-10-07.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">07</a>
+                                <a href="../archive/2026-10-06.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">06</a>
+                                <a href="../archive/2026-10-05.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">05</a>
+                                <a href="../archive/2026-10-04.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">04</a>
+                                <a href="../archive/2026-10-03.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">03</a>
+                                <a href="../archive/2026-10-02.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">02</a>
+                                <a href="../archive/2026-10-01.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">01</a>
+                            </div>
+                        </div>
+                        <div class="date-month">
+                            <div class="date-month-label">2026 年 9 月</div>
+                            <div class="date-month-days">
+                                <a href="../archive/2026-09-30.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">30</a>
+                                <a href="../archive/2026-09-29.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">29</a>
+                                <a href="../archive/2026-09-28.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">28</a>
+                                <a href="../archive/2026-09-27.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">27</a>
+                                <a href="../archive/2026-09-26.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">26</a>
+                                <a href="../archive/2026-09-25.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">25</a>
+                                <a href="../archive/2026-09-24.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">24</a>
+                                <a href="../archive/2026-09-23.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">23</a>
+                                <a href="../archive/2026-09-22.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">22</a>
+                                <a href="../archive/2026-09-21.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">21</a>
+                                <a href="../archive/2026-09-20.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">20</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <span class="date-bar-hint">共 29 天归档</span>
+        </div>
     </div>
 </header>
 
-<main id="top">
+<div class="filters" id="top">
+    <div class="wrap">
+        <div class="filter-row">
+            <span class="filter-label">主题</span>
+            <div class="filter-buttons" id="topicFilters">
+                <button type="button" class="filter-btn active" data-filter-topic="all">全部 <span class="count">8</span></button>
+                <button type="button" class="filter-btn" data-filter-topic="房颤与消融">房颤与消融 <span class="count">4</span></button>
+                <button type="button" class="filter-btn" data-filter-topic="室性心律失常">室性心律失常 <span class="count">2</span></button>
+                <button type="button" class="filter-btn" data-filter-topic="遗传与基础">遗传与基础 <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-topic="其他">其他 <span class="count">1</span></button>
+            </div>
+        </div>
+        <div class="filter-row">
+            <span class="filter-label">期刊</span>
+            <div class="filter-buttons" id="journalFilters">
+                <button type="button" class="filter-btn active" data-filter-journal="all">全部</button>
+                <button type="button" class="filter-btn" data-filter-journal="Ann Intensive Care">Ann Intensive Care <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="Cardiol Young">Cardiol Young <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="Cureus">Cureus <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="Echo Res Pract">Echo Res Pract <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="Eur J Cardiovasc Nurs">Eur J Cardiovasc Nurs <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="J Cardiothorac Surg">J Cardiothorac Surg <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="JACC Clin Electrophysiol">JACC Clin Electrophysiol <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="Phys Imaging Radiat Oncol">Phys Imaging Radiat Oncol <span class="count">1</span></button>
+            </div>
+        </div>
+        <div class="filter-row">
+            <span class="filter-label">检索</span>
+            <input type="search" id="textSearch" class="search-box" placeholder="输入关键词过滤标题 / 作者 / 摘要（本地匹配，不联网）" aria-label="关键词过滤">
+        </div>
+    </div>
+</div>
+
+<main>
     <div class="wrap">
 
 
-        <section class="topic-group">
+        <section class="topic-group" data-group-topic="房颤与消融">
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>房颤与消融</span>
                 <span class="topic-count">4 篇</span>
             </h2>
-            <ul class="archive-list">
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42894798/" target="_blank" rel="noopener noreferrer">Guidelines for the management of atrial fibrillation in adult patients admitted to an intensive care unit.</a>
-                    </span>
-                    <span class="a-authors">Vincent Labbé、Nadia Aissaoui、Pierre Asfar、François Bagate、Simon Bourcier、Stephane Ederhy、Julie Helms、Sami Hraiech、Jérémie Joffre、Adrien Joseph、Khaldoun Kuteifan、Armand Mekontso Dessap、Sebastien Preau、Louise-Marie Jandeaux</span>
-                    <span class="a-journal">Ann Intensive Care</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42894798/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.aicoj.2026.100159" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42894798/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42894198/" target="_blank" rel="noopener noreferrer">Determinants of outcome in atrial functional tricuspid regurgitation.</a>
-                    </span>
-                    <span class="a-authors">Jawza Aldakhil、Kush Patel、Sveeta Badiani、Steffen E Petersen、Guy Lloyd、Sanjeev Bhattacharyya</span>
-                    <span class="a-journal">Echo Res Pract</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42894198/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1186/s44156-026-00140-4" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42894198/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42895107/" target="_blank" rel="noopener noreferrer">Physical and psychological pathways associated with cognitive recovery following Baduanjin exercise combined with digital cognitive training in older adults with atrial fibrillation: A secondary mediation analysis of a randomized controlled trial.</a>
-                    </span>
-                    <span class="a-authors">Ding Yunmei、Lu Xiaohong、Wang Maojing、Cao Lihua、Xiang Cong Tham、Dong Yanhong、Yue Shouwei、Cui Yan</span>
-                    <span class="a-journal">Eur J Cardiovasc Nurs</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42895107/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1093/eurjcn/zvag241" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42895107/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42894221/" target="_blank" rel="noopener noreferrer">Distinct hemodynamic implications of junctional rhythm versus sinus rhythm on cardiac reverse remodeling after the Maze procedure.</a>
-                    </span>
-                    <span class="a-authors">Hee Jeong Lee、YoHan Bae、Jung Uk Woo、Sungsil Yoon、Woo Sung Jang、Yun Seok Kim、Jonghoon Yoo、Kyungsub Song</span>
-                    <span class="a-journal">J Cardiothorac Surg</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42894221/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1186/s13019-026-04550-7" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42894221/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-            </ul>
+
+            <div class="paper-list">
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="Ann Intensive Care"
+                         data-search="guidelines for the management of atrial fibrillation in adult patients admitted to an intensive care unit. vincent labbé nadia aissaoui pierre asfar françois bagate simon bourcier stephane ederhy julie helms sami hraiech jérémie joffre adrien joseph khaldoun kuteifan armand mekontso dessap sebastien preau louise-marie jandeaux most existing recommendations for atrial fibrillation are derived from cardiology settings. however, atrial fibrillation is also highly prevalent among patients admitted to intensive care units and is associated with adverse clinical outcomes. therefore, its management in this specific context warrants dedicated guidance. to address this need, the french intensive care society has developed formalized expert recommendations using the grading of recommendations assessment, development, and evaluation (grade) methodology. twenty-four questions addressing the management of atrial fibrillation were evaluated in adult patients admitted to intensive care units. of these, twenty-one focused specifically on new-onset atrial fibrillation, one addressed pre-existing atrial fibrillation, and two were applicable to both conditions. the assessment encompassed the role of transthoracic and transesophageal echocardiography, the management of potentially reversible triggers (optimization of fluid status, magnesium supplementation, serum potassium targets, and screening for thyroid dysfunction…), strategies for mitigating hemodynamic risk (indications and modalities for rhythm and rate control), and the management of thrombotic risk (indications, regimens, and duration of therapeutic anticoagulation). eighteen recommendations were formulated, all of which achieved strong agreement among the expert panel. only two recommendations were supported by a low level of evidence (grade 2+), whereas the remaining sixteen relied on evidence that could not be classified within the grade framework and were therefore issued as expert opinions. for six additional aspects of atrial fibrillation management, the experts concluded that the available evidence was insufficient to support the formulation of a reliable recommendation. ann intensive care"
+                         id="paper-1">
+
+                    <div class="paper-top">
+                        <div class="paper-index">1</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42894798/" target="_blank" rel="noopener noreferrer">Guidelines for the management of atrial fibrillation in adult patients admitted to an intensive care unit.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Ann Intensive Care</span><span class="dot">·</span><span class="paper-date">2026-10-19</span><span class="dot">·</span><span class="paper-date">PMID 42894798</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Vincent Labbé、Nadia Aissaoui、Pierre Asfar、François Bagate、Simon Bourcier、Stephane Ederhy、Julie Helms、Sami Hraiech、Jérémie Joffre、Adrien Joseph、Khaldoun Kuteifan、Armand Mekontso Dessap、Sebastien Preau、Louise-Marie Jandeaux">
+                                Vincent Labbé、Nadia Aissaoui、Pierre Asfar<span class="authors-more"> 等 14 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">Most existing recommendations for atrial fibrillation are derived from cardiology settings. However, atrial fibrillation is also highly prevalent among patients admitted to intensive care units and is associated with adverse clinical outcomes. Therefore, its management in this specific context warrants dedicated guidance. To address this need, The French Intensive Care Society has developed formalized expert recommendations using the Grading of Recommendations Assessment, Development, and Evaluation (GRADE) methodology. Twenty-four questions addressing the management of atrial fibrillation were evaluated in adult patients admitted to intensive care units. Of these, twenty-one focused specifically on new-onset atrial fibrillation, one addressed pre-existing atrial fibrillation, and two were applicable to both conditions. The assessment encompassed the role of transthoracic and transesophageal echocardiography, the management of potentially reversible triggers (optimization of fluid status, magnesium supplementation, serum potassium targets, and screening for thyroid dysfunction…), strategies for mitigating hemodynamic risk (indications and modalities for rhythm and rate control), and the management of thrombotic risk (indications, regimens, and duration of therapeutic anticoagulation). Eighteen recommendations were formulated, all of which achieved strong agreement among the expert panel. Only two recommendations were supported by a low level of evidence (GRADE 2+), whereas the remaining sixteen relied on evidence that could not be classified within the GRADE framework and were therefore issued as expert opinions. For six additional aspects of atrial fibrillation management, the experts concluded that the available evidence was insufficient to support the formulation of a reliable recommendation.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">法国重症医学会基于GRADE方法制定成人ICU内房颤管理专家建议，围绕24个问题形成18条推荐，其中16条因证据无法纳入GRADE分级而仅作为专家意见。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">现有房颤指南大多来自心内科人群，而ICU住院患者房颤患病率高且与不良临床结局相关，这一特定场景的管理缺乏专门指导，需要针对性地制定建议以规范诊疗。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">法国重症医学会采用GRADE方法制定规范化专家建议，评估对象为入住ICU的成人房颤患者，共提出24个问题：21个针对新发房颤、1个针对既往房颤、2个两者兼适用。评估内容涵盖经胸与经食管超声心动图的作用、可逆诱因的处理（容量状态优化、补镁、血钾目标、甲状腺功能筛查等）、血流动力学风险控制策略（节律与心率控制的适应证与方式）以及血栓风险管理（治疗性抗凝的适应证、方案和疗程）。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">最终形成18条推荐，全部在专家组内达成强一致；其中仅2条基于低水平证据（GRADE 2+），其余16条所依据的证据无法纳入GRADE框架，故以专家意见形式发布。另有6个房颤管理方面，专家认为现有证据不足以支持形成可靠推荐。摘要未报告各条推荐的具体内容及定量效应值。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">该文件为ICU成人房颤尤其是新发房颤的管理提供了系统化框架，但证据基础总体薄弱，绝大多数推荐仅为专家意见，提示该领域高质量研究缺口明显；临床应用时应结合个体情况，未来需针对性开展ICU人群的干预性研究。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42894798/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1016/j.aicoj.2026.100159" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42894798/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="Echo Res Pract"
+                         data-search="determinants of outcome in atrial functional tricuspid regurgitation. jawza aldakhil kush patel sveeta badiani steffen e petersen guy lloyd sanjeev bhattacharyya background: atrial functional tricuspid regurgitation (aftr) is increasingly recognized as a result of atrial remodelling in patients with atrial fibrillation (af). however, prognostic predictors in this population remain incompletely defined.
+
+objectives: to evaluate echocardiographic characteristics and identify predictors of all-cause mortality in patients with aftr.
+
+methods: we retrospectively studied consecutive patients with af who underwent transthoracic echocardiography between 2017 and 2025. inclusion required significant right atrial remodelling, defined as a right atrial area &gt; 25 cm2. patients with at least moderate functional tricuspid regurgitation comprised the aftr cohort, while patients with mild/trivial/no tricuspid regurgitation served as controls. patients with primary valvular disease, cardiomyopathy, congenital heart disease, device-related valve disease, rv dilatation, or more than mild rv systolic dysfunction were excluded. cox proportional hazards regression was performed to identify predictors of mortality.
+
+results: a total of 152 patients were included, comprising 120 patients with aftr and 32 controls. compared with controls, patients with aftr demonstrated larger atrial dimensions, higher right-sided hemodynamic-burden, impaired rv longitudinal strain, and reduced reservoir ra strain. during a median follow-up of 6.3 years, 53 deaths (45%) occurred among patients with aftr. in univariable cox analysis, age (hr 1.02, 95% ci 1.00-1.04; p = 0.016), tr vmax (hr 1.59, 95% ci 1.07-2.35; p = 0.020), and lower reservoir ra strain (hr 0.90, 95% ci 0.84-0.96; p = 0.003) were associated with mortality. in multivariable analysis, reservoir ra strain remained independently associated with mortality (adjusted hr 0.88, 95% ci 0.81-0.95; p &lt; 0.001).
+
+conclusion: aftr is characterized by marked biatrial remodelling and impaired right atrial function. reduced ra reservoir strain was independently associated with mortality, supporting a potential role for ra deformation imaging in risk stratification in aftr. echo res pract"
+                         id="paper-2">
+
+                    <div class="paper-top">
+                        <div class="paper-index">2</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42894198/" target="_blank" rel="noopener noreferrer">Determinants of outcome in atrial functional tricuspid regurgitation.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Echo Res Pract</span><span class="dot">·</span><span class="paper-date">2026-10-19</span><span class="dot">·</span><span class="paper-date">PMID 42894198</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Jawza Aldakhil、Kush Patel、Sveeta Badiani、Steffen E Petersen、Guy Lloyd、Sanjeev Bhattacharyya">
+                                Jawza Aldakhil、Kush Patel、Sveeta Badiani<span class="authors-more"> 等 6 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">BACKGROUND: Atrial functional tricuspid regurgitation (AFTR) is increasingly recognized as a result of atrial remodelling in patients with atrial fibrillation (AF). However, prognostic predictors in this population remain incompletely defined.
+
+OBJECTIVES: To evaluate echocardiographic characteristics and identify predictors of all-cause mortality in patients with AFTR.
+
+METHODS: We retrospectively studied consecutive patients with AF who underwent transthoracic echocardiography between 2017 and 2025. Inclusion required significant right atrial remodelling, defined as a right atrial area &gt; 25 cm2. Patients with at least moderate functional tricuspid regurgitation comprised the AFTR cohort, while patients with mild/trivial/no tricuspid regurgitation served as controls. Patients with primary valvular disease, cardiomyopathy, congenital heart disease, device-related valve disease, RV dilatation, or more than mild RV systolic dysfunction were excluded. Cox proportional hazards regression was performed to identify predictors of mortality.
+
+RESULTS: A total of 152 patients were included, comprising 120 patients with AFTR and 32 controls. Compared with controls, patients with AFTR demonstrated larger atrial dimensions, higher right-sided hemodynamic-burden, impaired RV longitudinal strain, and reduced reservoir RA strain. During a median follow-up of 6.3 years, 53 deaths (45%) occurred among patients with AFTR. In univariable Cox analysis, age (HR 1.02, 95% CI 1.00-1.04; p = 0.016), TR Vmax (HR 1.59, 95% CI 1.07-2.35; p = 0.020), and lower reservoir RA strain (HR 0.90, 95% CI 0.84-0.96; p = 0.003) were associated with mortality. In multivariable analysis, reservoir RA strain remained independently associated with mortality (adjusted HR 0.88, 95% CI 0.81-0.95; p &lt; 0.001).
+
+CONCLUSION: AFTR is characterized by marked biatrial remodelling and impaired right atrial function. Reduced RA reservoir strain was independently associated with mortality, supporting a potential role for RA deformation imaging in risk stratification in AFTR.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">在152例伴显著右房重构（右房面积&gt;25 cm²）的房颤患者中，房性功能性三尖瓣反流患者的右房储备期应变降低是全因死亡的独立预测因素（校正HR 0.88，95%CI 0.81-0.95）。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">房性功能性三尖瓣反流（AFTR）被认为是房颤患者心房重构所致的后果，近年来受到越来越多的关注，但该人群的预后预测因素仍未充分明确。既有的超声评估多聚焦于三尖瓣反流严重程度与右室收缩功能，而右房形变（应变）成像与硬终点（全因死亡）之间的关系缺乏数据，因此本研究拟在存在显著右房重构的房颤人群中识别死亡的预测指标。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">单中心回顾性队列研究。连续纳入2017—2025年接受经胸超声心动图的房颤患者，入组要求为显著右房重构，即右房面积&gt;25 cm²；将合并至少中度功能性三尖瓣反流者定义为AFTR组，将三尖瓣反流为轻度、微量或无的患者作为对照组。排除原发性瓣膜病、心肌病、先天性心脏病、器械相关瓣膜病、右室扩大或右室收缩功能不全超过轻度者。共纳入152例（AFTR组120例，对照组32例）。主要终点为全因死亡，采用Cox比例风险回归筛选预测因素。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">与对照组相比，AFTR组心房径线更大、右心血流动力学负荷更高、右室纵向应变受损、右房储备期应变降低（具体数值摘要未报告）。在中位随访6.3年期间，AFTR组有53例死亡（45%）。单因素Cox分析显示，年龄（HR 1.02，95%CI 1.00-1.04，P=0.016）、三尖瓣反流最大流速（TR Vmax，HR 1.59，95%CI 1.07-2.35，P=0.020）与较低的右房储备期应变（HR 0.90，95%CI 0.84-0.96，P=0.003）与死亡相关。在多因素分析中，右房储备期应变仍与死亡独立相关（校正HR 0.88，95%CI 0.81-0.95，P&lt;0.001）；其余变量的多因素结果摘要未报告。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">AFTR以显著的双心房重构和右房功能受损为特征；右房储备期应变降低与全因死亡独立相关，提示右房形变成像可能有助于该人群的风险分层，并为三尖瓣干预时机评估提供参考。局限性包括单中心回顾性设计、样本量小且对照组仅32例、事件数有限、多因素模型协变量与模型性能摘要未完整报告，结论需前瞻性多中心研究验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42894198/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1186/s44156-026-00140-4" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42894198/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="Eur J Cardiovasc Nurs"
+                         data-search="physical and psychological pathways associated with cognitive recovery following baduanjin exercise combined with digital cognitive training in older adults with atrial fibrillation: a secondary mediation analysis of a randomized controlled trial. ding yunmei lu xiaohong wang maojing cao lihua xiang cong tham dong yanhong yue shouwei cui yan  eur j cardiovasc nurs"
+                         id="paper-3">
+
+                    <div class="paper-top">
+                        <div class="paper-index">3</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42895107/" target="_blank" rel="noopener noreferrer">Physical and psychological pathways associated with cognitive recovery following Baduanjin exercise combined with digital cognitive training in older adults with atrial fibrillation: A secondary mediation analysis of a randomized controlled trial.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Eur J Cardiovasc Nurs</span><span class="dot">·</span><span class="paper-date">2026-10-19</span><span class="dot">·</span><span class="paper-date">PMID 42895107</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Ding Yunmei、Lu Xiaohong、Wang Maojing、Cao Lihua、Xiang Cong Tham、Dong Yanhong、Yue Shouwei、Cui Yan">
+                                Ding Yunmei、Lu Xiaohong、Wang Maojing<span class="authors-more"> 等 8 位作者</span>                            </p>
+
+                            <div class="abstract-block">
+                                <p class="abstract-none">暂无摘要（该文献可能为社论、评论或通信类文章）</p>
+                            </div>
+
+                            <p class="ai-missing">未生成 AI 解读（仅显示原文摘要）</p>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42895107/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1093/eurjcn/zvag241" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42895107/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="J Cardiothorac Surg"
+                         data-search="distinct hemodynamic implications of junctional rhythm versus sinus rhythm on cardiac reverse remodeling after the maze procedure. hee jeong lee yohan bae jung uk woo sungsil yoon woo sung jang yun seok kim jonghoon yoo kyungsub song background: surgical success after the maze procedure is conventionally defined as &#34;freedom from atrial fibrillation (af),&#34; often grouping junctional rhythm (jr) with normal sinus rhythm (nsr). however, the specific hemodynamic impact of jr remains poorly understood. this study investigated whether jr truly represents a successful outcome compared to nsr and af.
+
+methods: we retrospectively analyzed patients undergoing the maze procedure (2012-2024). after designating the first postoperative month as a blanking period for rhythm instability, we included only patients maintaining a consistent rhythm without crossover from 1 to 12 months postoperatively: af (n = 71), nsr (n = 213), and jr (n = 35). outcomes included cardiac reverse remodeling-assessed by left atrial contractile strain (lasct) and chamber dimensions-and permanent pacemaker (ppm) implantation.
+
+results: in the iptw-adjusted cohort, the nsr group achieved significant cardiac reverse remodeling, characterized by improved lvef (58.5%), reduced la volume index (75.1 ml/m²), and notable recovery of lasct. in stark contrast, the jr group failed to show any reverse remodeling or mechanical recovery, exhibiting hemodynamic stagnation indistinguishable from the af group. consequently, no significant difference in cardiac function was observed between the jr and af groups. furthermore, the jr group faced a drastically elevated risk of ppm implantation compared to both the nsr and af groups (p &lt; 0.001).
+
+conclusions: jr is not a benign alternative to sinus rhythm; it mimics af in preventing cardiac reverse remodeling and carries a high risk of pacemaker dependency. therefore, jr should be clinically differentiated from nsr and recognized as a suboptimal hemodynamic outcome similar to af. j cardiothorac surg"
+                         id="paper-4">
+
+                    <div class="paper-top">
+                        <div class="paper-index">4</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42894221/" target="_blank" rel="noopener noreferrer">Distinct hemodynamic implications of junctional rhythm versus sinus rhythm on cardiac reverse remodeling after the Maze procedure.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">J Cardiothorac Surg</span><span class="dot">·</span><span class="paper-date">2026-10-19</span><span class="dot">·</span><span class="paper-date">PMID 42894221</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Hee Jeong Lee、YoHan Bae、Jung Uk Woo、Sungsil Yoon、Woo Sung Jang、Yun Seok Kim、Jonghoon Yoo、Kyungsub Song">
+                                Hee Jeong Lee、YoHan Bae、Jung Uk Woo<span class="authors-more"> 等 8 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">BACKGROUND: Surgical success after the Maze procedure is conventionally defined as &#34;freedom from atrial fibrillation (AF),&#34; often grouping junctional rhythm (JR) with normal sinus rhythm (NSR). However, the specific hemodynamic impact of JR remains poorly understood. This study investigated whether JR truly represents a successful outcome compared to NSR and AF.
+
+METHODS: We retrospectively analyzed patients undergoing the Maze procedure (2012-2024). After designating the first postoperative month as a blanking period for rhythm instability, we included only patients maintaining a consistent rhythm without crossover from 1 to 12 months postoperatively: AF (n = 71), NSR (n = 213), and JR (n = 35). Outcomes included cardiac reverse remodeling-assessed by left atrial contractile strain (LASct) and chamber dimensions-and permanent pacemaker (PPM) implantation.
+
+RESULTS: In the IPTW-adjusted cohort, the NSR group achieved significant cardiac reverse remodeling, characterized by improved LVEF (58.5%), reduced LA volume index (75.1 mL/m²), and notable recovery of LASct. In stark contrast, the JR group failed to show any reverse remodeling or mechanical recovery, exhibiting hemodynamic stagnation indistinguishable from the AF group. Consequently, no significant difference in cardiac function was observed between the JR and AF groups. Furthermore, the JR group faced a drastically elevated risk of PPM implantation compared to both the NSR and AF groups (P &lt; 0.001).
+
+CONCLUSIONS: JR is not a benign alternative to sinus rhythm; it mimics AF in preventing cardiac reverse remodeling and carries a high risk of pacemaker dependency. Therefore, JR should be clinically differentiated from NSR and recognized as a suboptimal hemodynamic outcome similar to AF.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">Maze 术后保持交界性心律者与房颤组同样无法获得心脏逆重构，且起搏器植入风险显著高于窦性心律与房颤组，故不应将交界性心律等同于手术成功。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">外科 Maze 手术的成功传统上以“无房颤（AF）”定义，常将交界性心律（JR）与正常窦性心律（NSR）合并视为良好结局。但 JR 丧失了房室同步，其血流动力学后果尚不明确，既往证据未区分 JR 与 NSR 的远期重构差异，可能导致对手术疗效的高估。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">单中心回顾性队列研究，纳入 2012—2024 年接受 Maze 手术的患者，将术后第 1 个月设为空白期以排除心律不稳定，仅纳入术后 1—12 个月心律持续稳定、无跨组转换者：AF 组 71 例、NSR 组 213 例、JR 组 35 例。终点包括心脏逆重构（以左房收缩应变 LASct 及心腔径线评估）与永久起搏器（PPM）植入；采用 IPTT 加权（原文为 IPTW）校正混杂后比较三组。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">在 IPTW 校正队列中，NSR 组出现显著心脏逆重构：LVEF 改善至 58.5%，左房容积指数降至 75.1 mL/m²，LASct 明显恢复；JR 组则未见任何逆重构或机械功能恢复，其血流动力学状态与 AF 组难以区分，JR 与 AF 组间心功能无显著差异。JR 组 PPM 植入风险显著高于 NSR 组和 AF 组（P &lt; 0.001）。其余效应量与 95%CI 摘要未报告。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">JR 并非窦性心律的良性替代：其在阻碍心脏逆重构方面与 AF 相似，并伴随高起搏器依赖风险。临床上应将 JR 与 NSR 区分开来，视为与 AF 相近的次优血流动力学结局，而非 Maze 手术成功；对术后 JR 患者需加强心律与起搏指征监测。本研究为单中心回顾性分析，样本量有限（JR 组仅 35 例），结论有待前瞻性研究验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42894221/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1186/s13019-026-04550-7" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42894221/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+            </div>
         </section>
-        <section class="topic-group">
+        <section class="topic-group" data-group-topic="室性心律失常">
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>室性心律失常</span>
                 <span class="topic-count">2 篇</span>
             </h2>
-            <ul class="archive-list">
-                <li>
-                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42894485/" target="_blank" rel="noopener noreferrer">Palpitations in children and adolescents in the emergency department: a state-of-the-art narrative review of arrhythmia risk, diagnostic strategy, and disposition.</a>
-                    </span>
-                    <span class="a-authors">Khaled Abouelmagd、Temitomi Jane Oyedele、Gabriela Berger、Sarah Fakhiraldeen、Habiba Mohamed Ahmed ElMitwalli Ali、Nouran Hishmat、Atiqullah Sadaqat、Lauren A Carr、Mohammed Alsabri</span>
-                    <span class="a-journal">Cardiol Young</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42894485/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1017/S1047951126124494" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42894485/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42894649/" target="_blank" rel="noopener noreferrer">Integration of an echocardiographic motion-management system into photon-based stereotactic arrhythmia radioablation planning.</a>
-                    </span>
-                    <span class="a-authors">Hans Oppitz、Amelie L Matusche、Laura Mantovani、Mathieu Kruska、Kerstin Siebenlist、Nour Alfakhouri、Adriano Garonna、Elisabetta Bonzano、Ester Orlandi、Viviana Vitolo、Adele Valentini、Nicoletta Basla、Frank A Giordano、Oliver Blanck、Roberto Rordorf、Jens Fleckenstein、Judit Boda-Heggemann、Lena Kästner</span>
-                    <span class="a-journal">Phys Imaging Radiat Oncol</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42894649/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.phro.2026.101096" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42894649/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-            </ul>
+
+            <div class="paper-list">
+                <article class="paper-card"
+                         data-topic="室性心律失常"
+                         data-journal="Cardiol Young"
+                         data-search="palpitations in children and adolescents in the emergency department: a state-of-the-art narrative review of arrhythmia risk, diagnostic strategy, and disposition. khaled abouelmagd temitomi jane oyedele gabriela berger sarah fakhiraldeen habiba mohamed ahmed elmitwalli ali nouran hishmat atiqullah sadaqat lauren a carr mohammed alsabri background: palpitations are not an uncommon complaint in the paediatric emergency department, causing significant anxiety for families concerned about serious heart disease. however, most cases are benign, often stemming from normal physiological responses like fever or anxiety. primary cardiac arrhythmias are rare in this clinical setting.
+
+problem: the main challenge is identifying the few children with dangerous arrhythmias among the many benign cases. fear of missing a life-threatening condition often leads to extensive, costly, and stressful investigations, even in low-risk patients, without significantly improving detection rates.
+
+objective: this review aims to create a structured, risk-based framework for evaluating paediatric palpitations in the emergency department. the goal is to help clinicians efficiently distinguish benign from potentially life-threatening causes, thereby optimising resource use and reducing family anxiety.
+
+findings: a thorough clinical history, physical exam, and a standard 12-lead electrocardiogram are the most effective evaluation tools. &#34;red-flag&#34; features-such as palpitations with fainting (syncope), onset during exercise, or a family history of sudden cardiac death-successfully identify nearly all children with significant arrhythmias. barring certain risk factors and any abnormalities on a 12 lead electrocardiogram, a dangerous cardiac condition is highly unlikely.
+
+recommendations: a stratified approach is recommended. low-risk children (no red-flag features, normal electrocardiogram) can be safely discharged with reassurance. high-risk patients require immediate, aggressive evaluation, including cardiology consultation and potential hospital admission. this strategy improves accuracy, is cost-effective, and enhances patient safety. cardiol young"
+                         id="paper-1">
+
+                    <div class="paper-top">
+                        <div class="paper-index">1</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42894485/" target="_blank" rel="noopener noreferrer">Palpitations in children and adolescents in the emergency department: a state-of-the-art narrative review of arrhythmia risk, diagnostic strategy, and disposition.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Cardiol Young</span><span class="dot">·</span><span class="paper-date">2026-10-19</span><span class="dot">·</span><span class="paper-date">PMID 42894485</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="室性心律失常">室性心律失常</span>
+                                <span class="tag tag-type">Journal Article</span>
+                                <span class="tag tag-type">Review</span>
+                            </div>
+
+                            <p class="paper-authors" title="Khaled Abouelmagd、Temitomi Jane Oyedele、Gabriela Berger、Sarah Fakhiraldeen、Habiba Mohamed Ahmed ElMitwalli Ali、Nouran Hishmat、Atiqullah Sadaqat、Lauren A Carr、Mohammed Alsabri">
+                                Khaled Abouelmagd、Temitomi Jane Oyedele、Gabriela Berger<span class="authors-more"> 等 9 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">BACKGROUND: Palpitations are not an uncommon complaint in the paediatric emergency department, causing significant anxiety for families concerned about serious heart disease. However, most cases are benign, often stemming from normal physiological responses like fever or anxiety. Primary cardiac arrhythmias are rare in this clinical setting.
+
+PROBLEM: The main challenge is identifying the few children with dangerous arrhythmias among the many benign cases. Fear of missing a life-threatening condition often leads to extensive, costly, and stressful investigations, even in low-risk patients, without significantly improving detection rates.
+
+OBJECTIVE: This review aims to create a structured, risk-based framework for evaluating paediatric palpitations in the emergency department. The goal is to help clinicians efficiently distinguish benign from potentially life-threatening causes, thereby optimising resource use and reducing family anxiety.
+
+FINDINGS: A thorough clinical history, physical exam, and a standard 12-lead electrocardiogram are the most effective evaluation tools. &#34;Red-flag&#34; features-such as palpitations with fainting (syncope), onset during exercise, or a family history of sudden cardiac death-successfully identify nearly all children with significant arrhythmias. Barring certain risk factors and any abnormalities on a 12 lead electrocardiogram, a dangerous cardiac condition is highly unlikely.
+
+RECOMMENDATIONS: A stratified approach is recommended. Low-risk children (no red-flag features, normal electrocardiogram) can be safely discharged with reassurance. High-risk patients require immediate, aggressive evaluation, including cardiology consultation and potential hospital admission. This strategy improves accuracy, is cost-effective, and enhances patient safety.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">儿童青少年急诊心悸绝大多数为良性，规范的病史、体格检查与12导联心电图结合晕厥、运动诱发、猝死家族史等警示特征，可识别几乎所有高危心律失常，支持分层处理。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">心悸是儿科急诊常见主诉，家长常担忧严重心脏病，但原发性心律失常在该场景中罕见，多为发热、焦虑等生理性反应。核心矛盾在于如何从大量良性病例中筛出少数危险心律失常；对漏诊致命性疾病的恐惧常导致低危患儿接受过度、昂贵且高应激的检查，而检出率并未显著提升，既往缺乏针对儿科急诊的结构化风险评估路径。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">本文为叙述性综述（state-of-the-art narrative review），非原始研究，未纳入特定样本量，摘要未报告检索策略与文献数量。作者基于现有证据提出儿科急诊心悸的结构化、风险分层评估框架，评估手段包括详细病史、体格检查与标准12导联心电图，并以“警示特征”——心悸伴晕厥、运动中出现症状、猝死家族史——作为高危识别要点，终点为良性与潜在致命性病因的区分及处置分层。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">摘要未报告定量数据（无效应量、95%CI或P值）。定性结论为：详细病史、体格检查与标准12导联心电图是最有效的评估工具；上述警示特征可识别出几乎所有存在显著心律失常的儿童；在无特定危险因素且12导联心电图正常的情况下，存在危险心脏疾病的可能极低。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">推荐分层处置：无警示特征且心电图正常的低危患儿可在充分安抚后安全离院；高危患儿需立即积极评估，包括心内科会诊并考虑住院。该策略可提高诊断准确性、具成本效益并改善患者安全。对电生理实践而言，强调12导联心电图在儿科急诊的基础地位及病史中的警示特征筛查；局限性在于本文为叙述性综述，缺乏原始数据与前瞻性验证，分层流程的实际效能尚待研究证实。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42894485/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1017/S1047951126124494" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42894485/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="室性心律失常"
+                         data-journal="Phys Imaging Radiat Oncol"
+                         data-search="integration of an echocardiographic motion-management system into photon-based stereotactic arrhythmia radioablation planning. hans oppitz amelie l matusche laura mantovani mathieu kruska kerstin siebenlist nour alfakhouri adriano garonna elisabetta bonzano ester orlandi viviana vitolo adele valentini nicoletta basla frank a giordano oliver blanck roberto rordorf jens fleckenstein judit boda-heggemann lena kästner background and purpose: cardiorespiratory ultrasound motion monitoring may enhance the precision of dose delivery for stereotactic arrhythmia radioablation (star) of ventricular tachycardia. this treatment planning study aimed to evaluate the feasibility of photon-based star planning in the presence of an ultrasound probe.
+
+materials and methods: for sixteen targets in fourteen patients, three treatment plans were retrospectively created and compared: a reference plan without an ultrasound probe and two plans in which the ultrasound probe was spared from the primary treatment beam (apical or parasternal probe positions). descriptive and statistical analyses were performed for target/organ dose-volume and treatment beam metrics, conformity-indices and maximum probe exposure.
+
+results: the ultrasound probe could be spared from the primary beam in all cases with d0.035 cm³ &lt; 1 gy (median 0.2 gy with apical and 0.4 gy with parasternal placement) with slightly elevated organ dose-volume metrics and no significant differences in target dose-volume metrics. the conformity-index (50 % isodose line) differed significantly for apical and parasternal probe position (median reference plan 4.0 vs. 5.0 and 4.5, respectively; p &lt; 0.01). the parasternal position gave slightly superior results compared to the apical position (e.g., heart minus planning target volume v12.5 gy 7.6 % [4.7-13.3] vs. 8.2 % [6.4-12.5]; left lung v10 gy 3.4 % [1.0-4.5] vs. 4.2 % [1.6-6.8]), albeit in all plans dose guidance parameters remained within clinically acceptable limits.
+
+conclusions: the ultrasound probe could be spared from the primary beam without compromising photon-based star plan quality beyond clinically acceptable deviations. the results support further investigation of ultrasound-based star motion management. phys imaging radiat oncol"
+                         id="paper-2">
+
+                    <div class="paper-top">
+                        <div class="paper-index">2</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42894649/" target="_blank" rel="noopener noreferrer">Integration of an echocardiographic motion-management system into photon-based stereotactic arrhythmia radioablation planning.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Phys Imaging Radiat Oncol</span><span class="dot">·</span><span class="paper-date">2026-10-19</span><span class="dot">·</span><span class="paper-date">PMID 42894649</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="室性心律失常">室性心律失常</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Hans Oppitz、Amelie L Matusche、Laura Mantovani、Mathieu Kruska、Kerstin Siebenlist、Nour Alfakhouri、Adriano Garonna、Elisabetta Bonzano、Ester Orlandi、Viviana Vitolo、Adele Valentini、Nicoletta Basla、Frank A Giordano、Oliver Blanck、Roberto Rordorf、Jens Fleckenstein、Judit Boda-Heggemann、Lena Kästner">
+                                Hans Oppitz、Amelie L Matusche、Laura Mantovani<span class="authors-more"> 等 18 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">BACKGROUND AND PURPOSE: Cardiorespiratory ultrasound motion monitoring may enhance the precision of dose delivery for stereotactic arrhythmia radioablation (STAR) of ventricular tachycardia. This treatment planning study aimed to evaluate the feasibility of photon-based STAR planning in the presence of an ultrasound probe.
+
+MATERIALS AND METHODS: For sixteen targets in fourteen patients, three treatment plans were retrospectively created and compared: a reference plan without an ultrasound probe and two plans in which the ultrasound probe was spared from the primary treatment beam (apical or parasternal probe positions). Descriptive and statistical analyses were performed for target/organ dose-volume and treatment beam metrics, conformity-indices and maximum probe exposure.
+
+RESULTS: The ultrasound probe could be spared from the primary beam in all cases with D0.035 cm³ &lt; 1 Gy (median 0.2 Gy with apical and 0.4 Gy with parasternal placement) with slightly elevated organ dose-volume metrics and no significant differences in target dose-volume metrics. The conformity-index (50 % isodose line) differed significantly for apical and parasternal probe position (median reference plan 4.0 vs. 5.0 and 4.5, respectively; p &lt; 0.01). The parasternal position gave slightly superior results compared to the apical position (e.g., heart minus planning target volume V12.5 Gy 7.6 % [4.7-13.3] vs. 8.2 % [6.4-12.5]; left lung V10 Gy 3.4 % [1.0-4.5] vs. 4.2 % [1.6-6.8]), albeit in all plans dose guidance parameters remained within clinically acceptable limits.
+
+CONCLUSIONS: The ultrasound probe could be spared from the primary beam without compromising photon-based STAR plan quality beyond clinically acceptable deviations. The results support further investigation of ultrasound-based STAR motion management.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">在14例室性心动过速患者共16个靶点的光子立体定向心律失常放射消融计划研究中，超声探头可全程避开主射束，靶区剂量学无显著变化，适形指数轻度变差但仍在临床可接受范围内。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">室性心动过速的立体定向心律失常放射消融（STAR）对呼吸与心脏运动管理精度要求很高，而基于超声的实时运动监测有望提升剂量投照精度；但将超声探头置于体表可能遮挡射束、干扰计划质量，此前缺乏在光子STAR计划中整合该运动管理系统的可行性证据，这正是本研究要弥补的空白。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">本研究为回顾性治疗计划研究，纳入14例患者共16个靶点，针对每例患者分别制定三套光子STAR计划并加以比较：一套为无超声探头的参考计划，另两套为让超声探头避开主治疗射束（分别置于心尖位与胸骨旁位）的计划。研究终点包括靶区与危及器官的剂量体积参数、治疗射束参数、适形指数（50%等剂量线）及探头最大受照剂量；统计方法为描述性分析与组间统计学检验。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">所有病例的超声探头均成功避开主射束，探头D0.035 cm³受照剂量&lt;1 Gy（心尖位中位0.2 Gy，胸骨旁位0.4 Gy）。靶区剂量体积参数无显著差异，危及器官剂量体积指标轻度升高。适形指数（50%等剂量线）在两种探头位置下均与参考计划有显著差异：参考计划中位数4.0，心尖位5.0、胸骨旁位4.5（P&lt;0.01）。胸骨旁位结果略优于心尖位，例如心脏减PTV的V12.5 Gy为7.6%［4.7–13.3］对8.2%［6.4–12.5］，左肺V10 Gy为3.4%［1.0–4.5］对4.2%［1.6–6.8］；但所有计划的剂量指导参数均在临床可接受范围内。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">在光子STAR计划中，超声探头可避开主射束，且不会使计划质量出现超出临床可接受范围的偏差；胸骨旁位在危及器官剂量方面略优于心尖位。该结果为基于超声的STAR运动管理进一步研究提供了计划学依据。本研究的局限性在于：它是回顾性计划学研究，样本量小，未验证实际投照精度、探头运动伪影对监测的影响及临床结局，且仅报告剂量学终点。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42894649/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1016/j.phro.2026.101096" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42894649/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+            </div>
         </section>
-        <section class="topic-group">
+        <section class="topic-group" data-group-topic="遗传与基础">
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>遗传与基础</span>
                 <span class="topic-count">1 篇</span>
             </h2>
-            <ul class="archive-list">
-                <li>
-                    <span class="topic-pill" data-topic="遗传与基础">遗传与基础</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42894783/" target="_blank" rel="noopener noreferrer">Unmasking Brugada Syndrome With Oral Propafenone in a Resource-Limited Setting: A Case Report.</a>
-                    </span>
-                    <span class="a-authors">Luisa Fernanda Jaramillo Astudillo、Guillermo Adrian Navas Moreira、Patricia Delgado Cedeño、Cesar Joao Tumbaco Mite、Estefania Carolina Arteaga Herrera</span>
-                    <span class="a-journal">Cureus</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42894783/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.7759/cureus.116494" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42894783/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-            </ul>
+
+            <div class="paper-list">
+                <article class="paper-card"
+                         data-topic="遗传与基础"
+                         data-journal="Cureus"
+                         data-search="unmasking brugada syndrome with oral propafenone in a resource-limited setting: a case report. luisa fernanda jaramillo astudillo guillermo adrian navas moreira patricia delgado cedeño cesar joao tumbaco mite estefania carolina arteaga herrera brugada syndrome (brs) is a cardiac channelopathy predisposing patients to malignant ventricular arrhythmias and sudden cardiac death (scd) in the absence of structural heart disease. the diagnosis requires documentation of a type 1 brugada electrocardiographic pattern, which can be unmasked using sodium channel-blocking agents in symptomatic patients presenting with non-diagnostic baseline patterns. we report a case of a 24-year-old male patient with a history of unexplained syncope who exhibited a non-diagnostic type 2 brugada pattern on a baseline electrocardiogram (ecg). due to the local unavailability of standard intravenous antiarrhythmics, a pharmacological provocation test was conducted using a single 600 mg oral dose of propafenone. under continuous cardiac monitoring, the patient safely developed a diagnostic type 1 &#34;coved&#34; electrocardiographic pattern starting at the third hour, confirming the diagnosis of brs. the ecg returned to its baseline pattern eight hours after the initiation of the test, and no cardiovascular complications occurred. this case highlights the clinical utility and safety of oral propafenone as an effective alternative diagnostic challenge for unmasking brs in resource-limited environments. furthermore, it emphasizes the necessity of utilizing extended monitoring protocols due to the specific pharmacokinetic profile and delayed onset of action of oral agents. cureus"
+                         id="paper-1">
+
+                    <div class="paper-top">
+                        <div class="paper-index">1</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42894783/" target="_blank" rel="noopener noreferrer">Unmasking Brugada Syndrome With Oral Propafenone in a Resource-Limited Setting: A Case Report.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Cureus</span><span class="dot">·</span><span class="paper-date">2026-10-19</span><span class="dot">·</span><span class="paper-date">PMID 42894783</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="遗传与基础">遗传与基础</span>
+                                <span class="tag tag-type">Case Reports</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Luisa Fernanda Jaramillo Astudillo、Guillermo Adrian Navas Moreira、Patricia Delgado Cedeño、Cesar Joao Tumbaco Mite、Estefania Carolina Arteaga Herrera">
+                                Luisa Fernanda Jaramillo Astudillo、Guillermo Adrian Navas Moreira、Patricia Delgado Cedeño<span class="authors-more"> 等 5 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">Brugada syndrome (BrS) is a cardiac channelopathy predisposing patients to malignant ventricular arrhythmias and sudden cardiac death (SCD) in the absence of structural heart disease. The diagnosis requires documentation of a type 1 Brugada electrocardiographic pattern, which can be unmasked using sodium channel-blocking agents in symptomatic patients presenting with non-diagnostic baseline patterns. We report a case of a 24-year-old male patient with a history of unexplained syncope who exhibited a non-diagnostic type 2 Brugada pattern on a baseline electrocardiogram (ECG). Due to the local unavailability of standard intravenous antiarrhythmics, a pharmacological provocation test was conducted using a single 600 mg oral dose of propafenone. Under continuous cardiac monitoring, the patient safely developed a diagnostic type 1 &#34;coved&#34; electrocardiographic pattern starting at the third hour, confirming the diagnosis of BrS. The ECG returned to its baseline pattern eight hours after the initiation of the test, and no cardiovascular complications occurred. This case highlights the clinical utility and safety of oral propafenone as an effective alternative diagnostic challenge for unmasking BrS in resource-limited environments. Furthermore, it emphasizes the necessity of utilizing extended monitoring protocols due to the specific pharmacokinetic profile and delayed onset of action of oral agents.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">24岁晕厥男性基线呈2型Brugada样心电图，单次口服普罗帕酮600 mg后第3小时诱发出1型coved型心电图确诊Brugada综合征，8小时恢复基线且无并发症。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">Brugada综合征（BrS）诊断需记录到1型Brugada心电图；基线心电图无诊断性表现的有症状患者可用钠通道阻滞剂行药物激发试验。但在资源受限环境中，标准静脉抗心律失常药物可能不可及，需探索可替代的口服激发方案。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">个案报告。对象为1例24岁男性，有不明原因晕厥史，基线心电图呈无诊断意义的2型Brugada样表现。因当地无法获得标准静脉抗心律失常药物，在持续心电监护下给予单次口服普罗帕酮600 mg行药物激发试验；观察终点为是否诱发出诊断性1型Brugada心电图及操作相关心血管并发症。摘要未报告统计分析。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">服药后第3小时开始出现诊断性1型“coved”型Brugada心电图，确诊BrS；试验开始后8小时心电图恢复至基线表现，未发生心血管并发症。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">本病例提示，在资源受限环境下口服普罗帕酮可作为揭示BrS的有效替代诊断激发方式；但口服药物起效延迟、药代动力学特点要求延长监护时间。作为单例报告，其有效性与安全性仍需更大样本验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42894783/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.7759/cureus.116494" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42894783/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+            </div>
         </section>
-        <section class="topic-group">
+        <section class="topic-group" data-group-topic="其他">
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>其他</span>
                 <span class="topic-count">1 篇</span>
             </h2>
-            <ul class="archive-list">
-                <li>
-                    <span class="topic-pill" data-topic="其他">其他</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42895490/" target="_blank" rel="noopener noreferrer">Twenty Years at the Crossroads: Is Clinical Cardiac Electrophysiology Science, Procedure, or Both?</a>
-                    </span>
-                    <span class="a-authors">Jeffrey J Goldberger</span>
-                    <span class="a-journal">JACC Clin Electrophysiol</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42895490/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.jacep.2026.09.023" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42895490/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-            </ul>
+
+            <div class="paper-list">
+                <article class="paper-card"
+                         data-topic="其他"
+                         data-journal="JACC Clin Electrophysiol"
+                         data-search="twenty years at the crossroads: is clinical cardiac electrophysiology science, procedure, or both? jeffrey j goldberger  jacc clin electrophysiol"
+                         id="paper-1">
+
+                    <div class="paper-top">
+                        <div class="paper-index">1</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42895490/" target="_blank" rel="noopener noreferrer">Twenty Years at the Crossroads: Is Clinical Cardiac Electrophysiology Science, Procedure, or Both?</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">JACC Clin Electrophysiol</span><span class="dot">·</span><span class="paper-date">2026-10-19</span><span class="dot">·</span><span class="paper-date">PMID 42895490</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="其他">其他</span>
+                                <span class="tag tag-type">Journal Article</span>
+                                <span class="tag tag-type">Review</span>
+                            </div>
+
+                            <p class="paper-authors" title="Jeffrey J Goldberger">
+                                Jeffrey J Goldberger                            </p>
+
+                            <div class="abstract-block">
+                                <p class="abstract-none">暂无摘要（该文献可能为社论、评论或通信类文章）</p>
+                            </div>
+
+                            <p class="ai-missing">未生成 AI 解读（仅显示原文摘要）</p>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42895490/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1016/j.jacep.2026.09.023" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42895490/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+            </div>
         </section>
+
+        <div class="filter-empty" id="filterEmpty">
+            <p>没有符合当前筛选条件的论文。</p>
+            <p class="hint">试试点「全部」或清空关键词。</p>
+        </div>
 
 
     </div>
@@ -1064,10 +1723,170 @@ main { padding: 26px 0 60px; }
 
 <footer class="site-footer">
     <div class="wrap">
-        <p>心脏电生理每日论文检索 · 归档视图</p>
-        <p>页面离线自包含，无外部依赖 · 生成于 2026-10-20 09:31</p>
+        <p>心脏电生理每日论文检索 · 数据来源 PubMed / Europe PMC 等公开数据库</p>
+        <p>页面离线自包含，无外部依赖 · 生成于 2026-10-20 09:57</p>
     </div>
 </footer>
+
+<script>
+(function () {
+    "use strict";
+
+    var topicBar = document.getElementById("topicFilters");
+    var journalBar = document.getElementById("journalFilters");
+    var searchBox = document.getElementById("textSearch");
+    var emptyTip = document.getElementById("filterEmpty");
+    var cards = Array.prototype.slice.call(document.querySelectorAll(".paper-card"));
+    var groups = Array.prototype.slice.call(document.querySelectorAll(".topic-group"));
+
+    if (!cards.length) { return; }
+
+    var state = { topic: "all", journal: "all", text: "" };
+
+    function apply() {
+        var needle = state.text.trim().toLowerCase();
+        var visible = 0;
+
+        cards.forEach(function (card) {
+            var okTopic = state.topic === "all" || card.getAttribute("data-topic") === state.topic;
+            var okJournal = state.journal === "all" || card.getAttribute("data-journal") === state.journal;
+            var hay = card.getAttribute("data-search") || "";
+            var okText = !needle || hay.indexOf(needle) !== -1;
+            var show = okTopic && okJournal && okText;
+            card.classList.toggle("hidden", !show);
+            if (show) { visible += 1; }
+        });
+
+        // 组内没有可见卡片时隐藏整组，避免留下空标题
+        groups.forEach(function (group) {
+            var any = group.querySelector(".paper-card:not(.hidden)");
+            group.style.display = any ? "" : "none";
+        });
+
+        if (emptyTip) { emptyTip.classList.toggle("show", visible === 0); }
+    }
+
+    function bind(bar, key, attr) {
+        if (!bar) { return; }
+        bar.addEventListener("click", function (event) {
+            var btn = event.target.closest(".filter-btn");
+            if (!btn || !bar.contains(btn)) { return; }
+            Array.prototype.forEach.call(bar.querySelectorAll(".filter-btn"), function (b) {
+                b.classList.toggle("active", b === btn);
+            });
+            state[key] = btn.getAttribute(attr);
+            apply();
+        });
+    }
+
+    bind(topicBar, "topic", "data-filter-topic");
+    bind(journalBar, "journal", "data-filter-journal");
+
+    if (searchBox) {
+        searchBox.addEventListener("input", function () {
+            state.text = searchBox.value || "";
+            apply();
+        });
+    }
+
+    // 期刊过多时默认折叠，只显示前 8 个 + 一个展开按钮
+    var moreBtn = document.getElementById("moreJournals");
+    if (moreBtn) {
+        var extras = document.querySelectorAll(".extra-journal");
+        Array.prototype.forEach.call(extras, function (b) { b.style.display = "none"; });
+        moreBtn.addEventListener("click", function () {
+            var open = moreBtn.getAttribute("data-open") === "1";
+            Array.prototype.forEach.call(extras, function (b) {
+                b.style.display = open ? "none" : "";
+            });
+            moreBtn.setAttribute("data-open", open ? "0" : "1");
+            moreBtn.textContent = open
+                ? "展开全部 " + extras.length + " 个期刊 ▾"
+                : "收起期刊列表 ▴";
+        });
+    }
+
+    // 键盘 /：直接聚焦搜索框
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "/" && document.activeElement !== searchBox) {
+            event.preventDefault();
+            if (searchBox) { searchBox.focus(); }
+        }
+    });
+})();
+
+/* 主题切换：跟随系统 → 手动选择 → 再点回到跟随系统。
+   三态循环，按钮 title 显示当前状态，localStorage 记忆手动选择。 */
+(function () {
+    var btn = document.getElementById("themeToggle");
+    if (!btn) { return; }
+    var root = document.documentElement;
+    var mql = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+
+    function current() {
+        var manual = root.getAttribute("data-theme");
+        if (manual === "dark" || manual === "light") { return manual; }
+        return (mql && mql.matches) ? "dark" : "light";
+    }
+    function label() {
+        var manual = root.getAttribute("data-theme");
+        var suffix = manual ? "" : "（跟随系统）";
+        btn.textContent = (current() === "dark" ? "☀️ 浅色" : "🌙 深色") + suffix;
+        btn.title = "当前：" + (current() === "dark" ? "深色" : "浅色") + suffix + "，点击切换";
+    }
+    btn.addEventListener("click", function () {
+        var next = current() === "dark" ? "light" : "dark";
+        root.setAttribute("data-theme", next);
+        try { localStorage.setItem("ep-digest-theme", next); } catch (e) {}
+        label();
+    });
+    if (mql && mql.addEventListener) {
+        mql.addEventListener("change", function () {
+            if (!root.getAttribute("data-theme")) { label(); }
+        });
+    }
+    label();
+})();
+
+/* 日期选择器：点开显示按月份分组的日期网格，点外部/Esc 关闭。
+   纯前端、不联网；每个日期都是指向 archive/<date>.html 的普通链接，
+   所以即使 JS 失效也仍然可用（只是不会弹出面板）。 */
+(function () {
+    var toggle = document.getElementById("dateToggle");
+    var panel = document.getElementById("datePanel");
+    if (!toggle || !panel) { return; }
+
+    function open() {
+        panel.hidden = false;
+        toggle.setAttribute("aria-expanded", "true");
+        var cur = panel.querySelector(".date-cell.current");
+        if (cur && cur.scrollIntoView) {
+            cur.scrollIntoView({ block: "nearest" });
+        }
+    }
+    function close() {
+        panel.hidden = true;
+        toggle.setAttribute("aria-expanded", "false");
+    }
+    function isOpen() { return !panel.hidden; }
+
+    toggle.addEventListener("click", function (event) {
+        event.stopPropagation();
+        if (isOpen()) { close(); } else { open(); }
+    });
+
+    panel.addEventListener("click", function (event) { event.stopPropagation(); });
+
+    document.addEventListener("click", function () { if (isOpen()) { close(); } });
+
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && isOpen()) {
+            close();
+            toggle.focus();
+        }
+    });
+})();
+</script>
 
 </body>
 </html>

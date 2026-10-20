@@ -873,6 +873,109 @@ main { padding: 26px 0 60px; }
 /* 展开时用 class 切换，比 hidden 属性更稳（display:flex 会覆盖 [hidden]） */
 .archive-nav.expanded .archive-nav-days { display: none; }
 
+/* ---------------------------------------------------------------- 日期选择器 */
+
+.date-bar {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--header-border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+}
+
+.date-bar-label { color: var(--text-tertiary); }
+
+.date-bar-hint { color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+
+.date-select { position: relative; }
+
+.date-toggle {
+    font: inherit;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    color: var(--header-accent);
+    background: var(--surface);
+    border: 1px solid var(--header-border);
+    border-radius: 8px;
+    padding: 5px 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 132px;
+    justify-content: space-between;
+}
+.date-toggle:hover { background: var(--brand-soft); }
+.date-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.date-toggle-caret { color: var(--text-tertiary); font-size: 11px; }
+
+.date-panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 40;
+    width: 340px;
+    max-height: 60vh;
+    overflow-y: auto;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, .14);
+    padding: 12px;
+}
+.date-panel[hidden] { display: none; }
+
+.date-panel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+}
+.date-panel-latest { color: var(--brand); }
+
+.date-month + .date-month { margin-top: 10px; }
+
+.date-month-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.date-month-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+}
+
+.date-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 30px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+    background: var(--surface-muted);
+    border: 1px solid transparent;
+}
+.date-cell:hover { background: var(--brand-soft); text-decoration: none; }
+.date-cell.current {
+    background: var(--brand);
+    color: var(--surface);
+    font-weight: 700;
+    border-color: var(--brand);
+}
+
+@media print { .date-bar { display: none; } }
+
 </style>
 </head>
 <body>
@@ -882,7 +985,7 @@ main { padding: 26px 0 60px; }
         <h1>心脏电生理每日论文检索</h1>
         <p class="subtitle">Cardiac Electrophysiology Daily Digest · 按亚专业分组的文献速览</p>
         <div class="header-meta">
-<span class="chip">📅 日报日期 <strong>2026-10-20</strong></span>            <span class="chip">🕒 生成时间 <strong>2026-10-20 09:31</strong></span>
+<span class="chip">📅 日报日期 <strong>2026-10-20</strong></span>            <span class="chip">🕒 生成时间 <strong>2026-10-20 09:57</strong></span>
             <span class="chip">📄 论文总数 <strong>12</strong></span>
             <span class="chip">🤖 含 AI 解读 <strong>9</strong></span>
 <span class="chip">📝 无摘要 <strong>3</strong></span>        </div>
@@ -892,52 +995,33 @@ main { padding: 26px 0 60px; }
                     aria-label="切换深色/浅色模式" title="切换深色/浅色模式">🌗 主题</button>
         </nav>
 
-        <nav class="archive-nav" aria-label="往期日报">
-            <span class="archive-nav-label">往期（31 天）</span>
-            <div class="archive-nav-days">
-                <a href="archive/2026-10-20.html" class="current" aria-current="page">2026-10-20</a>
-                <a href="archive/2026-10-19.html">2026-10-19</a>
-                <a href="archive/2026-10-18.html">2026-10-18</a>
-                <a href="archive/2026-10-17.html">2026-10-17</a>
-                <a href="archive/2026-10-16.html">2026-10-16</a>
-                <a href="archive/2026-10-15.html">2026-10-15</a>
-                <a href="archive/2026-10-14.html">2026-10-14</a>
+        <div class="date-bar">
+            <label class="date-bar-label" for="dateToggle">日期</label>
+            <div class="date-select" id="dateSelect">
+                <button type="button" class="date-toggle" id="dateToggle"
+                        aria-haspopup="listbox" aria-expanded="false"
+                        aria-controls="datePanel">
+                    <span class="date-toggle-text">2026-10-20</span>
+                    <span class="date-toggle-caret" aria-hidden="true">▾</span>
+                </button>
+                <div class="date-panel" id="datePanel" role="listbox" hidden>
+                    <div class="date-panel-head">
+                        <span>共 1 天</span>
+                    </div>
+                    <div class="date-panel-body">
+                        <div class="date-month">
+                            <div class="date-month-label">2026 年 10 月</div>
+                            <div class="date-month-days">
+                                <a href="archive/2026-10-20.html"
+                                   class="date-cell current"
+                                   role="option" aria-selected="true">20</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <button type="button" class="archive-more" id="archiveMore" aria-expanded="false">全部 31 天 ▾</button>
-            <div class="archive-nav-all" id="archiveAll" hidden>
-                <a href="archive/2026-10-20.html" class="current">2026-10-20</a>
-                <a href="archive/2026-10-19.html">2026-10-19</a>
-                <a href="archive/2026-10-18.html">2026-10-18</a>
-                <a href="archive/2026-10-17.html">2026-10-17</a>
-                <a href="archive/2026-10-16.html">2026-10-16</a>
-                <a href="archive/2026-10-15.html">2026-10-15</a>
-                <a href="archive/2026-10-14.html">2026-10-14</a>
-                <a href="archive/2026-10-13.html">2026-10-13</a>
-                <a href="archive/2026-10-12.html">2026-10-12</a>
-                <a href="archive/2026-10-11.html">2026-10-11</a>
-                <a href="archive/2026-10-10.html">2026-10-10</a>
-                <a href="archive/2026-10-09.html">2026-10-09</a>
-                <a href="archive/2026-10-08.html">2026-10-08</a>
-                <a href="archive/2026-10-07.html">2026-10-07</a>
-                <a href="archive/2026-10-06.html">2026-10-06</a>
-                <a href="archive/2026-10-05.html">2026-10-05</a>
-                <a href="archive/2026-10-04.html">2026-10-04</a>
-                <a href="archive/2026-10-03.html">2026-10-03</a>
-                <a href="archive/2026-10-02.html">2026-10-02</a>
-                <a href="archive/2026-10-01.html">2026-10-01</a>
-                <a href="archive/2026-09-30.html">2026-09-30</a>
-                <a href="archive/2026-09-29.html">2026-09-29</a>
-                <a href="archive/2026-09-28.html">2026-09-28</a>
-                <a href="archive/2026-09-27.html">2026-09-27</a>
-                <a href="archive/2026-09-26.html">2026-09-26</a>
-                <a href="archive/2026-09-25.html">2026-09-25</a>
-                <a href="archive/2026-09-24.html">2026-09-24</a>
-                <a href="archive/2026-09-23.html">2026-09-23</a>
-                <a href="archive/2026-09-22.html">2026-09-22</a>
-                <a href="archive/2026-09-21.html">2026-09-21</a>
-                <a href="archive/2026-09-20.html">2026-09-20</a>
-            </div>
-        </nav>
+            <span class="date-bar-hint">共 1 天归档</span>
+        </div>
     </div>
 </header>
 
@@ -1802,7 +1886,7 @@ CONCLUSIONS: The ultrasound probe could be spared from the primary beam without 
 <footer class="site-footer">
     <div class="wrap">
         <p>心脏电生理每日论文检索 · 数据来源 PubMed / Europe PMC 等公开数据库</p>
-        <p>页面离线自包含，无外部依赖 · 生成于 2026-10-20 09:31</p>
+        <p>页面离线自包含，无外部依赖 · 生成于 2026-10-20 09:57</p>
     </div>
 </footer>
 
@@ -1926,19 +2010,42 @@ CONCLUSIONS: The ultrasound probe could be spared from the primary beam without 
     label();
 })();
 
-/* 往期导航：默认只显示最近 7 天，点「全部 N 天」展开完整列表。
-   用容器 class 控制显隐 —— 直接设 element.hidden 会被 display:flex 覆盖。 */
+/* 日期选择器：点开显示按月份分组的日期网格，点外部/Esc 关闭。
+   纯前端、不联网；每个日期都是指向 archive/<date>.html 的普通链接，
+   所以即使 JS 失效也仍然可用（只是不会弹出面板）。 */
 (function () {
-    var btn = document.getElementById("archiveMore");
-    var all = document.getElementById("archiveAll");
-    var nav = btn && btn.closest(".archive-nav");
-    if (!btn || !all || !nav) { return; }
-    btn.addEventListener("click", function () {
-        var expanded = nav.classList.toggle("expanded");
-        all.hidden = !expanded;
-        btn.setAttribute("aria-expanded", expanded ? "true" : "false");
-        var n = all.querySelectorAll("a").length;
-        btn.textContent = expanded ? "收起 ▴" : ("全部 " + n + " 天 ▾");
+    var toggle = document.getElementById("dateToggle");
+    var panel = document.getElementById("datePanel");
+    if (!toggle || !panel) { return; }
+
+    function open() {
+        panel.hidden = false;
+        toggle.setAttribute("aria-expanded", "true");
+        var cur = panel.querySelector(".date-cell.current");
+        if (cur && cur.scrollIntoView) {
+            cur.scrollIntoView({ block: "nearest" });
+        }
+    }
+    function close() {
+        panel.hidden = true;
+        toggle.setAttribute("aria-expanded", "false");
+    }
+    function isOpen() { return !panel.hidden; }
+
+    toggle.addEventListener("click", function (event) {
+        event.stopPropagation();
+        if (isOpen()) { close(); } else { open(); }
+    });
+
+    panel.addEventListener("click", function (event) { event.stopPropagation(); });
+
+    document.addEventListener("click", function () { if (isOpen()) { close(); } });
+
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && isOpen()) {
+            close();
+            toggle.focus();
+        }
     });
 })();
 </script>

@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light dark">
-<meta name="description" content="心脏电生理日报归档 · 2026-09-20">
-<title>归档 · 2026-09-20 · 心脏电生理日报</title>
+<meta name="description" content="心脏电生理每日论文检索 · 2026-09-20">
+<title>心脏电生理日报 · 2026-09-20</title>
 <script>
 /* 主题初始化：必须在样式生效前执行，避免深色用户看到白屏闪烁。
    读取顺序：localStorage 手动选择 > 系统偏好。写入 <html data-theme>。 */
@@ -16,39 +16,6 @@
             document.documentElement.setAttribute('data-theme', saved);
         }
     } catch (e) { /* 隐私模式下 localStorage 可能抛错，忽略即可 */ }
-})();
-
-/* 主题切换：跟随系统 → 手动选择 → 再点回到跟随系统。
-   三态循环，按钮 title 显示当前状态，localStorage 记忆手动选择。 */
-(function () {
-    var btn = document.getElementById("themeToggle");
-    if (!btn) { return; }
-    var root = document.documentElement;
-    var mql = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
-
-    function current() {
-        var manual = root.getAttribute("data-theme");
-        if (manual === "dark" || manual === "light") { return manual; }
-        return (mql && mql.matches) ? "dark" : "light";
-    }
-    function label() {
-        var manual = root.getAttribute("data-theme");
-        var suffix = manual ? "" : "（跟随系统）";
-        btn.textContent = (current() === "dark" ? "☀️ 浅色" : "🌙 深色") + suffix;
-        btn.title = "当前：" + (current() === "dark" ? "深色" : "浅色") + suffix + "，点击切换";
-    }
-    btn.addEventListener("click", function () {
-        var next = current() === "dark" ? "light" : "dark";
-        root.setAttribute("data-theme", next);
-        try { localStorage.setItem("ep-digest-theme", next); } catch (e) {}
-        label();
-    });
-    if (mql && mql.addEventListener) {
-        mql.addEventListener("change", function () {
-            if (!root.getAttribute("data-theme")) { label(); }
-        });
-    }
-    label();
 })();
 </script>
 <style>
@@ -906,197 +873,1066 @@ main { padding: 26px 0 60px; }
 /* 展开时用 class 切换，比 hidden 属性更稳（display:flex 会覆盖 [hidden]） */
 .archive-nav.expanded .archive-nav-days { display: none; }
 
-/* 归档页专属微调 */
-.archive-list .a-authors {
-    flex: 0 0 auto;
+/* ---------------------------------------------------------------- 日期选择器 */
+
+.date-bar {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--header-border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+}
+
+.date-bar-label { color: var(--text-tertiary); }
+
+.date-bar-hint { color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+
+.date-select { position: relative; }
+
+.date-toggle {
+    font: inherit;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    color: var(--header-accent);
+    background: var(--surface);
+    border: 1px solid var(--header-border);
+    border-radius: 8px;
+    padding: 5px 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 132px;
+    justify-content: space-between;
+}
+.date-toggle:hover { background: var(--brand-soft); }
+.date-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.date-toggle-caret { color: var(--text-tertiary); font-size: 11px; }
+
+.date-panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 40;
+    width: 340px;
+    max-height: 60vh;
+    overflow-y: auto;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, .14);
+    padding: 12px;
+}
+.date-panel[hidden] { display: none; }
+
+.date-panel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     font-size: 12px;
     color: var(--text-tertiary);
-    max-width: 260px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
 }
-@media (max-width: 640px) { .archive-list .a-authors { display: none; } }
+.date-panel-latest { color: var(--brand); }
+
+.date-month + .date-month { margin-top: 10px; }
+
+.date-month-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.date-month-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+}
+
+.date-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 30px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+    background: var(--surface-muted);
+    border: 1px solid transparent;
+}
+.date-cell:hover { background: var(--brand-soft); text-decoration: none; }
+.date-cell.current {
+    background: var(--brand);
+    color: var(--surface);
+    font-weight: 700;
+    border-color: var(--brand);
+}
+
+@media print { .date-bar { display: none; } }
+
 </style>
 </head>
 <body>
 
 <header class="site-header">
     <div class="wrap">
-        <h1>心脏电生理日报 · 归档</h1>
-        <p class="subtitle">2026-09-20 全部论文清单</p>
+        <h1>心脏电生理每日论文检索</h1>
+        <p class="subtitle">Cardiac Electrophysiology Daily Digest · 按亚专业分组的文献速览</p>
         <div class="header-meta">
-<span class="chip">📅 <strong>2026-09-20</strong></span>            <span class="chip">🕒 生成时间 <strong>2026-10-20 09:31</strong></span>
+<span class="chip">📅 日报日期 <strong>2026-09-20</strong></span>            <span class="chip">🕒 生成时间 <strong>2026-10-20 09:57</strong></span>
             <span class="chip">📄 论文总数 <strong>12</strong></span>
             <span class="chip">🤖 含 AI 解读 <strong>11</strong></span>
-        </div>
+<span class="chip">📝 无摘要 <strong>1</strong></span>        </div>
         <nav class="header-nav">
-            <a href="../index.html">← 返回主页</a>
-            <a href="#top">回到顶部</a>
+<a href="../archive/2026-09-20.html">本篇归档页</a><a href="../index.html">最新一期</a>            <a href="#top">回到顶部</a>
+            <button type="button" class="theme-toggle" id="themeToggle"
+                    aria-label="切换深色/浅色模式" title="切换深色/浅色模式">🌗 主题</button>
         </nav>
+
     </div>
 </header>
 
-<main id="top">
+<div class="filters" id="top">
+    <div class="wrap">
+        <div class="filter-row">
+            <span class="filter-label">主题</span>
+            <div class="filter-buttons" id="topicFilters">
+                <button type="button" class="filter-btn active" data-filter-topic="all">全部 <span class="count">12</span></button>
+                <button type="button" class="filter-btn" data-filter-topic="房颤与消融">房颤与消融 <span class="count">7</span></button>
+                <button type="button" class="filter-btn" data-filter-topic="室性心律失常">室性心律失常 <span class="count">2</span></button>
+                <button type="button" class="filter-btn" data-filter-topic="器械治疗">器械治疗 <span class="count">2</span></button>
+                <button type="button" class="filter-btn" data-filter-topic="影像与标测">影像与标测 <span class="count">1</span></button>
+            </div>
+        </div>
+        <div class="filter-row">
+            <span class="filter-label">期刊</span>
+            <div class="filter-buttons" id="journalFilters">
+                <button type="button" class="filter-btn active" data-filter-journal="all">全部</button>
+                <button type="button" class="filter-btn" data-filter-journal="Heart Rhythm">Heart Rhythm <span class="count">5</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="J Arrhythm">J Arrhythm <span class="count">2</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="Cureus">Cureus <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="Curr Health Sci J">Curr Health Sci J <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="Future Cardiol">Future Cardiol <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="Herzschrittmacherther Elektrophysiol">Herzschrittmacherther Elektrophysiol <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="World J Methodol">World J Methodol <span class="count">1</span></button>
+            </div>
+        </div>
+        <div class="filter-row">
+            <span class="filter-label">检索</span>
+            <input type="search" id="textSearch" class="search-box" placeholder="输入关键词过滤标题 / 作者 / 摘要（本地匹配，不联网）" aria-label="关键词过滤">
+        </div>
+    </div>
+</div>
+
+<main>
     <div class="wrap">
 
 
-        <section class="topic-group">
+        <section class="topic-group" data-group-topic="房颤与消融">
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>房颤与消融</span>
                 <span class="topic-count">7 篇</span>
             </h2>
-            <ul class="archive-list">
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42764716/" target="_blank" rel="noopener noreferrer">Concomitant atrial fibrillation ablation and left atrial appendage occlusion: rationale, outcomes, and future directions</a>
-                    </span>
-                    <span class="a-authors">Marshall TM Jr、Amado LC、Daccarett M</span>
-                    <span class="a-journal">Future Cardiol</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42764716/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1080/14796678.2026.2735181" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42764716/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42764112/" target="_blank" rel="noopener noreferrer">Noninvasive median nerve stimulation with a wearable stimulator to reduce atrial arrhythmia recurrence after atrial fibrillation ablation: The NEUROPULSE pilot.</a>
-                    </span>
-                    <span class="a-authors">Vivek Y Reddy、Devi G Nair、Mohit K Turagam、Raphael Rosso、Ariel Banai、Louise Henriques、Magdalena Strzeciwilk、Naama Schwartz、Tsahi Holand、Adi Benari、Daniela Puzhevsky、Amos Ziv、Ehud Chorin</span>
-                    <span class="a-journal">Heart Rhythm</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42764112/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.hrthm.2026.09.013" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42764112/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42764111/" target="_blank" rel="noopener noreferrer">Map-guided redo ablation for recurrent persistent atrial fibrillation after prior pulmonary vein isolation: Procedural feasibility, safety, and 12-month rhythm outcomes from a prospective multicenter study (NCT05826665).</a>
-                    </span>
-                    <span class="a-authors">Rajesh Kabra、Matthew McKillop、Aaditya Vora、Saumil Oza、Devi G Nair、Dilip Mathew、Douglas Darden、Dhanunjaya R Lakkireddy、STAR Apollo Study Investigators</span>
-                    <span class="a-journal">Heart Rhythm</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42764111/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.hrthm.2026.09.004" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42764111/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42764110/" target="_blank" rel="noopener noreferrer">Integrated hemodynamic sensing, electrical sensing, and ventricular pacing from a novel substernal lead: An acute human study.</a>
-                    </span>
-                    <span class="a-authors">Cheng Cai、Kai Gu、Bob Gaskill、Xiangwei Ding、Yanhui Li、Minglong Chen</span>
-                    <span class="a-journal">Heart Rhythm</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42764110/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.hrthm.2026.08.047" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42764110/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42763562/" target="_blank" rel="noopener noreferrer">Clinical Characteristics and Timing of Accessory Pathway Reconduction During Catheter Ablation of Accessory Pathways.</a>
-                    </span>
-                    <span class="a-authors">Wataru Sasaki、Hitoshi Mori、Daisuke Kawano、Kei Matsumoto、Naomichi Tanaka、Tsukasa Naganuma、Masataka Narita、Kazuhisa Matsumoto、Yoshifumi Ikeda、Takahide Arai、Shintaro Nakano、Ritsushi Kato</span>
-                    <span class="a-journal">J Arrhythm</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42763562/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1002/joa3.70469" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42763562/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42626055/" target="_blank" rel="noopener noreferrer">Smartphone-based mobile health impact on oral anticoagulation adherence, quality of life, and healthcare utilization in adult atrial fibrillation</a>
-                    </span>
-                    <span class="a-authors">Farhan M、Patel T、Harazeen W、Mohamed Y、Al Azzawi A、Intabli H、Ahmed N、Obais MAN、Alkhazali MR、Patel BD、Ahmad A、Awosika A</span>
-                    <span class="a-journal">World J Methodol</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42626055/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.5662/wjm.117065" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42626055/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42763323/" target="_blank" rel="noopener noreferrer">[Psychocardiology-When cardiac rhythm meets psychological experience : Why cardiac arrhythmias elicit a psychological response].</a>
-                    </span>
-                    <span class="a-authors">Corinna Pfeiffer</span>
-                    <span class="a-journal">Herzschrittmacherther Elektrophysiol</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42763323/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1007/s00399-026-01172-3" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42763323/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-            </ul>
+
+            <div class="paper-list">
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="Future Cardiol"
+                         data-search="concomitant atrial fibrillation ablation and left atrial appendage occlusion: rationale, outcomes, and future directions marshall tm jr amado lc daccarett m atrial fibrillation (af) is the most common sustained cardiac arrhythmia worldwide and remains a major contributor to stroke, heart failure, hospitalization, and cardiovascular mortality. catheter ablation has become a central strategy for rhythm control, while left atrial appendage occlusion (laao) offers an effective mechanical option for stroke prevention in patients with contraindications to oral anticoagulation. performing af ablation and laao during the same procedure addresses complementary therapeutic goals while potentially improving procedural efficiency, reducing hospital exposure, and enhancing patient convenience. this narrative review summarizes the rationale, patient selection, procedural considerations, clinical outcomes, and future directions of concomitant af ablation and laao. evidence demonstrates high procedural success rates, generally exceeding 90%, with acceptable acute complication rates in experienced centers. combined procedures benefit from shared transseptal access, consolidated imaging and anesthesia requirements, and a single recovery period. rhythm-control efficacy compared with standalone ablation remains unclear, with recurrence rates reported as both elevated and comparable across studies, reflecting the limited randomized data for concomitant procedures. important knowledge gaps persist regarding optimal sequencing, periprocedural antithrombotic therapy, patient selection, and newer technologies such as pulsed-field ablation. concomitant af ablation and laao represent a logical and evolving strategy for integrated rhythm and stroke management. future cardiol"
+                         id="paper-1">
+
+                    <div class="paper-top">
+                        <div class="paper-index">1</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42764716/" target="_blank" rel="noopener noreferrer">Concomitant atrial fibrillation ablation and left atrial appendage occlusion: rationale, outcomes, and future directions</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Future Cardiol</span><span class="dot">·</span><span class="paper-date">2026-09-20</span><span class="dot">·</span><span class="paper-date">PMID 42764716</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Review</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Marshall TM Jr、Amado LC、Daccarett M">
+                                Marshall TM Jr、Amado LC、Daccarett M                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">Atrial fibrillation (AF) is the most common sustained cardiac arrhythmia worldwide and remains a major contributor to stroke, heart failure, hospitalization, and cardiovascular mortality. Catheter ablation has become a central strategy for rhythm control, while left atrial appendage occlusion (LAAO) offers an effective mechanical option for stroke prevention in patients with contraindications to oral anticoagulation. Performing AF ablation and LAAO during the same procedure addresses complementary therapeutic goals while potentially improving procedural efficiency, reducing hospital exposure, and enhancing patient convenience. This narrative review summarizes the rationale, patient selection, procedural considerations, clinical outcomes, and future directions of concomitant AF ablation and LAAO. Evidence demonstrates high procedural success rates, generally exceeding 90%, with acceptable acute complication rates in experienced centers. Combined procedures benefit from shared transseptal access, consolidated imaging and anesthesia requirements, and a single recovery period. Rhythm-control efficacy compared with standalone ablation remains unclear, with recurrence rates reported as both elevated and comparable across studies, reflecting the limited randomized data for concomitant procedures. Important knowledge gaps persist regarding optimal sequencing, periprocedural antithrombotic therapy, patient selection, and newer technologies such as pulsed-field ablation. Concomitant AF ablation and LAAO represent a logical and evolving strategy for integrated rhythm and stroke management.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">叙述性综述认为，同期房颤消融与左心耳封堵在有经验中心手术成功率&gt;90%、急性并发症可接受，可一次手术兼顾节律控制与卒中预防，但节律获益与围术期抗栓策略仍缺乏随机证据。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">AF 是全球最常见的持续性心律失常，是卒中、心力衰竭、住院和心血管死亡的重要来源。导管消融已成为节律控制的核心手段，而左心耳封堵（LAAO）为存在口服抗凝禁忌的患者提供了有效的机械性卒中预防选择。将两者安排在同一次手术中，可同时实现互补的治疗目标，并可能提高手术效率、减少住院暴露、改善患者体验。然而，同期手术在患者选择、手术顺序、围术期抗栓方案等方面尚缺乏共识，且与单纯消融相比的节律控制疗效不明确，随机证据有限，本文即针对这一证据缺口进行梳理。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">本文为叙述性综述（narrative review），非系统评价，未进行定量合并。摘要未报告检索数据库、检索时限、纳入研究数量及累计样本量，也未报告终点统一定义与统计方法。综述内容涵盖同期 AF 消融联合 LAAO 的理论依据、患者选择标准、手术要点（共享房间隔穿刺通路、整合影像与麻醉资源、单一恢复期）、临床结局（手术成功率、急性并发症、房性心律失常复发）以及未来方向（包括脉冲场消融等新技术）。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">摘要未报告具体效应量、95% 置信区间或 P 值。定性汇总显示：在经验丰富的中心，同期手术成功率较高，普遍超过 90%，急性并发症发生率处于可接受水平；同期手术的优势主要来自共享房间隔穿刺通路、整合影像与麻醉需求以及单次恢复期。与单纯消融相比，节律控制疗效仍不明确，不同研究报告的复发率既有升高也有与单纯消融相当的结果，反映同期手术的随机对照数据有限。最佳手术顺序、围术期抗栓治疗、患者选择以及脉冲场消融等新技术的应用仍存在明显知识空白。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">同期 AF 消融与 LAAO 是整合节律控制与卒中预防的合理且不断演进的治疗策略，在经验丰富的中心具备可接受的安全性与成功率，并可能带来流程效率与患者便利方面的获益。但由于缺乏随机对照证据，节律控制是否获益、围术期抗栓方案如何制定、哪些患者最适合同期手术均尚无定论；本文为叙述性综述，未做定量合并，结论受纳入研究异质性与选择偏倚限制，上述问题需前瞻性随机研究进一步确认。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42764716/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1080/14796678.2026.2735181" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42764716/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="Heart Rhythm"
+                         data-search="noninvasive median nerve stimulation with a wearable stimulator to reduce atrial arrhythmia recurrence after atrial fibrillation ablation: the neuropulse pilot. vivek y reddy devi g nair mohit k turagam raphael rosso ariel banai louise henriques magdalena strzeciwilk naama schwartz tsahi holand adi benari daniela puzhevsky amos ziv ehud chorin background: to improve atrial fibrillation (af) ablation success, empirical lesions are often placed-with variable effectiveness-but at the expense of myocardial destruction. autonomic modulation may provide a nonablative adjunct that improves rhythm outcomes without excess myocardial injury.
+
+objective: the purpose of this study was to evaluate cutaneous median nerve stimulation (mns) after af ablation.
+
+methods: neuropulse was a 3-center, randomized, double-blind, sham-controlled pilot study. 77 patients were randomized 1:1 to active mns (3 × 20-minute sessions/wk) or sham therapy; the modified intention-to-treat population included 59 patients (mns: n = 31; sham: n = 28). treatment began within 48 hours of ablation (largely pulsed field ablation) and continued for 6 months (daily for 2 weeks and then 3 times weekly). surveillance included twice-daily 2-minute device electrocardiograms and 10-day patches at 2 and 6 months.
+
+results: the median age was 67 years (interquartile range 56-74 years); 39% were female, 68% had paroxysmal af, and 27% underwent redo ablation. blinding was maintained. during postblanking follow-up (months 2-6), 12 af/atrial tachycardia/atrial flutter events occurred with mns and 243 with sham (rate ratio 17.93; 95% confidence interval [ci] 10.04-32.0; p &lt; .0001). after excluding 1 high-burden sham outlier, 12 vs 28 events occurred (rate ratio 2.17; 95% ci 1.10-4.27; p = .025). af/atrial tachycardia/atrial flutter recurred in 2 of 31 patients who underwent mns and 5 of 28 patients who underwent sham stimulation; 6-month arrhythmia-free survival was 90.0% vs 80.8%, respectively (hazard ratio 2.15; 95% ci 0.42-11.1; p = .36). premature atrial contraction counts and patient-reported outcomes did not differ. no mns- or device-related serious adverse events occurred.
+
+conclusion: wearable mns after af ablation was associated with fewer recurrent atrial arrhythmia events. this pilot study warrants confirmation in an adequately powered trial.
+
+clinical trial registration: clinicaltrials.gov identifier: nct06748157. heart rhythm"
+                         id="paper-2">
+
+                    <div class="paper-top">
+                        <div class="paper-index">2</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42764112/" target="_blank" rel="noopener noreferrer">Noninvasive median nerve stimulation with a wearable stimulator to reduce atrial arrhythmia recurrence after atrial fibrillation ablation: The NEUROPULSE pilot.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Heart Rhythm</span><span class="dot">·</span><span class="paper-date">2026-09-20</span><span class="dot">·</span><span class="paper-date">PMID 42764112</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Vivek Y Reddy、Devi G Nair、Mohit K Turagam、Raphael Rosso、Ariel Banai、Louise Henriques、Magdalena Strzeciwilk、Naama Schwartz、Tsahi Holand、Adi Benari、Daniela Puzhevsky、Amos Ziv、Ehud Chorin">
+                                Vivek Y Reddy、Devi G Nair、Mohit K Turagam<span class="authors-more"> 等 13 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">BACKGROUND: To improve atrial fibrillation (AF) ablation success, empirical lesions are often placed-with variable effectiveness-but at the expense of myocardial destruction. Autonomic modulation may provide a nonablative adjunct that improves rhythm outcomes without excess myocardial injury.
+
+OBJECTIVE: The purpose of this study was to evaluate cutaneous median nerve stimulation (MNS) after AF ablation.
+
+METHODS: NEUROPULSE was a 3-center, randomized, double-blind, sham-controlled pilot study. 77 patients were randomized 1:1 to active MNS (3 × 20-minute sessions/wk) or sham therapy; the modified intention-to-treat population included 59 patients (MNS: n = 31; sham: n = 28). Treatment began within 48 hours of ablation (largely pulsed field ablation) and continued for 6 months (daily for 2 weeks and then 3 times weekly). Surveillance included twice-daily 2-minute device electrocardiograms and 10-day patches at 2 and 6 months.
+
+RESULTS: The median age was 67 years (interquartile range 56-74 years); 39% were female, 68% had paroxysmal AF, and 27% underwent redo ablation. Blinding was maintained. During postblanking follow-up (months 2-6), 12 AF/atrial tachycardia/atrial flutter events occurred with MNS and 243 with sham (rate ratio 17.93; 95% confidence interval [CI] 10.04-32.0; P &lt; .0001). After excluding 1 high-burden sham outlier, 12 vs 28 events occurred (rate ratio 2.17; 95% CI 1.10-4.27; P = .025). AF/atrial tachycardia/atrial flutter recurred in 2 of 31 patients who underwent MNS and 5 of 28 patients who underwent sham stimulation; 6-month arrhythmia-free survival was 90.0% vs 80.8%, respectively (hazard ratio 2.15; 95% CI 0.42-11.1; P = .36). Premature atrial contraction counts and patient-reported outcomes did not differ. No MNS- or device-related serious adverse events occurred.
+
+CONCLUSION: Wearable MNS after AF ablation was associated with fewer recurrent atrial arrhythmia events. This pilot study warrants confirmation in an adequately powered trial.
+
+CLINICAL TRIAL REGISTRATION: ClinicalTrials.gov identifier: NCT06748157.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">在射频/脉冲场消融术后 48 小时内开始佩戴式正中神经刺激并持续 6 个月，可显著减少术后 2-6 个月房性心律失常事件的总体负荷；但 6 个月无心律失常生存率未见统计学差异，该结果来自一项样本量很小的探索性研究。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">目前改善 AF 消融成功率主要依靠经验性追加消融，但其效果不稳定，且以额外的心肌损伤为代价。自主神经调节可能提供一种不造成心肌破坏的辅助手段，来提高节律结局。经皮正中神经刺激（MNS）作为无创的自主神经干预方式，其在 AF 消融术后的疗效与安全性尚缺乏随机对照证据，本研究即为填补该空白而开展的先导性探索。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">NEUROPULSE 为 3 中心、随机、双盲、假刺激对照的先导性研究。共随机 77 例，按 1:1 分配至主动 MNS（每周 3 次、每次 20 分钟）或假治疗；改良意向性治疗人群 59 例（MNS 组 31 例、假刺激组 28 例）。治疗于消融（以脉冲场消融为主）后 48 小时内启动，持续 6 个月（前 2 周每日治疗，其后每周 3 次）。监测手段包括每日 2 次、每次 2 分钟的设备心电图，以及第 2、6 个月的 10 天贴片记录。主要观察消融空白期后（第 2-6 个月）的 AF、房性心动过速和心房扑动事件负荷与复发情况，并记录房性早搏计数、患者报告结局及不良事件。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">中位年龄 67 岁（IQR 56-74 岁），女性占 39%，阵发性 AF 占 68%，27% 为再次消融；盲法维持良好。空白期后随访期间，MNS 组发生 12 次 AF、房速或房扑事件，假刺激组发生 243 次（率比 17.93，95%CI 10.04-32.0，P&lt;.0001）；剔除 1 例高负荷假刺激组离群值后为 12 次对 28 次（率比 2.17，95%CI 1.10-4.27，P=.025）。复发例数分别为 MNS 组 2/31 与假刺激组 5/28，6 个月无心律失常生存率 90.0% 对 80.8%（HR 2.15，95%CI 0.42-11.1，P=.36）。房性早搏计数与患者报告结局两组无差异，未发生 MNS 或器械相关严重不良事件。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">AF 消融术后使用佩戴式正中神经刺激与更少的房性心律失常复发事件相关，且安全性良好、无额外心肌损伤风险，为消融术后无创自主神经调节这一辅助策略提供了初步信号。但本研究为先导性设计，改良意向性治疗人群仅 59 例，主要事件负荷结果受单例高负荷离群值影响显著（剔除后效应量由 17.93 降至 2.17），而作为硬终点的无心律失常生存率差异未达统计学意义（P=.36）。因此结论仅为假设生成性质，尚不足以改变临床实践，需在样本量足够的随机对照试验中验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42764112/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1016/j.hrthm.2026.09.013" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42764112/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="Heart Rhythm"
+                         data-search="map-guided redo ablation for recurrent persistent atrial fibrillation after prior pulmonary vein isolation: procedural feasibility, safety, and 12-month rhythm outcomes from a prospective multicenter study (nct05826665). rajesh kabra matthew mckillop aaditya vora saumil oza devi g nair dilip mathew douglas darden dhanunjaya r lakkireddy star apollo study investigators background: redo ablation for persistent atrial fibrillation (af) that recurs after pulmonary vein isolation (pvi) has had limited durable success, and adjunctive substrate strategies have not consistently improved outcomes. the star apollo mapping system is a food and drug administration-cleared technology that applies stochastic trajectory analysis of ranked signals to identify repetitive patterns of activation and early sites of activation (esas) that may indicate regions sustaining af.
+
+objective: the purpose of this study was to evaluate the procedural feasibility and safety and to describe the 12-month rhythm outcomes of star apollo-guided redo ablation in patients with recurrent persistent af after prior pvi.
+
+methods: in this prospective, multicenter, observational study, patients with persistent af recurring after 1 prior pvi (prior extrapulmonary vein ablation excluded) underwent pulmonary vein re-isolation, star apollo mapping, and operator-directed adjunctive ablation. because mapping of stochastic trajectory analysis of ranked signals (star) requires ongoing af, the analysis was confined to the 50 patients (of 64 enrolled) in whom a star map was obtained; the 14 without a star map, because they were not in af during the procedure, were excluded. procedural parameters, safety, and rhythm at the 3-, 6-, and 12-month visits were recorded.
+
+results: all 50 patients had 1 prior pvi and recurrent persistent af; they were 68.8 ± 8.7 years old, 35 (70.0%) were male, with a body mass index of 31.3 ± 5.5 kg/m2. pulmonary vein reconnection was found and re-isolated in 46 of 50 (92.0%). the system identified a median of 3 (2-3) esas per patient, and star mapping added a median of 16 (13-21) minutes to a median total procedure time of 125 (91-166) minutes. sinus rhythm was restored without cardioversion in 23 of 50 (46.0%; af terminated during ablation in 19/50 [38.0%] and spontaneously in 4/50 [8.0%]); 26 of 50 (52.0%) required cardioversion and 1 of 50 (2.0%) was not restored in the laboratory. adjunctive lines included a roof line in 30 of 50 (60.0%) and a mitral isthmus line in 11 of 50 (22.0%). a procedural complication occurred in 1 of 50 patients (2.0%) (pericardial effusion). among the 40 patients assessed at 12 months, 33 (82.5%) were in sinus rhythm, and symptom class improved to european heart rhythm association i in 23 of 30 (76.7%). by kaplan-meier estimation (single procedure; recurrence, repeat ablation, or cardioversion counted as failure), freedom from af was 95.3% (95% confidence interval [ci]: 82.5-98.8) at 6 months and 75.3% (95% ci: 59.0-85.9) at 12 months.
+
+conclusion: in conclusion, in recurrent persistent af after prior pvi, star apollo-guided redo ablation was feasible and safe, added a modest mapping step, and was associated with sinus rhythm and symptom improvement in most patients at 12 months. designed as a feasibility and safety study, and being single arm, these data cannot establish the incremental efficacy of star guidance; the encouraging rhythm outcomes are hypothesis generating and support a randomized comparison with pv re-isolation alone.
+
+gov identifier: nct05826665. heart rhythm"
+                         id="paper-3">
+
+                    <div class="paper-top">
+                        <div class="paper-index">3</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42764111/" target="_blank" rel="noopener noreferrer">Map-guided redo ablation for recurrent persistent atrial fibrillation after prior pulmonary vein isolation: Procedural feasibility, safety, and 12-month rhythm outcomes from a prospective multicenter study (NCT05826665).</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Heart Rhythm</span><span class="dot">·</span><span class="paper-date">2026-09-20</span><span class="dot">·</span><span class="paper-date">PMID 42764111</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Rajesh Kabra、Matthew McKillop、Aaditya Vora、Saumil Oza、Devi G Nair、Dilip Mathew、Douglas Darden、Dhanunjaya R Lakkireddy、STAR Apollo Study Investigators">
+                                Rajesh Kabra、Matthew McKillop、Aaditya Vora<span class="authors-more"> 等 9 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">BACKGROUND: Redo ablation for persistent atrial fibrillation (AF) that recurs after pulmonary vein isolation (PVI) has had limited durable success, and adjunctive substrate strategies have not consistently improved outcomes. The STAR Apollo mapping system is a Food and Drug Administration-cleared technology that applies stochastic trajectory analysis of ranked signals to identify repetitive patterns of activation and early sites of activation (ESAs) that may indicate regions sustaining AF.
+
+OBJECTIVE: The purpose of this study was to evaluate the procedural feasibility and safety and to describe the 12-month rhythm outcomes of STAR Apollo-guided redo ablation in patients with recurrent persistent AF after prior PVI.
+
+METHODS: In this prospective, multicenter, observational study, patients with persistent AF recurring after 1 prior PVI (prior extrapulmonary vein ablation excluded) underwent pulmonary vein re-isolation, STAR Apollo mapping, and operator-directed adjunctive ablation. Because mapping of stochastic trajectory analysis of ranked signals (STAR) requires ongoing AF, the analysis was confined to the 50 patients (of 64 enrolled) in whom a STAR map was obtained; the 14 without a STAR map, because they were not in AF during the procedure, were excluded. Procedural parameters, safety, and rhythm at the 3-, 6-, and 12-month visits were recorded.
+
+RESULTS: All 50 patients had 1 prior PVI and recurrent persistent AF; they were 68.8 ± 8.7 years old, 35 (70.0%) were male, with a body mass index of 31.3 ± 5.5 kg/m2. Pulmonary vein reconnection was found and re-isolated in 46 of 50 (92.0%). The system identified a median of 3 (2-3) ESAs per patient, and STAR mapping added a median of 16 (13-21) minutes to a median total procedure time of 125 (91-166) minutes. Sinus rhythm was restored without cardioversion in 23 of 50 (46.0%; AF terminated during ablation in 19/50 [38.0%] and spontaneously in 4/50 [8.0%]); 26 of 50 (52.0%) required cardioversion and 1 of 50 (2.0%) was not restored in the laboratory. Adjunctive lines included a roof line in 30 of 50 (60.0%) and a mitral isthmus line in 11 of 50 (22.0%). A procedural complication occurred in 1 of 50 patients (2.0%) (pericardial effusion). Among the 40 patients assessed at 12 months, 33 (82.5%) were in sinus rhythm, and symptom class improved to European Heart Rhythm Association I in 23 of 30 (76.7%). By Kaplan-Meier estimation (single procedure; recurrence, repeat ablation, or cardioversion counted as failure), freedom from AF was 95.3% (95% confidence interval [CI]: 82.5-98.8) at 6 months and 75.3% (95% CI: 59.0-85.9) at 12 months.
+
+CONCLUSION: In conclusion, in recurrent persistent AF after prior PVI, STAR Apollo-guided redo ablation was feasible and safe, added a modest mapping step, and was associated with sinus rhythm and symptom improvement in most patients at 12 months. Designed as a feasibility and safety study, and being single arm, these data cannot establish the incremental efficacy of STAR guidance; the encouraging rhythm outcomes are hypothesis generating and support a randomized comparison with PV re-isolation alone.
+
+GOV IDENTIFIER: NCT05826665.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">前瞻性多中心单臂研究显示，50例PVI后复发持续性AF患者行STAR Apollo标测指导的再次消融可行且安全，12个月无AF生存率75.3%（95%CI 59.0-85.9），但单臂设计无法证实其增量疗效。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">PVI后复发的持续性AF再次消融的持久成功率有限，既往附加基质消融策略（如线性消融、复杂碎裂电位消融）未能一致改善预后，因此亟需新的基质定位手段。STAR Apollo系统已获FDA批准，通过对排序信号做随机轨迹分析（stochastic trajectory analysis of ranked signals）识别重复激动模式及早期激动位点（ESA），理论上可标定维持AF的关键区域，但其在再次消融中的操作可行性、安全性和12个月节律结局尚无前瞻性多中心数据。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">前瞻性、多中心、观察性单臂研究（NCT05826665）。纳入标准为既往接受1次PVI后复发的持续性AF，排除既往肺静脉外消融者。手术流程包括肺静脉再隔离、STAR Apollo标测及术者决定的附加消融。由于STAR标测需在AF持续状态下进行，64例入组患者中14例因术中未处于AF而无法获得STAR图被排除，最终分析50例。记录手术参数、并发症，以及3、6、12个月随访节律；无AF生存采用Kaplan-Meier法估算，单次手术失败定义为AF复发、再次消融或需电复律。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">50例患者年龄68.8±8.7岁，男性35例（70.0%），BMI 31.3±5.5 kg/m2。46/50（92.0%）存在肺静脉传导恢复并完成再隔离。系统识别ESA中位数3（2-3）个/例，STAR标测使总手术时间（中位125［91-166］分钟）增加中位16（13-21）分钟。无电复律即恢复窦性心律者23/50（46.0%），其中消融中AF终止19/50（38.0%）、自行终止4/50（8.0%）；26/50（52.0%）需电复律，1/50（2.0%）在导管室内未能恢复窦律。附加消融线包括顶部线30/50（60.0%）、二尖瓣峡部线11/50（22.0%）。围术期并发症1/50（2.0%），为心包积液。12个月完成评估的40例中33例（82.5%）维持窦性心律，症状分级改善至EHRA I级者23/30（76.7%）。Kaplan-Meier估算单次手术后无AF生存率6个月为95.3%（95%CI 82.5-98.8），12个月为75.3%（95%CI 59.0-85.9）。摘要未报告组间比较或P值。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">在PVI后复发的持续性AF患者中，STAR Apollo指导的再次消融操作可行、安全性可接受，标测仅增加有限的额外手术时间，12个月时多数患者恢复窦性心律并伴症状改善。但该研究为单臂可行性/安全性设计，缺乏对照，无法确立STAR指导相对于单纯肺静脉再隔离的增量疗效；且14例（21.9%）因术中非AF被排除、12个月随访仅40例可评估，存在选择偏倚与失访偏倚，结果属假设生成性质，需与单纯肺静脉再隔离进行随机对照比较。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42764111/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1016/j.hrthm.2026.09.004" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42764111/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="Heart Rhythm"
+                         data-search="integrated hemodynamic sensing, electrical sensing, and ventricular pacing from a novel substernal lead: an acute human study. cheng cai kai gu bob gaskill xiangwei ding yanhui li minglong chen background: implantable cardioverter defibrillators rely primarily on electrical signals to guide therapy. hemodynamic sensing may provide complementary information about the immediate physiological consequences of arrhythmias.
+
+objective: in this study, we evaluated the acute feasibility and performance of a 3-dimensional substernal shock lead that integrates hemodynamic sensing, electrical sensing, and ventricular pacing.
+
+methods: this prospective first-in-human feasibility study enrolled 5 patients undergoing cardiac surgery or epicardial ventricular tachycardia (vt) ablation. a substernal shock lead was temporarily placed through a percutaneous subxiphoid approach using a dedicated delivery system. lead placement and removal, adverse events, synchronized sensor signals, surface electrocardiograms, substernal electrograms, and pacing thresholds were assessed.
+
+results: lead placement and removal were successful in all patients without device- or procedure-related acute adverse events. interpretable hemodynamic signals were obtained in all 5 patients and showed stable beat-to-beat temporal correspondence with the electrocardiogram and distinct rhythm-associated patterns across sinus rhythm, atrial fibrillation, vt, and ventricular fibrillation. all 147 vt episodes had interpretable hemodynamic-index recordings. the hemodynamic index decreased abruptly during vt and recovered after arrhythmia termination. corresponding changes in the hemodynamic index were observed during transitions among vt, ventricular fibrillation, and sinus rhythm. ventricular capture was achieved in all 5 patients at 11-17 v (mean, 13.8 v) at 0.5 ms.
+
+conclusion: acute placement of this multifunctional substernal lead was feasible and enabled integrated hemodynamic and electrical sensing with acute ventricular capture. these findings provide preliminary human support for further development of physiology-guided extravascular implantable cardioverter defibrillator systems; chronic performance and clinical validation of the hemodynamic sensing algorithm require further study. heart rhythm"
+                         id="paper-4">
+
+                    <div class="paper-top">
+                        <div class="paper-index">4</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42764110/" target="_blank" rel="noopener noreferrer">Integrated hemodynamic sensing, electrical sensing, and ventricular pacing from a novel substernal lead: An acute human study.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Heart Rhythm</span><span class="dot">·</span><span class="paper-date">2026-09-20</span><span class="dot">·</span><span class="paper-date">PMID 42764110</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Cheng Cai、Kai Gu、Bob Gaskill、Xiangwei Ding、Yanhui Li、Minglong Chen">
+                                Cheng Cai、Kai Gu、Bob Gaskill<span class="authors-more"> 等 6 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">BACKGROUND: Implantable cardioverter defibrillators rely primarily on electrical signals to guide therapy. Hemodynamic sensing may provide complementary information about the immediate physiological consequences of arrhythmias.
+
+OBJECTIVE: In this study, we evaluated the acute feasibility and performance of a 3-dimensional substernal shock lead that integrates hemodynamic sensing, electrical sensing, and ventricular pacing.
+
+METHODS: This prospective first-in-human feasibility study enrolled 5 patients undergoing cardiac surgery or epicardial ventricular tachycardia (VT) ablation. A substernal shock lead was temporarily placed through a percutaneous subxiphoid approach using a dedicated delivery system. Lead placement and removal, adverse events, synchronized sensor signals, surface electrocardiograms, substernal electrograms, and pacing thresholds were assessed.
+
+RESULTS: Lead placement and removal were successful in all patients without device- or procedure-related acute adverse events. Interpretable hemodynamic signals were obtained in all 5 patients and showed stable beat-to-beat temporal correspondence with the electrocardiogram and distinct rhythm-associated patterns across sinus rhythm, atrial fibrillation, VT, and ventricular fibrillation. All 147 VT episodes had interpretable hemodynamic-index recordings. The hemodynamic index decreased abruptly during VT and recovered after arrhythmia termination. Corresponding changes in the hemodynamic index were observed during transitions among VT, ventricular fibrillation, and sinus rhythm. Ventricular capture was achieved in all 5 patients at 11-17 V (mean, 13.8 V) at 0.5 ms.
+
+CONCLUSION: Acute placement of this multifunctional substernal lead was feasible and enabled integrated hemodynamic and electrical sensing with acute ventricular capture. These findings provide preliminary human support for further development of physiology-guided extravascular implantable cardioverter defibrillator systems; chronic performance and clinical validation of the hemodynamic sensing algorithm require further study.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">首例人体研究在5例患者中经剑突下途径临时植入集血流动力学传感、电感知与心室起搏于一体的胸骨后除颤导线，急性期全部置入与撤除成功，147次VT发作均可获得可解读血流动力学指数记录，5例均实现心室夺获。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">植入式心律转复除颤器（ICD）主要依赖电信号判断并指导治疗，无法直接反映心律失常带来的即时血流动力学后果，可能导致不必要的放电或延迟治疗。既往缺乏能够在胸骨后血管外位置同步获取血流动力学信息的多功能导线的人体证据，本研究旨在填补这一空白，探索生理学指导的血管外ICD系统的可行性。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">前瞻性首次人体（first-in-human）可行性研究，纳入5例接受心脏外科手术或心外膜室性心动过速（VT）消融的患者。经皮剑突下途径、使用专用递送系统临时置入三维胸骨后除颤导线。评估指标包括导线置入与撤除的成功率、不良事件、传感器信号同步性、体表心电图、胸骨后电图及起搏阈值。摘要未报告统计学检验方法及置信区间。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">5例患者导线置入与撤除均成功，无器械或操作相关的急性不良事件。全部5例获得可解读的血流动力学信号，与心电图呈稳定的逐搏时间对应关系，并在窦性心律、心房颤动、VT及心室颤动下表现出节律相关的特异性波形模式。147次VT发作的血流动力学指数记录均可解读，VT期间该指数骤降、心律失常终止后回升；VT、心室颤动与窦性心律之间转换时亦见相应变化。5例在0.5 ms脉宽下均实现心室夺获，起搏阈值11–17 V（均值13.8 V）。摘要未报告P值或效应量置信区间。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">该多功能胸骨后导线的急性置入安全可行，可整合血流动力学与电感知并实现急性心室起搏，为生理学指导的血管外ICD系统提供了初步人体依据。局限在于样本量仅5例、仅观察急性期表现，血流动力学传感算法的长期性能与临床有效性尚需更大规模研究验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42764110/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1016/j.hrthm.2026.08.047" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42764110/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="J Arrhythm"
+                         data-search="clinical characteristics and timing of accessory pathway reconduction during catheter ablation of accessory pathways. wataru sasaki hitoshi mori daisuke kawano kei matsumoto naomichi tanaka tsukasa naganuma masataka narita kazuhisa matsumoto yoshifumi ikeda takahide arai shintaro nakano ritsushi kato background: catheter ablation of accessory pathways has high acute success rates; however, accessory pathway (ap) recurrence remains a clinically relevant issue. although intra-procedural ap reconduction is frequently encountered during ablation procedures, its timing, predictors, and clinical significance remain insufficiently characterized.
+
+objectives: this study aimed to investigate the timing, electrophysiologic characteristics, and clinical implications of intra-procedural ap reconduction during catheter ablation of manifest and concealed accessory pathways.
+
+methods: we retrospectively analyzed 128 patients with manifest or concealed ap who underwent catheter ablation at our institution between may 28, 2015, and february 2025. details of cases in which ap reconduction was observed during the 30 min waiting period after successful ablation, including clinical and procedural characteristics, were compared with those of patients without reconduction.
+
+results: intra-procedural ap reconduction occurred in 23 patients (18.0%). the mean time to reconduction was 16.7 ± 7.0 min, with a maximum interval of 27 min. compared with patients without reconduction, those with reconduction had a significantly longer time to pathway interruption, more frequent broad or oblique aps, and more complex procedural approaches requiring multiple anatomical access routes. intra-procedural reconduction was also associated with subsequent late recurrence. fifteen of 23 events (65.2%) occurred ≥ 15 min after ap elimination.
+
+conclusions: intra-procedural ap reconduction during catheter ablation of accessory pathways is not uncommon and appears to be associated with specific electrophysiologic and procedural characteristics as well as late recurrence. these findings may facilitate identification of patients at higher risk of reconduction and help guide intra-procedural assessment during catheter ablation. j arrhythm"
+                         id="paper-5">
+
+                    <div class="paper-top">
+                        <div class="paper-index">5</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42763562/" target="_blank" rel="noopener noreferrer">Clinical Characteristics and Timing of Accessory Pathway Reconduction During Catheter Ablation of Accessory Pathways.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">J Arrhythm</span><span class="dot">·</span><span class="paper-date">2026-09-20</span><span class="dot">·</span><span class="paper-date">PMID 42763562</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Wataru Sasaki、Hitoshi Mori、Daisuke Kawano、Kei Matsumoto、Naomichi Tanaka、Tsukasa Naganuma、Masataka Narita、Kazuhisa Matsumoto、Yoshifumi Ikeda、Takahide Arai、Shintaro Nakano、Ritsushi Kato">
+                                Wataru Sasaki、Hitoshi Mori、Daisuke Kawano<span class="authors-more"> 等 12 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">BACKGROUND: Catheter ablation of accessory pathways has high acute success rates; however, accessory pathway (AP) recurrence remains a clinically relevant issue. Although intra-procedural AP reconduction is frequently encountered during ablation procedures, its timing, predictors, and clinical significance remain insufficiently characterized.
+
+OBJECTIVES: This study aimed to investigate the timing, electrophysiologic characteristics, and clinical implications of intra-procedural AP reconduction during catheter ablation of manifest and concealed accessory pathways.
+
+METHODS: We retrospectively analyzed 128 patients with manifest or concealed AP who underwent catheter ablation at our institution between May 28, 2015, and February 2025. Details of cases in which AP reconduction was observed during the 30 min waiting period after successful ablation, including clinical and procedural characteristics, were compared with those of patients without reconduction.
+
+RESULTS: Intra-procedural AP reconduction occurred in 23 patients (18.0%). The mean time to reconduction was 16.7 ± 7.0 min, with a maximum interval of 27 min. Compared with patients without reconduction, those with reconduction had a significantly longer time to pathway interruption, more frequent broad or oblique APs, and more complex procedural approaches requiring multiple anatomical access routes. Intra-procedural reconduction was also associated with subsequent late recurrence. Fifteen of 23 events (65.2%) occurred ≥ 15 min after AP elimination.
+
+CONCLUSIONS: Intra-procedural AP reconduction during catheter ablation of accessory pathways is not uncommon and appears to be associated with specific electrophysiologic and procedural characteristics as well as late recurrence. These findings may facilitate identification of patients at higher risk of reconduction and help guide intra-procedural assessment during catheter ablation.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">128例显性/隐匿性旁路消融回顾性分析中，18.0%在术后30分钟等待期内出现旁路再通，平均16.7±7.0分钟，且与远期复发相关。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">导管消融旁路的急性成功率高，但旁路复发仍是临床关注问题。术中旁路再通（AP reconduction）虽经常遇到，但其发生时机、预测因素及临床意义尚未被充分阐明；明确这些特征有助于识别高再通风险患者并指导术中评估策略。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">单中心回顾性研究，纳入2015年5月28日至2025年2月在该机构接受导管消融的显性与隐匿性旁路患者128例。将成功消融后30分钟等待期内观察到旁路再通的病例，与未发生再通者进行临床与手术特征的比较。终点包括术中再通的发生率与发生时间、再通的电生理与操作相关预测特征，以及再通与远期复发的关联；具体统计方法与效应量摘要未报告。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">术中旁路再通发生于23例（18.0%）。再通平均时间为16.7±7.0分钟，最长间隔27分钟；23例事件中有15例（65.2%）发生在旁路消除后≥15分钟。与未再通者相比，再通患者的旁路阻断时间显著更长，宽旁路或斜行旁路更常见，且更多需要多解剖入路的复杂操作路径；术中再通亦与随后的远期复发相关。各项比较的效应量与P值摘要未报告。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">旁路消融术中再通并不少见，且与特定电生理及操作特征（阻断耗时长、宽/斜行旁路、多入路复杂操作）和远期复发相关，提示对具备上述特征者应在术中加强再通监测与评估，并可能延长等待观察时间至≥30分钟。本研究为单中心回顾性设计、样本量有限，且缺乏再通与复发关联的量化效应值，结论尚需前瞻性研究验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42763562/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1002/joa3.70469" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42763562/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="World J Methodol"
+                         data-search="smartphone-based mobile health impact on oral anticoagulation adherence, quality of life, and healthcare utilization in adult atrial fibrillation farhan m patel t harazeen w mohamed y al azzawi a intabli h ahmed n obais man alkhazali mr patel bd ahmad a awosika a background atrial fibrillation (af) is a prevalent arrhythmia associated with increased stroke risk, morbidity, and healthcare burden. oral anticoagulation (oac) is essential for stroke prevention, but adherence is often suboptimal. smartphone-based mobile health (mhealth) applications offer potential to enhance adherence, quality of life (qol), and reduce healthcare utilization.aim to systematically review randomized controlled trials (rcts) evaluating the impact of smartphone-based mhealth interventions on oac adherence, health-related qol, and healthcare utilization in adults with af.methods following prisma guidelines and a prospero-registered protocol (crd420251169904), databases (pubmed, scopus, web of science, embase, cochrane central, cinahl, clinicaltrials.gov) were searched from january 1, 2000, to july 30, 2025. eligible studies were rcts of mhealth apps for af management in adults (≥ 18 years). two reviewers screened records, extracted data, and assessed risk of bias using cochrane risk of bias 2. narrative synthesis was used due to heterogeneity.results of 968 records, 16 rcts (n = 209-3324 participants) were included, primarily from china, united states, taiwan, and south korea. integrated interventions (e.g., mafa-ii aligning with af better care pathway) improved oac adherence (e.g., higher self-reported scores, p &lt; 0.05; increased oac persistence, p &lt; 0.001), enhanced qol (e.g., eq-5d improvements, p &lt; 0.001), and reduced healthcare utilization (e.g., rehospitalizations hazard ratio = 0.32, p &lt; 0.001) without increasing bleeding risks. simpler apps showed inconsistent benefits. heterogeneity in designs, adherence measures, and follow-up (3 months to 2 years) limited generalizability. risk of bias was high in 10 studies due to open-label designs and post-hoc analyses.conclusion mhealth apps, especially comprehensive ones, can improve oac adherence, qol, and reduce utilization in af patients. future research should focus on long-term efficacy, cost-effectiveness, and equitable implementation for diverse populations. world j methodol"
+                         id="paper-6">
+
+                    <div class="paper-top">
+                        <div class="paper-index">6</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42626055/" target="_blank" rel="noopener noreferrer">Smartphone-based mobile health impact on oral anticoagulation adherence, quality of life, and healthcare utilization in adult atrial fibrillation</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">World J Methodol</span><span class="dot">·</span><span class="paper-date">2026-09-20</span><span class="dot">·</span><span class="paper-date">PMID 42626055</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">research-article</span>
+                                <span class="tag tag-type">Journal Article</span>
+<span class="tag tag-oa">开放获取</span>                            </div>
+
+                            <p class="paper-authors" title="Farhan M、Patel T、Harazeen W、Mohamed Y、Al Azzawi A、Intabli H、Ahmed N、Obais MAN、Alkhazali MR、Patel BD、Ahmad A、Awosika A">
+                                Farhan M、Patel T、Harazeen W<span class="authors-more"> 等 12 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">Background Atrial fibrillation (AF) is a prevalent arrhythmia associated with increased stroke risk, morbidity, and healthcare burden. Oral anticoagulation (OAC) is essential for stroke prevention, but adherence is often suboptimal. Smartphone-based mobile health (mHealth) applications offer potential to enhance adherence, quality of life (QoL), and reduce healthcare utilization.Aim To systematically review randomized controlled trials (RCTs) evaluating the impact of smartphone-based mHealth interventions on OAC adherence, health-related QoL, and healthcare utilization in adults with AF.Methods Following PRISMA guidelines and a PROSPERO-registered protocol (CRD420251169904), databases (PubMed, Scopus, Web of Science, EMBASE, Cochrane CENTRAL, CINAHL, ClinicalTrials.gov) were searched from January 1, 2000, to July 30, 2025. Eligible studies were RCTs of mHealth apps for AF management in adults (≥ 18 years). Two reviewers screened records, extracted data, and assessed risk of bias using Cochrane risk of bias 2. Narrative synthesis was used due to heterogeneity.Results Of 968 records, 16 RCTs (n = 209-3324 participants) were included, primarily from China, United States, Taiwan, and South Korea. Integrated interventions (e.g., mAFA-II aligning with AF better care pathway) improved OAC adherence (e.g., higher self-reported scores, P &lt; 0.05; increased OAC persistence, P &lt; 0.001), enhanced QoL (e.g., EQ-5D improvements, P &lt; 0.001), and reduced healthcare utilization (e.g., rehospitalizations hazard ratio = 0.32, P &lt; 0.001) without increasing bleeding risks. Simpler apps showed inconsistent benefits. Heterogeneity in designs, adherence measures, and follow-up (3 months to 2 years) limited generalizability. Risk of bias was high in 10 studies due to open-label designs and post-hoc analyses.Conclusion mHealth apps, especially comprehensive ones, can improve OAC adherence, QoL, and reduce utilization in AF patients. Future research should focus on long-term efficacy, cost-effectiveness, and equitable implementation for diverse populations.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">纳入16项RCT的系统评价显示，以mAFA-II为代表的综合性智能手机mHealth干预可改善房颤患者口服抗凝依从性与生活质量，并降低再住院率（HR=0.32），功能简单的APP效果不一致。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">房颤患者卒中风险高，口服抗凝（OAC）是卒中预防的基石，但真实世界中依从性常不理想，直接影响卒中预防效果并增加医疗负担。智能手机mHealth应用被寄予改善依从性、生活质量并减少医疗资源使用的期望，但既往证据多为单项研究，缺乏对RCT的系统整合，其获益是否依赖于APP的综合性（如与ABC管理路径整合）尚不明确。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">系统评价与叙述性合成，遵循PRISMA规范，方案于PROSPERO注册（CRD420251169904）。检索PubMed、Scopus、Web of Science、EMBASE、Cochrane CENTRAL、CINAHL及ClinicalTrials.gov，时间范围为2000年1月1日至2025年7月30日。纳入标准为成人（≥18岁）房颤患者中使用智能手机mHealth应用的RCT。两名评价者独立筛选文献、提取数据，并采用Cochrane风险偏倚2工具评估偏倚风险；因研究间异质性较大，采用叙述性综合而非定量合并。终点为OAC依从性（自报评分、OAC持续率）、健康相关生活质量（如EQ-5D）与医疗资源使用（如再住院）。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">共检索到968条记录，最终纳入16项RCT，样本量介于209至3324例，研究主要来自中国、美国、台湾地区和韩国。综合性干预（如与房颤优化管理路径相结合的mAFA-II）可提高OAC依从性（自报依从性评分更高，P&lt;0.05；OAC持续率提高，P&lt;0.001）、改善生活质量（EQ-5D改善，P&lt;0.001）、降低医疗资源使用（再住院风险比HR=0.32，P&lt;0.001），且未增加出血风险。功能较简单的APP所显示的获益不一致。研究设计、依从性测量方式及随访时间（3个月至2年）差异较大，限制了结果的推广性；10项研究因开放标签设计与事后分析被判定为高偏倚风险。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">综合性智能手机mHealth应用可能通过整合房颤规范管理路径，在改善OAC依从性、生活质量及降低再住院方面带来临床获益，且不增加出血风险，可作为房颤长期管理的辅助工具；功能单一的应用证据不足。现有证据受开放标签设计、依从性测量工具不统一、随访期较短及高偏倚风险限制，长期疗效、成本效益及在不同人群中的公平可及性仍需进一步RCT验证。摘要未报告各项结局的合并效应量与95%置信区间。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42626055/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.5662/wjm.117065" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42626055/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="Herzschrittmacherther Elektrophysiol"
+                         data-search="[psychocardiology-when cardiac rhythm meets psychological experience : why cardiac arrhythmias elicit a psychological response]. corinna pfeiffer psychocardiology connects the biological reality of cardiovacular diseases with the subjective experience of the patient. in cases of cardiac arrhythmias, this relationship is particularly evident: cardiac arrhythmias are measurable electrophysiological events but they are also subjectively perceived, emotionally evaluated and embedded in a patient&#39;s biography. the objective burden of arrhythmia does not always correlate with the degree of subjective suffering. although modern electrophysiology provides highly differentiated diagnostic and interventional treatment options, the question of the individual experience of illness often remains secondary. this article discusses cardiac arrhythmias from a psychocardiological and psychosomatic perspective. it focuses on the heart-brain axis, the role of anxiety, depression, hypervigilance and illness perception as well as atrial fibrillation as a model of a biopsychosocial disorder. in addition, the heart is considered as a special organ where its activity can be directly perceived and is culturally associated with life, safety, identity and vulnerability. psychocardiology is not understood as psychologizing cardiac disease but as an integrative clinical attitude that takes both biological findings and subjective experience seriously. herzschrittmacherther elektrophysiol"
+                         id="paper-7">
+
+                    <div class="paper-top">
+                        <div class="paper-index">7</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42763323/" target="_blank" rel="noopener noreferrer">[Psychocardiology-When cardiac rhythm meets psychological experience : Why cardiac arrhythmias elicit a psychological response].</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Herzschrittmacherther Elektrophysiol</span><span class="dot">·</span><span class="paper-date">2026-09-19</span><span class="dot">·</span><span class="paper-date">PMID 42763323</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">English Abstract</span>
+                                <span class="tag tag-type">Journal Article</span>
+                                <span class="tag tag-type">Review</span>
+                            </div>
+
+                            <p class="paper-authors" title="Corinna Pfeiffer">
+                                Corinna Pfeiffer                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">Psychocardiology connects the biological reality of cardiovacular diseases with the subjective experience of the patient. In cases of cardiac arrhythmias, this relationship is particularly evident: cardiac arrhythmias are measurable electrophysiological events but they are also subjectively perceived, emotionally evaluated and embedded in a patient&#39;s biography. The objective burden of arrhythmia does not always correlate with the degree of subjective suffering. Although modern electrophysiology provides highly differentiated diagnostic and interventional treatment options, the question of the individual experience of illness often remains secondary. This article discusses cardiac arrhythmias from a psychocardiological and psychosomatic perspective. It focuses on the heart-brain axis, the role of anxiety, depression, hypervigilance and illness perception as well as atrial fibrillation as a model of a biopsychosocial disorder. In addition, the heart is considered as a special organ where its activity can be directly perceived and is culturally associated with life, safety, identity and vulnerability. Psychocardiology is not understood as psychologizing cardiac disease but as an integrative clinical attitude that takes both biological findings and subjective experience seriously.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">这篇综述从心理心脏病学视角指出：心律失常既是可测量的电生理事件，也是被主观感知和情绪评价的体验，客观负荷与主观痛苦程度并不总是相符，临床需兼顾生物学与心理两个维度。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">现代电生理提供了高度分化的诊断与介入手段，但患者对疾病的个体体验常被置于次要位置；既往证据多聚焦心律失常的客观负荷（如发作频率、持续时间、LVEF 等），缺乏对焦虑、抑郁、过度警觉与疾病感知等心理因素的整合，客观心律失常负荷与主观痛苦程度之间的不匹配尚未在临床路径中得到解释与处理。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">为综述/立场性文章（心理心脏病学与心身医学视角），非原始研究，摘要未报告研究类型细节、研究对象、样本量、干预措施、终点定义或统计方法；讨论框架包括心-脑轴、焦虑、抑郁、过度警觉与疾病感知的作用，并以房颤作为生物-心理-社会疾病的模型，同时将心脏作为其活动可被直接感知、且在文化上与生命、安全、身份和脆弱性相联系的器官加以讨论。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">摘要未报告定量结果，未提供任何效应量、95% 置信区间或 P 值；文中提出的核心论点为主观痛苦程度与心律失常客观负荷并不总是一致，且尽管电生理诊疗技术高度分化，个体化的疾病体验问题仍常被忽视。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">作者主张心理心脏病学并非把心脏病“心理学化”，而是一种同时严肃对待生物学发现与主观体验的整合性临床态度；对电生理实践而言，提示在房颤消融、器械植入等诊疗流程中应系统评估焦虑、抑郁与疾病感知。局限在于本文为观点性综述，无原始数据支持，相关心理干预对心律失常结局的影响尚需专门研究验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42763323/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1007/s00399-026-01172-3" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42763323/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+            </div>
         </section>
-        <section class="topic-group">
+        <section class="topic-group" data-group-topic="室性心律失常">
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>室性心律失常</span>
                 <span class="topic-count">2 篇</span>
             </h2>
-            <ul class="archive-list">
-                <li>
-                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42763773/" target="_blank" rel="noopener noreferrer">Impella Versus Intra-aortic Balloon Pump in Cardiogenic Shock: Arrhythmias, Bleeding Complications, and In-Hospital Outcomes in a Propensity-Matched Analysis of the National Inpatient Sample.</a>
-                    </span>
-                    <span class="a-authors">Maha Wazir、Farhan Ullah、Fahad Nasir、Qaidar Alizai</span>
-                    <span class="a-journal">Cureus</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42763773/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.7759/cureus.114879" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42763773/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42763748/" target="_blank" rel="noopener noreferrer">Cardiac Resynchronization Therapy Optimization in a Patient with Left Ventricular Non-Compaction Cardiomyopathy and Morbid Obesity.</a>
-                    </span>
-                    <span class="a-authors">Arsalan Farhangee、Ion Mindrila</span>
-                    <span class="a-journal">Curr Health Sci J</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42763748/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.12865/CHSJ.52.02.280" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42763748/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-            </ul>
+
+            <div class="paper-list">
+                <article class="paper-card"
+                         data-topic="室性心律失常"
+                         data-journal="Cureus"
+                         data-search="impella versus intra-aortic balloon pump in cardiogenic shock: arrhythmias, bleeding complications, and in-hospital outcomes in a propensity-matched analysis of the national inpatient sample. maha wazir farhan ullah fahad nasir qaidar alizai background: with no robust data indicating a mortality benefit of impella over the intra-aortic balloon pump (iabp), we conducted a retrospective analysis to assess the frequency of morbidity outcomes, including arrhythmias, associated with the two devices.
+
+materials and methods: we performed a retrospective observational study using the national inpatient sample (nis) database (2009-2014). hospitalizations involving acute myocardial infarction or cardiogenic shock, valve surgery, cardiac bypass, or percutaneous coronary intervention, which received impella or iabp on the day of admission, were identified. propensity score matching was conducted to account for baseline demographic characteristics and admitting diagnoses. the difference-in-differences statistic was used to assess the difference in arrhythmia outcomes between the two groups. analyses were performed using rstudio (posit software, pbc, boston, ma, usa). primary outcomes included arrhythmia rates and in-hospital mortality.
+
+results: the unmatched data included 5,053 hospitalizations receiving impella and 133,042 receiving iabp on the day of admission. a 1:1 propensity score matching yielded 10,106 matched hospitalizations. we observed significantly higher odds of ventricular tachycardia (vt) in the impella group and of supraventricular tachycardia (svt) in the iabp group. bleeding, hematoma, and extracorporeal membrane oxygenation (ecmo) use were higher with impella, whereas iatrogenic cardiac complications and heart transplant were higher with iabp. subgroup analysis showed higher in-hospital mortality among patients with vf, af, stroke, and ecmo use in the impella group.
+
+conclusions: our study showed a greater association between vt and impella, whereas iatrogenic complications and svt were more commonly associated with iabp use. impella was associated with significantly higher rates of vt, vf, and in-hospital cardiac arrest and with higher in-hospital mortality, while af was significantly more common with iabp. these findings suggest a potential benefit of increased post-procedural surveillance in patients receiving impella, pending confirmation in prospective studies. cureus"
+                         id="paper-1">
+
+                    <div class="paper-top">
+                        <div class="paper-index">1</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42763773/" target="_blank" rel="noopener noreferrer">Impella Versus Intra-aortic Balloon Pump in Cardiogenic Shock: Arrhythmias, Bleeding Complications, and In-Hospital Outcomes in a Propensity-Matched Analysis of the National Inpatient Sample.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Cureus</span><span class="dot">·</span><span class="paper-date">2026-09-20</span><span class="dot">·</span><span class="paper-date">PMID 42763773</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="室性心律失常">室性心律失常</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Maha Wazir、Farhan Ullah、Fahad Nasir、Qaidar Alizai">
+                                Maha Wazir、Farhan Ullah、Fahad Nasir<span class="authors-more"> 等 4 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">BACKGROUND: With no robust data indicating a mortality benefit of Impella over the intra-aortic balloon pump (IABP), we conducted a retrospective analysis to assess the frequency of morbidity outcomes, including arrhythmias, associated with the two devices.
+
+MATERIALS AND METHODS: We performed a retrospective observational study using the National Inpatient Sample (NIS) database (2009-2014). Hospitalizations involving acute myocardial infarction or cardiogenic shock, valve surgery, cardiac bypass, or percutaneous coronary intervention, which received Impella or IABP on the day of admission, were identified. Propensity score matching was conducted to account for baseline demographic characteristics and admitting diagnoses. The difference-in-differences statistic was used to assess the difference in arrhythmia outcomes between the two groups. Analyses were performed using RStudio (Posit Software, PBC, Boston, MA, USA). Primary outcomes included arrhythmia rates and in-hospital mortality.
+
+RESULTS: The unmatched data included 5,053 hospitalizations receiving Impella and 133,042 receiving IABP on the day of admission. A 1:1 propensity score matching yielded 10,106 matched hospitalizations. We observed significantly higher odds of ventricular tachycardia (VT) in the Impella group and of supraventricular tachycardia (SVT) in the IABP group. Bleeding, hematoma, and extracorporeal membrane oxygenation (ECMO) use were higher with Impella, whereas iatrogenic cardiac complications and heart transplant were higher with IABP. Subgroup analysis showed higher in-hospital mortality among patients with VF, AF, stroke, and ECMO use in the Impella group.
+
+CONCLUSIONS: Our study showed a greater association between VT and Impella, whereas iatrogenic complications and SVT were more commonly associated with IABP use. Impella was associated with significantly higher rates of VT, VF, and in-hospital cardiac arrest and with higher in-hospital mortality, while AF was significantly more common with IABP. These findings suggest a potential benefit of increased post-procedural surveillance in patients receiving Impella, pending confirmation in prospective studies.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">基于美国国家住院样本库的倾向性匹配分析显示，Impella 组室性心动过速、室颤、院内心脏骤停及院内死亡风险更高，而 IABP 组房颤、室上性心动过速及医源性心脏并发症更多见。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">既往缺乏有力证据表明 Impella 相较主动脉内球囊反搏（IABP）能降低心源性休克患者死亡率，两者在心律失常、出血等非死亡性结局方面的差异证据不足，而这类并发症直接影响器械选择与术后监护强度，因此需要大样本真实世界数据比较两种机械循环支持装置的安全性结局。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">研究为回顾性观察性研究，数据来自美国国家住院样本库（NIS）2009—2014 年数据。纳入入院当日即接受 Impella 或 IABP 的住院患者，入院诊断或操作涉及急性心肌梗死、心源性休克、瓣膜手术、心脏搭桥或经皮冠状动脉介入治疗。采用倾向性评分匹配校正基线人口学特征与入院诊断，以 1:1 匹配；使用双重差分统计量比较两组心律失常结局差异，分析在 RStudio 中完成。主要终点为心律失常发生率与院内死亡率；摘要未报告具体匹配协变量清单与双重差分模型细节。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">未匹配队列中 Impella 组 5,053 例住院、IABP 组 133,042 例住院；1:1 倾向性匹配后共 10,106 例住院纳入分析。Impella 组室性心动过速（VT）风险显著更高，IABP 组室上性心动过速（SVT）风险显著更高；出血、血肿及体外膜肺氧合（ECMO）使用在 Impella 组更多，而医源性心脏并发症与心脏移植在 IABP 组更多。亚组分析显示，在合并室颤、房颤、卒中及应用 ECMO 的患者中，Impella 组院内死亡率更高。摘要未报告各结局的具体比值比、95% 置信区间及 P 值。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">本研究表明 Impella 使用与 VT 关联更强，IABP 则与 SVT 及医源性并发症关联更强；Impella 组 VT、室颤、院内心脏骤停发生率及院内死亡率均显著升高，而房颤在 IABP 组更常见。提示接受 Impella 的患者可能需要更密集的术后心律监测与并发症防范；但本研究为回顾性行政数据库分析，存在编码偏倚与残余混杂，且缺乏随机化与长期随访，结论尚需前瞻性研究验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42763773/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.7759/cureus.114879" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42763773/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="室性心律失常"
+                         data-journal="Curr Health Sci J"
+                         data-search="cardiac resynchronization therapy optimization in a patient with left ventricular non-compaction cardiomyopathy and morbid obesity. arsalan farhangee ion mindrila left ventricular non-compaction cardiomyopathy (lvnc) is a rare myocardial disorder associated with heart failure and arrhythmias. cardiac resynchronisation therapy (crt) is an established treatment in patients with electrical dyssynchrony; however, achieving optimal response remains challenging in complex clinical scenarios. we report a 51-year-old male with lvnc, severe left ventricular dysfunction, morbid obesity, and recurrent atrial and ventricular arrhythmias. despite initial improvement following crt-d implan-tation, the patient developed progressive heart failure and recurrent ventricular tachycardia with high atrial arrhythmia burden, resulting in ineffective biventricular pacing. following unsuccessful device optimisation strategies, a multidisciplinary decision was made to proceed with atrioventricular node ablation. this resulted in marked clinical and echocardiographic improvement, including recovery of left ventricular ejection fraction and symptomatic status. this case highlights the importance of ensuring adequate crt delivery and demonstrates the pivot-al role of atrioventricular node ablation in patients with refractory atrial arrhythmias and suboptimal crt response. curr health sci j"
+                         id="paper-2">
+
+                    <div class="paper-top">
+                        <div class="paper-index">2</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42763748/" target="_blank" rel="noopener noreferrer">Cardiac Resynchronization Therapy Optimization in a Patient with Left Ventricular Non-Compaction Cardiomyopathy and Morbid Obesity.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Curr Health Sci J</span><span class="dot">·</span><span class="paper-date">2026-09-20</span><span class="dot">·</span><span class="paper-date">PMID 42763748</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="室性心律失常">室性心律失常</span>
+                                <span class="tag tag-type">Case Reports</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Arsalan Farhangee、Ion Mindrila">
+                                Arsalan Farhangee、Ion Mindrila                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">Left ventricular non-compaction cardiomyopathy (LVNC) is a rare myocardial disorder associated with heart failure and arrhythmias. Cardiac resynchronisation therapy (CRT) is an established treatment in patients with electrical dyssynchrony; however, achieving optimal response remains challenging in complex clinical scenarios. We report a 51-year-old male with LVNC, severe left ventricular dysfunction, morbid obesity, and recurrent atrial and ventricular arrhythmias. Despite initial improvement following CRT-D implan-tation, the patient developed progressive heart failure and recurrent ventricular tachycardia with high atrial arrhythmia burden, resulting in ineffective biventricular pacing. Following unsuccessful device optimisation strategies, a multidisciplinary decision was made to proceed with atrioventricular node ablation. This resulted in marked clinical and echocardiographic improvement, including recovery of left ventricular ejection fraction and symptomatic status. This case highlights the importance of ensuring adequate CRT delivery and demonstrates the pivot-al role of atrioventricular node ablation in patients with refractory atrial arrhythmias and suboptimal CRT response.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">51岁男性左室心肌致密化不全（LVNC）合并病态肥胖与重度左室功能不全，CRT-D术后因高房性心律失常负荷致双室起搏失效，行房室结消融后心功能和症状显著改善。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">LVNC 是罕见的心肌疾病，常合并心力衰竭与心律失常。CRT 是存在电不同步患者的标准治疗，但在 LVNC、重度肥胖、反复房性及室性心律失常等复杂临床情形下，如何保证有效的双室起搏递送、以及器械优化失败后如何处理快速房性心律失常导致的心室起搏不足，既往证据有限，本案例正是针对这一缺口。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">单例个案报道。对象为 1 例 51 岁男性，诊断为 LVNC、重度左室功能不全、病态肥胖（morbid obesity），并有反复心房及心室心律失常。初始植入 CRT-D 后短期改善，之后出现进行性心衰恶化、反复室性心动过速及高房性心律失常负荷，导致双室起搏无效；在多种器械优化策略失败后，经多学科讨论决定行房室结消融。观察终点为临床症状状态与超声心动图指标（包括 LVEF）的改善。统计方法：摘要未报告（描述性个案）。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">房室结消融后患者获得明显的临床与超声心动图改善，包括左室射血分数（LVEF）恢复及症状状态好转；具体 LVEF 数值、双室起搏比例、随访时间及心律失常复发情况摘要未报告。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">本病例说明，在 CRT 植入后必须确认并保证足够的双室起搏递送（biventricular pacing 比例）；对于因难治性房性心律失常导致 CRT 反应不佳的患者，房室结消融可作为一种关键的补救手段，带来心功能与症状的改善。局限为单例、无对照、随访细节与量化数据缺失，结论不宜外推，需更大样本研究验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42763748/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.12865/CHSJ.52.02.280" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42763748/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+            </div>
         </section>
-        <section class="topic-group">
+        <section class="topic-group" data-group-topic="器械治疗">
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>器械治疗</span>
                 <span class="topic-count">2 篇</span>
             </h2>
-            <ul class="archive-list">
-                <li>
-                    <span class="topic-pill" data-topic="器械治疗">器械治疗</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42764114/" target="_blank" rel="noopener noreferrer">Electrical stability and capture evolution with a leadless pacemaker for conduction system pacing: 6-month follow-up of LEAP2.</a>
-                    </span>
-                    <span class="a-authors">Vivek Y Reddy、Devi G Nair、Milan Chovanec、Rahul N Doshi、Shephal K Doshi、Chunlan Jiang、Eric A Johnson、Leyla Sabet、Vishnu Charan、Kyungmoo Ryu、Leonard I Ganz、Petr Neuzil</span>
-                    <span class="a-journal">Heart Rhythm</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42764114/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.hrthm.2026.09.011" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42764114/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="器械治疗">器械治疗</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42763570/" target="_blank" rel="noopener noreferrer">Permanent Cardiac Pacing in Children: A 30-Year Follow-Up Retrospective Study in a Single Pediatric Asian Center.</a>
-                    </span>
-                    <span class="a-authors">Jiahui Charmaine Chan、Dyan Zhewei Zhang、Koh Zhi Xuan、Sreekanthan Sundararaghavan、Jonathan Tze Liang Choo、Kah Leng Ho、Eric Tien Siang Lim、Ju Le Tan、Nurhafizah Binte Abdul Aziz、Wan Ting Chan、Monika Kotecha、Jan Hau Lee、Teng Hong Tan</span>
-                    <span class="a-journal">J Arrhythm</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42763570/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1002/joa3.70459" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42763570/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-            </ul>
+
+            <div class="paper-list">
+                <article class="paper-card"
+                         data-topic="器械治疗"
+                         data-journal="Heart Rhythm"
+                         data-search="electrical stability and capture evolution with a leadless pacemaker for conduction system pacing: 6-month follow-up of leap2. vivek y reddy devi g nair milan chovanec rahul n doshi shephal k doshi chunlan jiang eric a johnson leyla sabet vishnu charan kyungmoo ryu leonard i ganz petr neuzil  heart rhythm"
+                         id="paper-1">
+
+                    <div class="paper-top">
+                        <div class="paper-index">1</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42764114/" target="_blank" rel="noopener noreferrer">Electrical stability and capture evolution with a leadless pacemaker for conduction system pacing: 6-month follow-up of LEAP2.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Heart Rhythm</span><span class="dot">·</span><span class="paper-date">2026-09-20</span><span class="dot">·</span><span class="paper-date">PMID 42764114</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="器械治疗">器械治疗</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Vivek Y Reddy、Devi G Nair、Milan Chovanec、Rahul N Doshi、Shephal K Doshi、Chunlan Jiang、Eric A Johnson、Leyla Sabet、Vishnu Charan、Kyungmoo Ryu、Leonard I Ganz、Petr Neuzil">
+                                Vivek Y Reddy、Devi G Nair、Milan Chovanec<span class="authors-more"> 等 12 位作者</span>                            </p>
+
+                            <div class="abstract-block">
+                                <p class="abstract-none">暂无摘要（该文献可能为社论、评论或通信类文章）</p>
+                            </div>
+
+                            <p class="ai-missing">未生成 AI 解读（仅显示原文摘要）</p>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42764114/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1016/j.hrthm.2026.09.011" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42764114/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="器械治疗"
+                         data-journal="J Arrhythm"
+                         data-search="permanent cardiac pacing in children: a 30-year follow-up retrospective study in a single pediatric asian center. jiahui charmaine chan dyan zhewei zhang koh zhi xuan sreekanthan sundararaghavan jonathan tze liang choo kah leng ho eric tien siang lim ju le tan nurhafizah binte abdul aziz wan ting chan monika kotecha jan hau lee teng hong tan background: permanent cardiac pacing in children is commonly indicated in high-grade atrioventricular block. these patients require long-term ventricular pacing (vp), multiple device changes, and lead revisions.
+
+objectives: to describe a single pediatric center&#39;s 30-year experience with permanent pacemaker implantation, focusing on long-term device-associated complications (dacs) and pacing-induced cardiomyopathy (pic).
+
+methods: we conducted a retrospective observational study at kk women&#39;s and children&#39;s hospital, singapore. patients with permanent pacemakers followed between january 1, 1994 and december 31, 2024 were included. primary outcomes were dac and pic.
+
+results: fifty-three patients underwent 113 pacemaker lead implantations; 51 (96.2%) had epicardial systems. median follow-up was 12 years (interquartile range [iqr] 9-19 years). median age at first pacemaker implantation was 16 months (iqr 2 months to 7.7 years). congenital complete heart block was the most common indication (26 [49%]), followed by postoperative complete heart block (17 [32%]). freedom from lead-associated complications was 85% and 83% at 5 and 10 years, respectively. eight (15%) patients developed pic. all patients with pic had concomitant congenital heart disease (chd) (8/8). chd was present in 28.9% (13/45) of patients without pic. recovery of ventricular function occurred in two patients following pacing modification, but not in those managed with medical therapy alone.
+
+conclusion: in this pediatric cohort with predominantly epicardial pacing systems, long-term dac rates were acceptable. pic occurred primarily in patients with chd. these findings support careful pacing strategy selection and long-term surveillance in children requiring permanent pacing. j arrhythm"
+                         id="paper-2">
+
+                    <div class="paper-top">
+                        <div class="paper-index">2</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42763570/" target="_blank" rel="noopener noreferrer">Permanent Cardiac Pacing in Children: A 30-Year Follow-Up Retrospective Study in a Single Pediatric Asian Center.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">J Arrhythm</span><span class="dot">·</span><span class="paper-date">2026-09-20</span><span class="dot">·</span><span class="paper-date">PMID 42763570</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="器械治疗">器械治疗</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Jiahui Charmaine Chan、Dyan Zhewei Zhang、Koh Zhi Xuan、Sreekanthan Sundararaghavan、Jonathan Tze Liang Choo、Kah Leng Ho、Eric Tien Siang Lim、Ju Le Tan、Nurhafizah Binte Abdul Aziz、Wan Ting Chan、Monika Kotecha、Jan Hau Lee、Teng Hong Tan">
+                                Jiahui Charmaine Chan、Dyan Zhewei Zhang、Koh Zhi Xuan<span class="authors-more"> 等 13 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">BACKGROUND: Permanent cardiac pacing in children is commonly indicated in high-grade atrioventricular block. These patients require long-term ventricular pacing (Vp), multiple device changes, and lead revisions.
+
+OBJECTIVES: To describe a single pediatric center&#39;s 30-year experience with permanent pacemaker implantation, focusing on long-term device-associated complications (DACs) and pacing-induced cardiomyopathy (PIC).
+
+METHODS: We conducted a retrospective observational study at KK Women&#39;s and Children&#39;s Hospital, Singapore. Patients with permanent pacemakers followed between January 1, 1994 and December 31, 2024 were included. Primary outcomes were DAC and PIC.
+
+RESULTS: Fifty-three patients underwent 113 pacemaker lead implantations; 51 (96.2%) had epicardial systems. Median follow-up was 12 years (interquartile range [IQR] 9-19 years). Median age at first pacemaker implantation was 16 months (IQR 2 months to 7.7 years). Congenital complete heart block was the most common indication (26 [49%]), followed by postoperative complete heart block (17 [32%]). Freedom from lead-associated complications was 85% and 83% at 5 and 10 years, respectively. Eight (15%) patients developed PIC. All patients with PIC had concomitant congenital heart disease (CHD) (8/8). CHD was present in 28.9% (13/45) of patients without PIC. Recovery of ventricular function occurred in two patients following pacing modification, but not in those managed with medical therapy alone.
+
+CONCLUSION: In this pediatric cohort with predominantly epicardial pacing systems, long-term DAC rates were acceptable. PIC occurred primarily in patients with CHD. These findings support careful pacing strategy selection and long-term surveillance in children requiring permanent pacing.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">单中心30年回顾显示，53例儿童永久起搏（96.2%为心外膜系统）中位随访12年，5年与10年免于导线相关并发症分别为85%和83%，15%发生起搏诱导性心肌病且全部合并先天性心脏病。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">儿童永久起搏的主要适应证为高级别房室阻滞，这类患者需长期心室起搏（Vp）、多次更换装置并接受导线修正，累积暴露时间长。既往关于长期装置相关并发症（DAC）与起搏诱导性心肌病（PIC）的儿科证据有限，亚洲儿科中心的数据尤为缺乏，临床亟需明确其发生率与高危人群，以指导起搏方式选择、装置随访强度及心室功能监测策略。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">新加坡KK妇女儿童医院单中心回顾性观察研究，纳入1994年1月1日至2024年12月31日期间随访的永久起搏器患者，共53例、113次起搏导线植入。主要终点为DAC与PIC。中位随访12年（IQR 9–19年），首次植入中位年龄16个月（IQR 2个月–7.7岁）。具体统计方法摘要未报告。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">96.2%（51/53）使用心外膜起搏系统。适应证以先天性完全性房室阻滞最常见（26例，49%），其次为术后完全性房室阻滞（17例，32%）。免于导线相关并发症的比例在5年和10年分别为85%和83%。8例（15%）发生PIC，且全部（8/8）合并先天性心脏病（CHD）；无PIC患者中CHD比例为28.9%（13/45）。2例在调整起搏方式后心室功能恢复，仅接受药物治疗者未见恢复。装置相关并发症的具体类型、效应量与P值摘要未报告。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">在这一以心外膜起搏为主的儿科队列中，长期装置相关并发症处于可接受水平，PIC主要发生于合并CHD的儿童，这提示应对该亚组加强长期心室功能监测，并优先考虑可减少不利心室起搏的起搏策略（如心外膜双腔起搏、生理性起搏位点选择等）。局限性为单中心、小样本、回顾性设计，缺乏对照与统一PIC定义，统计效能有限，结论外推需谨慎。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42763570/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1002/joa3.70459" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42763570/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+            </div>
         </section>
-        <section class="topic-group">
+        <section class="topic-group" data-group-topic="影像与标测">
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>影像与标测</span>
                 <span class="topic-count">1 篇</span>
             </h2>
-            <ul class="archive-list">
-                <li>
-                    <span class="topic-pill" data-topic="影像与标测">影像与标测</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42764113/" target="_blank" rel="noopener noreferrer">Quantitative CT lead localization reveals proximal left bundle targeting facilitates superior physiologic pacing.</a>
-                    </span>
-                    <span class="a-authors">Shunmuga Sundaram Ponnusamy、Stefano Spaziani、Habibulla Moghal、Tarikh Asyraf、Lev Zaretsky、Thabish Syed、Saravana Kumar、Andrea Cappabianca、Justin T Tretter、Shlomo Ben-Haim、Kenneth A Ellenbogen、Pugazhendhi Vijayaraman</span>
-                    <span class="a-journal">Heart Rhythm</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42764113/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.hrthm.2026.09.012" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42764113/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-            </ul>
+
+            <div class="paper-list">
+                <article class="paper-card"
+                         data-topic="影像与标测"
+                         data-journal="Heart Rhythm"
+                         data-search="quantitative ct lead localization reveals proximal left bundle targeting facilitates superior physiologic pacing. shunmuga sundaram ponnusamy stefano spaziani habibulla moghal tarikh asyraf lev zaretsky thabish syed saravana kumar andrea cappabianca justin t tretter shlomo ben-haim kenneth a ellenbogen pugazhendhi vijayaraman background: implantation electrical criteria for left bundle branch capture in conduction system pacing (csp) cannot localize the lead along the conduction axis.
+
+objectives: the goals of this study were to classify csp lead position with an observer-independent computed tomography workflow (cara workflow) using 2 anatomic measurements-lead-to-his distance (lh) and lead-to-endocardium offset (le)-and to test whether a proximal position yields near-native paced activation.
+
+methods: of 186 consecutive patients undergoing csp, 145 had interpretable computed tomography anatomy. leads were classified by a prespecified rule: left ventricular septal pacing if le ≤ -2.5 mm; otherwise, proximal (lh ≤ 25 mm) or distal (lh &gt; 25 mm), with 25 mm referenced to left bundle histology. the primary analysis set included patients in sinus rhythm, native qrs duration &lt; 115 ms, complete paired electrocardiograms (ecgs), and le &gt; -2.5 mm (n = 46). the primary end point was |δ frontal axis| ≤ 15° and |δ qrs duration| ≤ 15 ms.
+
+results: classification yielded 68 proximal, 70 distal, and 7 left ventricular septal pacing leads. the procedural label carried no positional information (48% of physician-labeled left bundle branch pacing leads were proximal vs 49% overall). the composite end point occurred in 15 of 24 proximal leads (62%) vs 6 of 22 distal leads (27%) (odds ratio 4.14; 95% confidence interval 1.23-13.96; p = .021; adjusted odds ratio 5.35; p = .013), a finding consistent across sensitivity analyses. the receiver operating characteristic-optimal lh cut point (24.9 mm) independently reproduced the prespecified 25-mm threshold. position was not recoverable from the surface ecg (classification area under the curve 0.48).
+
+conclusion: in this proof-of-concept anatomic study, a 2-measurement rule classified csp lead position objectively. near-native paced activation requires proximal targeting (lh ≤ 25 mm), which neither the procedural label nor the ecg can identify; quantitative imaging is required. heart rhythm"
+                         id="paper-1">
+
+                    <div class="paper-top">
+                        <div class="paper-index">1</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42764113/" target="_blank" rel="noopener noreferrer">Quantitative CT lead localization reveals proximal left bundle targeting facilitates superior physiologic pacing.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Heart Rhythm</span><span class="dot">·</span><span class="paper-date">2026-09-20</span><span class="dot">·</span><span class="paper-date">PMID 42764113</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="影像与标测">影像与标测</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Shunmuga Sundaram Ponnusamy、Stefano Spaziani、Habibulla Moghal、Tarikh Asyraf、Lev Zaretsky、Thabish Syed、Saravana Kumar、Andrea Cappabianca、Justin T Tretter、Shlomo Ben-Haim、Kenneth A Ellenbogen、Pugazhendhi Vijayaraman">
+                                Shunmuga Sundaram Ponnusamy、Stefano Spaziani、Habibulla Moghal<span class="authors-more"> 等 12 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">BACKGROUND: Implantation electrical criteria for left bundle branch capture in conduction system pacing (CSP) cannot localize the lead along the conduction axis.
+
+OBJECTIVES: The goals of this study were to classify CSP lead position with an observer-independent computed tomography workflow (CARA workflow) using 2 anatomic measurements-lead-to-His distance (LH) and lead-to-endocardium offset (LE)-and to test whether a proximal position yields near-native paced activation.
+
+METHODS: Of 186 consecutive patients undergoing CSP, 145 had interpretable computed tomography anatomy. Leads were classified by a prespecified rule: left ventricular septal pacing if LE ≤ -2.5 mm; otherwise, proximal (LH ≤ 25 mm) or distal (LH &gt; 25 mm), with 25 mm referenced to left bundle histology. The primary analysis set included patients in sinus rhythm, native QRS duration &lt; 115 ms, complete paired electrocardiograms (ECGs), and LE &gt; -2.5 mm (n = 46). The primary end point was |Δ frontal axis| ≤ 15° and |Δ QRS duration| ≤ 15 ms.
+
+RESULTS: Classification yielded 68 proximal, 70 distal, and 7 left ventricular septal pacing leads. The procedural label carried no positional information (48% of physician-labeled left bundle branch pacing leads were proximal vs 49% overall). The composite end point occurred in 15 of 24 proximal leads (62%) vs 6 of 22 distal leads (27%) (odds ratio 4.14; 95% confidence interval 1.23-13.96; P = .021; adjusted odds ratio 5.35; P = .013), a finding consistent across sensitivity analyses. The receiver operating characteristic-optimal LH cut point (24.9 mm) independently reproduced the prespecified 25-mm threshold. Position was not recoverable from the surface ECG (classification area under the curve 0.48).
+
+CONCLUSION: In this proof-of-concept anatomic study, a 2-measurement rule classified CSP lead position objectively. Near-native paced activation requires proximal targeting (LH ≤ 25 mm), which neither the procedural label nor the ECG can identify; quantitative imaging is required.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">在145例可解析CT的传导系统起搏患者中，以导线-希氏束距离25 mm为界可将起搏位点客观分为近端与远端；近端起搏（≤25 mm）有62%达到接近自身的心室激动（电轴与QRS变化均≤15°），远端仅27%，而术者标签与体表心电图均无法识别位点。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">传导系统起搏（CSP）中左束支夺获的术中电学标准无法判断导线位于传导轴的具体节段，导致“左束支起搏”这一术式标签与实际解剖位点可能不一致，也使不同中心的结果难以比较。既往缺乏不依赖观察者的解剖定位方法，也不清楚导线位置是否决定起搏后能否获得接近自身传导的激动顺序。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">单中心前瞻性/连续病例的解剖学概念验证研究。连续186例接受CSP的患者中145例CT解剖可解析，采用观察者无关的CARA工作流程，以两项解剖测量——导线至希氏束距离（LH）和导线至心内膜偏移（LE）——进行预设规则分类：LE ≤ -2.5 mm定义为左室间隔起搏；否则LH ≤ 25 mm为近端、LH &gt; 25 mm为远端（25 mm参照左束支组织学）。主要分析集限定窦性心律、自身QRS &lt; 115 ms、配对心电图完整且LE &gt; -2.5 mm，共46例。主要终点为起搏后额面电轴变化|Δ| ≤ 15°且QRS时限变化|Δ| ≤ 15 ms的复合终点；采用logistic回归（含校正分析）及ROC分析，并以敏感性分析验证。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">分类结果为近端68条、远端70条、左室间隔起搏7条。术者手术标签不含位置信息：被医师标记为左束支起搏的导线中48%实为近端，而总体近端比例为49%。主要复合终点在近端组24条中15条达成（62%），远端组22条中6条（27%），OR 4.14（95%CI 1.23–13.96，P = .021），校正后OR 5.35（P = .013），敏感性分析结果一致。ROC确定的最佳LH切点为24.9 mm，独立复现了预设的25 mm阈值。体表心电图无法反推导线位置（分类AUC 0.48）。摘要未报告起搏阈值、感知、并发症等其他终点。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">在这项解剖学概念验证研究中，仅用LH与LE两项CT测量即可客观区分CSP导线的近端、远端与左室间隔位置。要获得接近自身传导的起搏激动，需将近端（LH ≤ 25 mm）作为靶点，而这一位置既不能由术式标签、也不能由体表心电图识别，必须依赖定量影像。提示应将术前/术后CT定量定位纳入CSP的质控与研究中，以重新校准“左束支起搏”的定义。局限性包括样本量小（主要分析仅46例）、单中心、以电轴与QRS变化作为替代终点而非临床硬终点，且主要分析排除了自身QRS ≥ 115 ms及LE ≤ -2.5 mm的患者，外推性受限。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42764113/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1016/j.hrthm.2026.09.012" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42764113/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+            </div>
         </section>
+
+        <div class="filter-empty" id="filterEmpty">
+            <p>没有符合当前筛选条件的论文。</p>
+            <p class="hint">试试点「全部」或清空关键词。</p>
+        </div>
 
 
     </div>
@@ -1104,10 +1940,170 @@ main { padding: 26px 0 60px; }
 
 <footer class="site-footer">
     <div class="wrap">
-        <p>心脏电生理每日论文检索 · 归档视图</p>
-        <p>页面离线自包含，无外部依赖 · 生成于 2026-10-20 09:31</p>
+        <p>心脏电生理每日论文检索 · 数据来源 PubMed / Europe PMC 等公开数据库</p>
+        <p>页面离线自包含，无外部依赖 · 生成于 2026-10-20 09:57</p>
     </div>
 </footer>
+
+<script>
+(function () {
+    "use strict";
+
+    var topicBar = document.getElementById("topicFilters");
+    var journalBar = document.getElementById("journalFilters");
+    var searchBox = document.getElementById("textSearch");
+    var emptyTip = document.getElementById("filterEmpty");
+    var cards = Array.prototype.slice.call(document.querySelectorAll(".paper-card"));
+    var groups = Array.prototype.slice.call(document.querySelectorAll(".topic-group"));
+
+    if (!cards.length) { return; }
+
+    var state = { topic: "all", journal: "all", text: "" };
+
+    function apply() {
+        var needle = state.text.trim().toLowerCase();
+        var visible = 0;
+
+        cards.forEach(function (card) {
+            var okTopic = state.topic === "all" || card.getAttribute("data-topic") === state.topic;
+            var okJournal = state.journal === "all" || card.getAttribute("data-journal") === state.journal;
+            var hay = card.getAttribute("data-search") || "";
+            var okText = !needle || hay.indexOf(needle) !== -1;
+            var show = okTopic && okJournal && okText;
+            card.classList.toggle("hidden", !show);
+            if (show) { visible += 1; }
+        });
+
+        // 组内没有可见卡片时隐藏整组，避免留下空标题
+        groups.forEach(function (group) {
+            var any = group.querySelector(".paper-card:not(.hidden)");
+            group.style.display = any ? "" : "none";
+        });
+
+        if (emptyTip) { emptyTip.classList.toggle("show", visible === 0); }
+    }
+
+    function bind(bar, key, attr) {
+        if (!bar) { return; }
+        bar.addEventListener("click", function (event) {
+            var btn = event.target.closest(".filter-btn");
+            if (!btn || !bar.contains(btn)) { return; }
+            Array.prototype.forEach.call(bar.querySelectorAll(".filter-btn"), function (b) {
+                b.classList.toggle("active", b === btn);
+            });
+            state[key] = btn.getAttribute(attr);
+            apply();
+        });
+    }
+
+    bind(topicBar, "topic", "data-filter-topic");
+    bind(journalBar, "journal", "data-filter-journal");
+
+    if (searchBox) {
+        searchBox.addEventListener("input", function () {
+            state.text = searchBox.value || "";
+            apply();
+        });
+    }
+
+    // 期刊过多时默认折叠，只显示前 8 个 + 一个展开按钮
+    var moreBtn = document.getElementById("moreJournals");
+    if (moreBtn) {
+        var extras = document.querySelectorAll(".extra-journal");
+        Array.prototype.forEach.call(extras, function (b) { b.style.display = "none"; });
+        moreBtn.addEventListener("click", function () {
+            var open = moreBtn.getAttribute("data-open") === "1";
+            Array.prototype.forEach.call(extras, function (b) {
+                b.style.display = open ? "none" : "";
+            });
+            moreBtn.setAttribute("data-open", open ? "0" : "1");
+            moreBtn.textContent = open
+                ? "展开全部 " + extras.length + " 个期刊 ▾"
+                : "收起期刊列表 ▴";
+        });
+    }
+
+    // 键盘 /：直接聚焦搜索框
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "/" && document.activeElement !== searchBox) {
+            event.preventDefault();
+            if (searchBox) { searchBox.focus(); }
+        }
+    });
+})();
+
+/* 主题切换：跟随系统 → 手动选择 → 再点回到跟随系统。
+   三态循环，按钮 title 显示当前状态，localStorage 记忆手动选择。 */
+(function () {
+    var btn = document.getElementById("themeToggle");
+    if (!btn) { return; }
+    var root = document.documentElement;
+    var mql = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+
+    function current() {
+        var manual = root.getAttribute("data-theme");
+        if (manual === "dark" || manual === "light") { return manual; }
+        return (mql && mql.matches) ? "dark" : "light";
+    }
+    function label() {
+        var manual = root.getAttribute("data-theme");
+        var suffix = manual ? "" : "（跟随系统）";
+        btn.textContent = (current() === "dark" ? "☀️ 浅色" : "🌙 深色") + suffix;
+        btn.title = "当前：" + (current() === "dark" ? "深色" : "浅色") + suffix + "，点击切换";
+    }
+    btn.addEventListener("click", function () {
+        var next = current() === "dark" ? "light" : "dark";
+        root.setAttribute("data-theme", next);
+        try { localStorage.setItem("ep-digest-theme", next); } catch (e) {}
+        label();
+    });
+    if (mql && mql.addEventListener) {
+        mql.addEventListener("change", function () {
+            if (!root.getAttribute("data-theme")) { label(); }
+        });
+    }
+    label();
+})();
+
+/* 日期选择器：点开显示按月份分组的日期网格，点外部/Esc 关闭。
+   纯前端、不联网；每个日期都是指向 archive/<date>.html 的普通链接，
+   所以即使 JS 失效也仍然可用（只是不会弹出面板）。 */
+(function () {
+    var toggle = document.getElementById("dateToggle");
+    var panel = document.getElementById("datePanel");
+    if (!toggle || !panel) { return; }
+
+    function open() {
+        panel.hidden = false;
+        toggle.setAttribute("aria-expanded", "true");
+        var cur = panel.querySelector(".date-cell.current");
+        if (cur && cur.scrollIntoView) {
+            cur.scrollIntoView({ block: "nearest" });
+        }
+    }
+    function close() {
+        panel.hidden = true;
+        toggle.setAttribute("aria-expanded", "false");
+    }
+    function isOpen() { return !panel.hidden; }
+
+    toggle.addEventListener("click", function (event) {
+        event.stopPropagation();
+        if (isOpen()) { close(); } else { open(); }
+    });
+
+    panel.addEventListener("click", function (event) { event.stopPropagation(); });
+
+    document.addEventListener("click", function () { if (isOpen()) { close(); } });
+
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && isOpen()) {
+            close();
+            toggle.focus();
+        }
+    });
+})();
+</script>
 
 </body>
 </html>

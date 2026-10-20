@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light dark">
-<meta name="description" content="心脏电生理日报归档 · 2026-10-17">
-<title>归档 · 2026-10-17 · 心脏电生理日报</title>
+<meta name="description" content="心脏电生理每日论文检索 · 2026-10-17">
+<title>心脏电生理日报 · 2026-10-17</title>
 <script>
 /* 主题初始化：必须在样式生效前执行，避免深色用户看到白屏闪烁。
    读取顺序：localStorage 手动选择 > 系统偏好。写入 <html data-theme>。 */
@@ -16,39 +16,6 @@
             document.documentElement.setAttribute('data-theme', saved);
         }
     } catch (e) { /* 隐私模式下 localStorage 可能抛错，忽略即可 */ }
-})();
-
-/* 主题切换：跟随系统 → 手动选择 → 再点回到跟随系统。
-   三态循环，按钮 title 显示当前状态，localStorage 记忆手动选择。 */
-(function () {
-    var btn = document.getElementById("themeToggle");
-    if (!btn) { return; }
-    var root = document.documentElement;
-    var mql = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
-
-    function current() {
-        var manual = root.getAttribute("data-theme");
-        if (manual === "dark" || manual === "light") { return manual; }
-        return (mql && mql.matches) ? "dark" : "light";
-    }
-    function label() {
-        var manual = root.getAttribute("data-theme");
-        var suffix = manual ? "" : "（跟随系统）";
-        btn.textContent = (current() === "dark" ? "☀️ 浅色" : "🌙 深色") + suffix;
-        btn.title = "当前：" + (current() === "dark" ? "深色" : "浅色") + suffix + "，点击切换";
-    }
-    btn.addEventListener("click", function () {
-        var next = current() === "dark" ? "light" : "dark";
-        root.setAttribute("data-theme", next);
-        try { localStorage.setItem("ep-digest-theme", next); } catch (e) {}
-        label();
-    });
-    if (mql && mql.addEventListener) {
-        mql.addEventListener("change", function () {
-            if (!root.getAttribute("data-theme")) { label(); }
-        });
-    }
-    label();
 })();
 </script>
 <style>
@@ -906,187 +873,1070 @@ main { padding: 26px 0 60px; }
 /* 展开时用 class 切换，比 hidden 属性更稳（display:flex 会覆盖 [hidden]） */
 .archive-nav.expanded .archive-nav-days { display: none; }
 
-/* 归档页专属微调 */
-.archive-list .a-authors {
-    flex: 0 0 auto;
+/* ---------------------------------------------------------------- 日期选择器 */
+
+.date-bar {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--header-border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+}
+
+.date-bar-label { color: var(--text-tertiary); }
+
+.date-bar-hint { color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+
+.date-select { position: relative; }
+
+.date-toggle {
+    font: inherit;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    color: var(--header-accent);
+    background: var(--surface);
+    border: 1px solid var(--header-border);
+    border-radius: 8px;
+    padding: 5px 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 132px;
+    justify-content: space-between;
+}
+.date-toggle:hover { background: var(--brand-soft); }
+.date-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.date-toggle-caret { color: var(--text-tertiary); font-size: 11px; }
+
+.date-panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 40;
+    width: 340px;
+    max-height: 60vh;
+    overflow-y: auto;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, .14);
+    padding: 12px;
+}
+.date-panel[hidden] { display: none; }
+
+.date-panel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     font-size: 12px;
     color: var(--text-tertiary);
-    max-width: 260px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
 }
-@media (max-width: 640px) { .archive-list .a-authors { display: none; } }
+.date-panel-latest { color: var(--brand); }
+
+.date-month + .date-month { margin-top: 10px; }
+
+.date-month-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.date-month-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+}
+
+.date-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 30px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+    background: var(--surface-muted);
+    border: 1px solid transparent;
+}
+.date-cell:hover { background: var(--brand-soft); text-decoration: none; }
+.date-cell.current {
+    background: var(--brand);
+    color: var(--surface);
+    font-weight: 700;
+    border-color: var(--brand);
+}
+
+@media print { .date-bar { display: none; } }
+
 </style>
 </head>
 <body>
 
 <header class="site-header">
     <div class="wrap">
-        <h1>心脏电生理日报 · 归档</h1>
-        <p class="subtitle">2026-10-17 全部论文清单</p>
+        <h1>心脏电生理每日论文检索</h1>
+        <p class="subtitle">Cardiac Electrophysiology Daily Digest · 按亚专业分组的文献速览</p>
         <div class="header-meta">
-<span class="chip">📅 <strong>2026-10-17</strong></span>            <span class="chip">🕒 生成时间 <strong>2026-10-20 09:31</strong></span>
+<span class="chip">📅 日报日期 <strong>2026-10-17</strong></span>            <span class="chip">🕒 生成时间 <strong>2026-10-20 09:57</strong></span>
             <span class="chip">📄 论文总数 <strong>11</strong></span>
             <span class="chip">🤖 含 AI 解读 <strong>10</strong></span>
-        </div>
+<span class="chip">📝 无摘要 <strong>1</strong></span>        </div>
         <nav class="header-nav">
-            <a href="../index.html">← 返回主页</a>
-            <a href="#top">回到顶部</a>
+<a href="../archive/2026-10-17.html">本篇归档页</a><a href="../index.html">最新一期</a>            <a href="#top">回到顶部</a>
+            <button type="button" class="theme-toggle" id="themeToggle"
+                    aria-label="切换深色/浅色模式" title="切换深色/浅色模式">🌗 主题</button>
         </nav>
+
+        <div class="date-bar">
+            <label class="date-bar-label" for="dateToggle">日期</label>
+            <div class="date-select" id="dateSelect">
+                <button type="button" class="date-toggle" id="dateToggle"
+                        aria-haspopup="listbox" aria-expanded="false"
+                        aria-controls="datePanel">
+                    <span class="date-toggle-text">2026-10-17</span>
+                    <span class="date-toggle-caret" aria-hidden="true">▾</span>
+                </button>
+                <div class="date-panel" id="datePanel" role="listbox" hidden>
+                    <div class="date-panel-head">
+                        <span>共 27 天</span>
+<a class="date-panel-latest" href="../index.html">跳到最新一期 →</a>                    </div>
+                    <div class="date-panel-body">
+                        <div class="date-month">
+                            <div class="date-month-label">2026 年 10 月</div>
+                            <div class="date-month-days">
+                                <a href="../archive/2026-10-17.html"
+                                   class="date-cell current"
+                                   role="option" aria-selected="true">17</a>
+                                <a href="../archive/2026-10-16.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">16</a>
+                                <a href="../archive/2026-10-15.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">15</a>
+                                <a href="../archive/2026-10-14.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">14</a>
+                                <a href="../archive/2026-10-13.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">13</a>
+                                <a href="../archive/2026-10-12.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">12</a>
+                                <a href="../archive/2026-10-11.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">11</a>
+                                <a href="../archive/2026-10-10.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">10</a>
+                                <a href="../archive/2026-10-09.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">09</a>
+                                <a href="../archive/2026-10-08.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">08</a>
+                                <a href="../archive/2026-10-07.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">07</a>
+                                <a href="../archive/2026-10-06.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">06</a>
+                                <a href="../archive/2026-10-05.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">05</a>
+                                <a href="../archive/2026-10-04.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">04</a>
+                                <a href="../archive/2026-10-03.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">03</a>
+                                <a href="../archive/2026-10-02.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">02</a>
+                                <a href="../archive/2026-10-01.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">01</a>
+                            </div>
+                        </div>
+                        <div class="date-month">
+                            <div class="date-month-label">2026 年 9 月</div>
+                            <div class="date-month-days">
+                                <a href="../archive/2026-09-30.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">30</a>
+                                <a href="../archive/2026-09-29.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">29</a>
+                                <a href="../archive/2026-09-28.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">28</a>
+                                <a href="../archive/2026-09-27.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">27</a>
+                                <a href="../archive/2026-09-26.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">26</a>
+                                <a href="../archive/2026-09-25.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">25</a>
+                                <a href="../archive/2026-09-24.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">24</a>
+                                <a href="../archive/2026-09-23.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">23</a>
+                                <a href="../archive/2026-09-22.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">22</a>
+                                <a href="../archive/2026-09-21.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">21</a>
+                                <a href="../archive/2026-09-20.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">20</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <span class="date-bar-hint">共 27 天归档</span>
+        </div>
     </div>
 </header>
 
-<main id="top">
+<div class="filters" id="top">
+    <div class="wrap">
+        <div class="filter-row">
+            <span class="filter-label">主题</span>
+            <div class="filter-buttons" id="topicFilters">
+                <button type="button" class="filter-btn active" data-filter-topic="all">全部 <span class="count">11</span></button>
+                <button type="button" class="filter-btn" data-filter-topic="房颤与消融">房颤与消融 <span class="count">7</span></button>
+                <button type="button" class="filter-btn" data-filter-topic="室性心律失常">室性心律失常 <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-topic="器械治疗">器械治疗 <span class="count">2</span></button>
+                <button type="button" class="filter-btn" data-filter-topic="遗传与基础">遗传与基础 <span class="count">1</span></button>
+            </div>
+        </div>
+        <div class="filter-row">
+            <span class="filter-label">期刊</span>
+            <div class="filter-buttons" id="journalFilters">
+                <button type="button" class="filter-btn active" data-filter-journal="all">全部</button>
+                <button type="button" class="filter-btn" data-filter-journal="J Cardiol Cases">J Cardiol Cases <span class="count">5</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="Adv Biomed Res">Adv Biomed Res <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="Cureus">Cureus <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="J Arrhythm">J Arrhythm <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="J Med Case Rep">J Med Case Rep <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="J Mol Cell Cardiol Plus">J Mol Cell Cardiol Plus <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="Neth Heart J">Neth Heart J <span class="count">1</span></button>
+            </div>
+        </div>
+        <div class="filter-row">
+            <span class="filter-label">检索</span>
+            <input type="search" id="textSearch" class="search-box" placeholder="输入关键词过滤标题 / 作者 / 摘要（本地匹配，不联网）" aria-label="关键词过滤">
+        </div>
+    </div>
+</div>
+
+<main>
     <div class="wrap">
 
 
-        <section class="topic-group">
+        <section class="topic-group" data-group-topic="房颤与消融">
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>房颤与消融</span>
                 <span class="topic-count">7 篇</span>
             </h2>
-            <ul class="archive-list">
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42891485/" target="_blank" rel="noopener noreferrer">Investigating Factors Associated with the Occurrence of Atrial Fibrillation after Non-cardiothoracic Surgery.</a>
-                    </span>
-                    <span class="a-authors">Alireza Nematollahi、Parvin Bahrami、Mahshid Farshidnejad</span>
-                    <span class="a-journal">Adv Biomed Res</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42891485/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.4103/abr.abr_386_23" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42891485/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42890326/" target="_blank" rel="noopener noreferrer">Initiation of Glucagon-Like Peptide-1 Receptor Agonist Therapy and Lifestyle Modifications for Morbid Obesity in a Patient With Paroxysmal Atrial Fibrillation, Severe Osteoarthritis, and Obstructive Sleep Apnea: A Case Report.</a>
-                    </span>
-                    <span class="a-authors">Brian Morris</span>
-                    <span class="a-journal">Cureus</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42890326/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.7759/cureus.116307" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42890326/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42890433/" target="_blank" rel="noopener noreferrer">Totally Thoracoscopic Atrial Fibrillation Ablation With the Gemini S Bipolar Clamp: A Single-Center Descriptive Cohort Study of 1-Year Rhythm, Safety, and Quality-of-Life Outcomes.</a>
-                    </span>
-                    <span class="a-authors">Michal Gruszczynski、Hector Rodriguez Cetina Biefer、Laura Rings、Sacha P Salzberg、Vasileios Ntinopoulos、Omer Dzemali</span>
-                    <span class="a-journal">J Arrhythm</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42890433/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1002/joa3.70498" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42890433/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42889928/" target="_blank" rel="noopener noreferrer">Localized bigeminal activity in the left atrial posterior wall preceding atrial fibrillation initiation.</a>
-                    </span>
-                    <span class="a-authors">Ko Abe、Kazuhiro Nagaoka、Yasushi Mukai、Hiroshi Kojima、Shunji Hayashidani、Hideki Tashiro</span>
-                    <span class="a-journal">J Cardiol Cases</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42889928/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.jccase.2026.06.008" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42889928/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42889600/" target="_blank" rel="noopener noreferrer">Successful superior vena cava isolation using point-by-point cryothermal ablation after failed radiofrequency ablation.</a>
-                    </span>
-                    <span class="a-authors">Shimpei Seiki、Takeshi Matsuura、Satoshi Yamamoto</span>
-                    <span class="a-journal">J Cardiol Cases</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42889600/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.jccase.2026.06.009" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42889600/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42889588/" target="_blank" rel="noopener noreferrer">Sinus arrest during right pulmonary vein isolation related to right sinus node artery injury: a case report.</a>
-                    </span>
-                    <span class="a-authors">Shinichi Harada、Yoshihiko Kagawa、Daiki Yamashita、Katsutoshi Nakamori、Takashi Saso、Kaoru Dohi</span>
-                    <span class="a-journal">J Cardiol Cases</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42889588/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.jccase.2026.06.003" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42889588/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42891130/" target="_blank" rel="noopener noreferrer">Absence of arrhythmogenic effects in cAMP subcellular compartments supports PDE8 as a target in atrial fibrillation.</a>
-                    </span>
-                    <span class="a-authors">David Revuelta、Nefeli Grammatika Pavlidou、Cristina Aceituno、Issam Abu Taha、Andrea Brunetti、Antonino Ginel、Evaldas Girdauskas、Dobromir Dobrev、Leif Hove-Madsen、Cristina E Molina</span>
-                    <span class="a-journal">J Mol Cell Cardiol Plus</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42891130/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.jmccpl.2026.100871" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42891130/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-            </ul>
+
+            <div class="paper-list">
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="Adv Biomed Res"
+                         data-search="investigating factors associated with the occurrence of atrial fibrillation after non-cardiothoracic surgery. alireza nematollahi parvin bahrami mahshid farshidnejad background: although the occurrence of atrial fibrillation (af) after cardiac and thoracic surgery is common and leads to serious complications such as patients&#39; vital organ dysfunction, pulmonary edema, myocardial infarction, and death, evidence about the occurrence and risk factors associated with post-operative atrial fibrillation (poaf) as new af immediately after non-cardiac thoracic surgery is limited. therefore, the present study aimed at investigating the factors related to the occurrence of poaf after non-cardiothoracic surgery.
+
+materials and methods: the present retrospective study was conducted on 272 patients undergoing non-cardiothoracic surgeries during 2007-2020. patients&#39; basic and clinical information including age, sex, bmi, addiction, comorbidities, history of non-cardiac thoracic surgery, history of cardiac surgery, history of chronic kidney disease (ckd), history of ischemic heart disease (ihd), history of heart failure (hf), valvular heart disease (vhd), and the occurrence or non-occurrence of poaf was extracted from their records and then documented.
+
+results: in the present study, 48.1% and 51.9% of patients were with and without poaf, respectively. risk factors associated with increasing the odds of poaf occurrence included age (or = 1.094), anemia (or = 3.947), ihd (or = 4.23), ckd (or = 4.765), vhd (or = 4.781), pulmonary diseases (or = 7.828), hypertension (htn) (or = 8.336), hf (or = 11.790), and post-thoracic surgery (or = 49.072) (p-value &lt; 0.05).
+
+conclusion: according to the results of the present study, aging, comorbidities (i.e., anemia, pulmonary diseases, htn, and ckd), heart diseases (i.e., ihd, vhd, and hf), and post-thoracic surgery were among the most significant risk factors associated with the increased occurrence of poaf. adv biomed res"
+                         id="paper-1">
+
+                    <div class="paper-top">
+                        <div class="paper-index">1</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42891485/" target="_blank" rel="noopener noreferrer">Investigating Factors Associated with the Occurrence of Atrial Fibrillation after Non-cardiothoracic Surgery.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Adv Biomed Res</span><span class="dot">·</span><span class="paper-date">2026-10-17</span><span class="dot">·</span><span class="paper-date">PMID 42891485</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Alireza Nematollahi、Parvin Bahrami、Mahshid Farshidnejad">
+                                Alireza Nematollahi、Parvin Bahrami、Mahshid Farshidnejad                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">BACKGROUND: Although the occurrence of atrial fibrillation (AF) after cardiac and thoracic surgery is common and leads to serious complications such as patients&#39; vital organ dysfunction, pulmonary edema, myocardial infarction, and death, evidence about the occurrence and risk factors associated with post-operative atrial fibrillation (POAF) as new AF immediately after non-cardiac thoracic surgery is limited. Therefore, the present study aimed at investigating the factors related to the occurrence of POAF after non-cardiothoracic surgery.
+
+MATERIALS AND METHODS: The present retrospective study was conducted on 272 patients undergoing non-cardiothoracic surgeries during 2007-2020. Patients&#39; basic and clinical information including age, sex, BMI, addiction, comorbidities, history of non-cardiac thoracic surgery, history of cardiac surgery, history of chronic kidney disease (CKD), history of ischemic heart disease (IHD), history of heart failure (HF), valvular heart disease (VHD), and the occurrence or non-occurrence of POAF was extracted from their records and then documented.
+
+RESULTS: In the present study, 48.1% and 51.9% of patients were with and without POAF, respectively. Risk factors associated with increasing the odds of POAF occurrence included age (OR = 1.094), anemia (OR = 3.947), IHD (OR = 4.23), CKD (OR = 4.765), VHD (OR = 4.781), pulmonary diseases (OR = 7.828), hypertension (HTN) (OR = 8.336), HF (OR = 11.790), and post-thoracic surgery (OR = 49.072) (P-value &lt; 0.05).
+
+CONCLUSION: According to the results of the present study, aging, comorbidities (i.e., anemia, pulmonary diseases, HTN, and CKD), heart diseases (i.e., IHD, VHD, and HF), and post-thoracic surgery were among the most significant risk factors associated with the increased occurrence of POAF.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">在272例非心胸外科手术患者中，术后房颤（POAF）发生率高达48.1%，既往胸部手术、心衰、高血压、肺部疾病及肾功能不全等合并症显著增加POAF风险。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">心脏与胸科手术后房颤常见，且可导致重要脏器功能障碍、肺水肿、心肌梗死甚至死亡；但非心胸外科手术后新发房颤（POAF）的发生率及相关危险因素证据有限，本研究即针对该缺口展开。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">单中心回顾性研究，纳入2007—2020年间接受非心胸外科手术的患者272例；从病历中提取年龄、性别、BMI、成瘾史、合并症（贫血、高血压、肺部疾病、慢性肾脏病CKD、缺血性心脏病IHD、心力衰竭HF、瓣膜性心脏病VHD）、既往非心脏胸科手术史及心脏手术史，以及POAF是否发生；采用回归分析评估与POAF相关的因素，以比值比（OR）表示效应量。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">POAF组占48.1%，无POAF组占51.9%。与POAF发生风险升高相关的因素包括：年龄（OR=1.094）、贫血（OR=3.947）、IHD（OR=4.23）、CKD（OR=4.765）、VHD（OR=4.781）、肺部疾病（OR=7.828）、高血压（OR=8.336）、HF（OR=11.790）及既往胸部手术（OR=49.072），均P&lt;0.05；各OR的95%置信区间及多因素校正情况摘要未报告。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">年龄增长、合并症（贫血、肺部疾病、高血压、CKD）、基础心脏病（IHD、VHD、HF）及既往胸部手术是非心胸外科术后POAF的主要相关因素；提示对具备上述特征的患者应在围术期加强心律监测与危险因素管理。但本研究为单中心回顾性设计、样本量有限，且未报告置信区间与校正模型，结论的因果推断与外推性受限，尚需前瞻性研究验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42891485/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.4103/abr.abr_386_23" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42891485/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="Cureus"
+                         data-search="initiation of glucagon-like peptide-1 receptor agonist therapy and lifestyle modifications for morbid obesity in a patient with paroxysmal atrial fibrillation, severe osteoarthritis, and obstructive sleep apnea: a case report. brian morris this case report describes a 57-year-old man with morbid obesity, paroxysmal atrial fibrillation, and severe knee osteoarthritis. we discuss the successful optimization of his metabolic and orthopedic risks through the initiation of a glucagon-like peptide-1 (glp-1) receptor agonist in conjunction with a structured lifestyle modification plan. this case demonstrates the measurable benefit of combining advanced pharmacotherapy with targeted behavioral interventions to manage complex, obesity-related comorbidities. through the course of a 12-month monitoring period, this patient shifted his body mass index (bmi) from stage 2 to stage 1 obesity, moved his blood pressure to a healthier range, and achieved measurable improvements in his lipid profile. cureus"
+                         id="paper-2">
+
+                    <div class="paper-top">
+                        <div class="paper-index">2</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42890326/" target="_blank" rel="noopener noreferrer">Initiation of Glucagon-Like Peptide-1 Receptor Agonist Therapy and Lifestyle Modifications for Morbid Obesity in a Patient With Paroxysmal Atrial Fibrillation, Severe Osteoarthritis, and Obstructive Sleep Apnea: A Case Report.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Cureus</span><span class="dot">·</span><span class="paper-date">2026-10-17</span><span class="dot">·</span><span class="paper-date">PMID 42890326</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Case Reports</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Brian Morris">
+                                Brian Morris                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">This case report describes a 57-year-old man with morbid obesity, paroxysmal atrial fibrillation, and severe knee osteoarthritis. We discuss the successful optimization of his metabolic and orthopedic risks through the initiation of a glucagon-like peptide-1 (GLP-1) receptor agonist in conjunction with a structured lifestyle modification plan. This case demonstrates the measurable benefit of combining advanced pharmacotherapy with targeted behavioral interventions to manage complex, obesity-related comorbidities. Through the course of a 12-month monitoring period, this patient shifted his body mass index (BMI) from stage 2 to stage 1 obesity, moved his blood pressure to a healthier range, and achieved measurable improvements in his lipid profile.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">一例57岁男性病态肥胖合并阵发性房颤、重度膝骨关节炎及OSA，经GLP-1受体激动剂联合结构化生活方式干预12个月，BMI由2级降至1级肥胖、血压和血脂改善。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">肥胖是房颤及多种代谢、骨科合并症的重要可干预危险因素，但GLP-1受体激动剂联合结构化生活方式管理在复杂肥胖相关共病患者中的综合风险优化证据有限，尤其缺乏对阵发性房颤患者代谢危险因素管理的实践描述。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">单例病例报告。对象为57岁男性，病态肥胖合并阵发性房颤、重度膝骨关节炎，标题提及阻塞性睡眠呼吸暂停。干预为启动GLP-1受体激动剂并实施结构化生活方式改良计划，随访12个月。观察BMI分期、血压、血脂谱及代谢/骨科风险优化；摘要未报告预设主要终点、次要终点及统计检验方法。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">12个月随访中，BMI由2级肥胖降至1级肥胖，血压移至更健康范围，血脂谱获可测量改善。摘要未报告具体体重、BMI数值、血压和血脂具体数值及P值，也未报告房颤负荷、消融/药物调整、OSA指标或膝关节症状变化。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">该病例提示，对病态肥胖合并阵发性房颤及重度骨关节炎患者，GLP-1受体激动剂联合结构化生活方式干预可在12个月内改善BMI分期、血压和血脂，可能有助于综合管理肥胖相关共病与房颤危险因素。但为单例报告，不能推断因果或疗效，需更大样本研究验证，且摘要未提供房颤相关结局。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42890326/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.7759/cureus.116307" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42890326/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="J Arrhythm"
+                         data-search="totally thoracoscopic atrial fibrillation ablation with the gemini s bipolar clamp: a single-center descriptive cohort study of 1-year rhythm, safety, and quality-of-life outcomes. michal gruszczynski hector rodriguez cetina biefer laura rings sacha p salzberg vasileios ntinopoulos omer dzemali background: outcome data for the gemini s bipolar radiofrequency clamp are almost absent; the only indexed report being a three-patient case series. we describe 1-year outcomes in a consecutive cohort.
+
+methods: we retrospectively analyzed all consecutive patients treated with the gemini s clamp between january 2021 and august 2024. epicardial box isolation was combined with left atrial appendage (laa) exclusion; completeness was confirmed by entry and exit block on epicardial three-dimensional mapping. the primary outcome was freedom from af recurrence at 12 months, on and off antiarrhythmic drugs (aads) after a 90-day blanking period.
+
+results: twenty-three patients were included (mean age 64.4 ± 8.0 years; 82.6% male). af was paroxysmal in 34.8%, persistent in 26.1%, and long-standing persistent in 39.1%; 60.9% had prior catheter ablation and 69.6% had failed or were intolerant to a class i or iii agent. a complete block-verified box lesion was achieved in 95.7% and laa exclusion in 91.3%. three patients (13.0%) required conversion to sternotomy for bleeding, exceeding larger series. there was no death, stroke, phrenic nerve palsy, or pacemaker implantation. at 1 year, 87.0% (95% ci 67.9-95.5) were in sinus rhythm, all off class i/iii aads.
+
+conclusions: sinus rhythm was achieved in 87.0% of patients at 1 year. as the largest reported experience with this device, the series provides device-level evidence where little existed, but it is descriptive, not powered for comparison, and the conversion rate needs confirmation. j arrhythm"
+                         id="paper-3">
+
+                    <div class="paper-top">
+                        <div class="paper-index">3</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42890433/" target="_blank" rel="noopener noreferrer">Totally Thoracoscopic Atrial Fibrillation Ablation With the Gemini S Bipolar Clamp: A Single-Center Descriptive Cohort Study of 1-Year Rhythm, Safety, and Quality-of-Life Outcomes.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">J Arrhythm</span><span class="dot">·</span><span class="paper-date">2026-10-17</span><span class="dot">·</span><span class="paper-date">PMID 42890433</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Michal Gruszczynski、Hector Rodriguez Cetina Biefer、Laura Rings、Sacha P Salzberg、Vasileios Ntinopoulos、Omer Dzemali">
+                                Michal Gruszczynski、Hector Rodriguez Cetina Biefer、Laura Rings<span class="authors-more"> 等 6 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">BACKGROUND: Outcome data for the Gemini S bipolar radiofrequency clamp are almost absent; the only indexed report being a three-patient case series. We describe 1-year outcomes in a consecutive cohort.
+
+METHODS: We retrospectively analyzed all consecutive patients treated with the Gemini S clamp between January 2021 and August 2024. Epicardial box isolation was combined with left atrial appendage (LAA) exclusion; completeness was confirmed by entry and exit block on epicardial three-dimensional mapping. The primary outcome was freedom from AF recurrence at 12 months, on and off antiarrhythmic drugs (AADs) after a 90-day blanking period.
+
+RESULTS: Twenty-three patients were included (mean age 64.4 ± 8.0 years; 82.6% male). AF was paroxysmal in 34.8%, persistent in 26.1%, and long-standing persistent in 39.1%; 60.9% had prior catheter ablation and 69.6% had failed or were intolerant to a Class I or III agent. A complete block-verified box lesion was achieved in 95.7% and LAA exclusion in 91.3%. Three patients (13.0%) required conversion to sternotomy for bleeding, exceeding larger series. There was no death, stroke, phrenic nerve palsy, or pacemaker implantation. At 1 year, 87.0% (95% CI 67.9-95.5) were in sinus rhythm, all off Class I/III AADs.
+
+CONCLUSIONS: Sinus rhythm was achieved in 87.0% of patients at 1 year. As the largest reported experience with this device, the series provides device-level evidence where little existed, but it is descriptive, not powered for comparison, and the conversion rate needs confirmation.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">单中心23例全胸腔镜房颤消融中，Gemini S双极钳实现95.7%完整盒式隔离、1年87.0%窦性心律且停用I/III类AAD，但13.0%因出血中转开胸。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">Gemini S双极射频钳的临床结局证据几乎空白，既往仅见3例病例系列；本研究旨在描述连续队列的1年节律与安全性结局，补充器械层面证据。摘要未报告生活质量结果。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">单中心回顾性描述性队列，纳入2021年1月至2024年8月连续接受Gemini S双极钳全胸腔镜房颤消融的23例患者（平均年龄64.4±8.0岁，82.6%男性；阵发性34.8%、持续性26.1%、长程持续性39.1%；60.9%有既往导管消融史，69.6% I/III类AAD失败或不耐受）。术式为心外膜盒式隔离联合左心耳排除，以心外膜三维标测的传入/传出阻滞确认完整性。主要终点为90天空白期后12个月停用或不停用AAD时无AF复发；摘要未报告功效计算。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">完整且阻滞验证的盒式隔离达95.7%，左心耳排除91.3%。3例（13.0%）因出血中转胸骨切开，高于较大系列；无死亡、卒中、膈神经麻痹或起搏器植入。1年时87.0%（95%CI 67.9-95.5）为窦性心律，且均停用I/III类AAD。摘要未报告生活质量量表结果及AF复发单独估计。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">作为该器械目前最大样本报告，本研究提示全胸腔镜Gemini S消融可获得较高的1年窦性心律维持率，但13.0%的中转开胸率构成安全信号，需更大样本确认。研究为描述性、非对照且未设效能，不能推断器械优于其他消融策略；生活质量获益尚待报告。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42890433/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1002/joa3.70498" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42890433/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="J Cardiol Cases"
+                         data-search="localized bigeminal activity in the left atrial posterior wall preceding atrial fibrillation initiation. ko abe kazuhiro nagaoka yasushi mukai hiroshi kojima shunji hayashidani hideki tashiro bigeminal activity of the pulmonary veins is considered an indicator of arrhythmogenic triggers of atrial fibrillation (af). however, few reports have described localized bigeminal activity originating from non-pulmonary vein regions. we observed the phenomenon of local bigeminal activities, which did not develop into premature atrial contraction, in a restricted area of left atrial posterior wall (lapw), preceding the initiation of the af. radiofrequency ablation targeting the site of these bigeminal activities transiently suppressed af, and subsequent linear ablation connecting the site to the adjacent low-voltage region resulted in durable elimination of af. the spatial relationship between the localized activity and the low-voltage substrate suggests that conduction abnormalities within diseased atrial myocardium may have contributed to the observed phenomenon. this case highlights the potential role of localized electrical activity arising near a low-voltage substrate of the lapw in af initiation and may provide insights into the electrophysiological mechanisms of non-pulmonary vein triggers.
+
+learning objective: left atrial posterior wall (lapw) is known to be one of the non-pulmonary vein (pv) origins triggering atrial fibrillation (af). while bigeminal activity originating from pvs or superior vena cava has been associated with arrhythmogenic triggers, similar activity originating from non-pv origin, such as lapw, has rarely been described. this case indicates that localized bigeminal activity occurring near a low-voltage substrate of the lapw may precede af initiation and provides new insights into non-pv arrhythmogenic substrates as the target of ablation. j cardiol cases"
+                         id="paper-4">
+
+                    <div class="paper-top">
+                        <div class="paper-index">4</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42889928/" target="_blank" rel="noopener noreferrer">Localized bigeminal activity in the left atrial posterior wall preceding atrial fibrillation initiation.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">J Cardiol Cases</span><span class="dot">·</span><span class="paper-date">2026-10-17</span><span class="dot">·</span><span class="paper-date">PMID 42889928</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Case Reports</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Ko Abe、Kazuhiro Nagaoka、Yasushi Mukai、Hiroshi Kojima、Shunji Hayashidani、Hideki Tashiro">
+                                Ko Abe、Kazuhiro Nagaoka、Yasushi Mukai<span class="authors-more"> 等 6 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">Bigeminal activity of the pulmonary veins is considered an indicator of arrhythmogenic triggers of atrial fibrillation (AF). However, few reports have described localized bigeminal activity originating from non-pulmonary vein regions. We observed the phenomenon of local bigeminal activities, which did not develop into premature atrial contraction, in a restricted area of left atrial posterior wall (LAPW), preceding the initiation of the AF. Radiofrequency ablation targeting the site of these bigeminal activities transiently suppressed AF, and subsequent linear ablation connecting the site to the adjacent low-voltage region resulted in durable elimination of AF. The spatial relationship between the localized activity and the low-voltage substrate suggests that conduction abnormalities within diseased atrial myocardium may have contributed to the observed phenomenon. This case highlights the potential role of localized electrical activity arising near a low-voltage substrate of the LAPW in AF initiation and may provide insights into the electrophysiological mechanisms of non-pulmonary vein triggers.
+
+LEARNING OBJECTIVE: Left atrial posterior wall (LAPW) is known to be one of the non-pulmonary vein (PV) origins triggering atrial fibrillation (AF). While bigeminal activity originating from PVs or superior vena cava has been associated with arrhythmogenic triggers, similar activity originating from non-PV origin, such as LAPW, has rarely been described. This case indicates that localized bigeminal activity occurring near a low-voltage substrate of the LAPW may precede AF initiation and provides new insights into non-PV arrhythmogenic substrates as the target of ablation.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">本病例报告发现，左心房后壁低电压区附近存在局限性二联律电活动，该活动先于房颤发作，提示其可能为非肺静脉触发灶；针对该部位行射频消融，并连接至邻近低电压区做线性消融后，房颤获得持久消除。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">肺静脉内的二联律电活动被认为是房颤致心律失常触发灶的指标，但关于起源于非肺静脉区域（如左心房后壁）的局限性二联律电活动，既往报道极少。左心房后壁已知是触发房颤的非肺静脉起源部位之一，但对这类非肺静脉致心律失常基质的电生理特征和消融策略仍认识不足，需要更多病例层面的证据来填补这一缺口。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">研究类型为个案报告（case report），研究对象为 1 例房颤患者。采用心内电生理检查与三维电解剖标测，观察左心房后壁的局部电活动，并记录该活动与房颤启动之间的时序关系以及局部电压基质情况。干预措施为射频消融：首先针对局限性二联律活动部位进行点消融，随后行线性消融，将该部位与邻近低电压区连接。终点为消融后房颤的抑制情况与随访期间的复发情况；样本量、随访时长及统计方法摘要未报告。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">在左心房后壁一个局限区域内观察到局部二联律电活动，且该活动并未发展为房性期前收缩，并出现在房颤启动之前。针对该部位行射频消融后，房颤被短暂抑制；随后追加线性消融，将该部位与邻近低电压区连接后，房颤获得持久消除。该局限性电活动与低电压基质在空间上邻近，提示病变心房肌内的传导异常可能参与了这一现象的产生。摘要未报告具体的电压数值、随访时长及定量统计结果。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">本病例提示，左心房后壁低电压基质附近出现的局限性电活动可能是房颤启动的触发因素，也提示这类非肺静脉致心律失常基质可作为消融靶点：单纯点消融仅能短暂抑制房颤，而将该部位与低电压区连接成线的消融策略则实现了持久消除。该观察为理解非肺静脉触发灶的电生理机制提供了线索；但作为单例报告，结论不能外推，其机制与疗效仍需更大样本研究验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42889928/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1016/j.jccase.2026.06.008" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42889928/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="J Cardiol Cases"
+                         data-search="successful superior vena cava isolation using point-by-point cryothermal ablation after failed radiofrequency ablation. shimpei seiki takeshi matsuura satoshi yamamoto pulmonary vein isolation is the cornerstone of catheter ablation for atrial fibrillation (af), but non-pulmonary vein (non-pv) triggers such as the superior vena cava (svc) also play an important role. electrical isolation of the svc (svci) can be limited by anatomical complexity and the risk of phrenic nerve or sinus node injury, particularly with radiofrequency or cryoballoon techniques. we report a 76-year-old woman with recurrent paroxysmal af after cryoballoon pulmonary vein isolation. during repeat ablation, af was initially induced from the left atrial posterior wall and successfully treated with radiofrequency ablation. subsequent provocation revealed af triggers from the svc. despite careful radiofrequency ablation under phrenic nerve pacing, complete svci could not be achieved. point-by-point cryothermal ablation was then performed under continuous phrenic nerve monitoring, resulting in successful svci without complications. this case suggests that focal cryothermal ablation may be a practical and safer alternative when svci cannot be achieved with radiofrequency energy.
+
+learning objective: to understand that superior vena cava isolation (svci) may be challenging with radiofrequency ablation due to anatomical complexity and safety limitations related to phrenic nerve injury. this case highlights point-by-point cryothermal ablation as a feasible alternative strategy, enabling stable catheter contact, precise lesion delivery, and continuous phrenic nerve monitoring, particularly in regions where point-by-point pulsed-field ablation is not yet available. j cardiol cases"
+                         id="paper-5">
+
+                    <div class="paper-top">
+                        <div class="paper-index">5</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42889600/" target="_blank" rel="noopener noreferrer">Successful superior vena cava isolation using point-by-point cryothermal ablation after failed radiofrequency ablation.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">J Cardiol Cases</span><span class="dot">·</span><span class="paper-date">2026-10-17</span><span class="dot">·</span><span class="paper-date">PMID 42889600</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Case Reports</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Shimpei Seiki、Takeshi Matsuura、Satoshi Yamamoto">
+                                Shimpei Seiki、Takeshi Matsuura、Satoshi Yamamoto                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">Pulmonary vein isolation is the cornerstone of catheter ablation for atrial fibrillation (AF), but non-pulmonary vein (non-PV) triggers such as the superior vena cava (SVC) also play an important role. Electrical isolation of the SVC (SVCI) can be limited by anatomical complexity and the risk of phrenic nerve or sinus node injury, particularly with radiofrequency or cryoballoon techniques. We report a 76-year-old woman with recurrent paroxysmal AF after cryoballoon pulmonary vein isolation. During repeat ablation, AF was initially induced from the left atrial posterior wall and successfully treated with radiofrequency ablation. Subsequent provocation revealed AF triggers from the SVC. Despite careful radiofrequency ablation under phrenic nerve pacing, complete SVCI could not be achieved. Point-by-point cryothermal ablation was then performed under continuous phrenic nerve monitoring, resulting in successful SVCI without complications. This case suggests that focal cryothermal ablation may be a practical and safer alternative when SVCI cannot be achieved with radiofrequency energy.
+
+LEARNING OBJECTIVE: To understand that superior vena cava isolation (SVCI) may be challenging with radiofrequency ablation due to anatomical complexity and safety limitations related to phrenic nerve injury. This case highlights point-by-point cryothermal ablation as a feasible alternative strategy, enabling stable catheter contact, precise lesion delivery, and continuous phrenic nerve monitoring, particularly in regions where point-by-point pulsed-field ablation is not yet available.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">一名76岁复发性阵发性AF患者在射频消融无法完成上腔静脉隔离后，改为逐点冷冻消融成功实现SVCI且无并发症。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">肺静脉隔离是AF导管消融的基石，但上腔静脉（SVC）等非肺静脉触发灶同样重要。SVCI受解剖复杂及膈神经或窦房结损伤风险限制，尤其在使用射频或冷冻球囊技术时，临床需要更可行的替代策略。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">单例病例报告。76岁女性，冷冻球囊肺静脉隔离后复发性阵发性AF，行重复消融；术中先诱发左房后壁触发灶并以射频消融处理，随后诱发SVC触发灶。在膈神经起搏下尝试射频行SVCI未成功，改在持续膈神经监测下行逐点冷冻消融。主要观察SVCI能否完成及并发症；摘要未报告统计方法与随访。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">射频消融成功处理左房后壁触发灶；SVC触发灶在膈神经起搏保护下行射频仍未能实现完全SVCI。随后逐点冷冻消融成功完成SVCI，术中无并发症。摘要未报告手术时间、消融参数、随访及复发率等数据。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">本病例提示，当射频难以完成SVCI时，逐点冷冻消融可作为可行且可能更安全的替代策略，利于稳定贴靠、精准递送损伤并持续监测膈神经；但仅为单例经验，疗效与安全性需更多研究验证，摘要未报告长期随访。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42889600/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1016/j.jccase.2026.06.009" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42889600/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="J Cardiol Cases"
+                         data-search="sinus arrest during right pulmonary vein isolation related to right sinus node artery injury: a case report. shinichi harada yoshihiko kagawa daiki yamashita katsutoshi nakamori takashi saso kaoru dohi a 50-year-old man with long-standing persistent atrial fibrillation received radiofrequency catheter ablation after electrical cardioversion. the second radiofrequency application on anterior antrum of the right superior pulmonary vein induced sinus arrest following a sinus cycle length prolongation. sinus arrest persisted. right ventricular pacing was required for 3 min until a sinus rhythm was restored. preprocedural contrast-enhanced computed tomography revealed that the ablation site was near the right sinus node artery (sna). retrospective analysis during catheter ablation confirmed a direct anatomical relationship between the ablation site and the right sna. in the present case, rapid recovery without coronary intervention suggests a transient and reversible mechanism, such as sna spasm. this case highlights the importance of preprocedural anatomical assessment of the sna and performing ablation under sinus rhythm, which may facilitate early recognition of sinus node dysfunction and help prevent irreversible injury.
+
+learning objective: a right sinus node artery might be close to the right superior pulmonary vein and can be affected by right pulmonary vein isolation. in cases of persistent atrial fibrillation, performing ablation under sinus rhythm allows immediate recognition of sinus node dysfunction and may help prevent irreversible sinus node injury. j cardiol cases"
+                         id="paper-6">
+
+                    <div class="paper-top">
+                        <div class="paper-index">6</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42889588/" target="_blank" rel="noopener noreferrer">Sinus arrest during right pulmonary vein isolation related to right sinus node artery injury: a case report.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">J Cardiol Cases</span><span class="dot">·</span><span class="paper-date">2026-10-17</span><span class="dot">·</span><span class="paper-date">PMID 42889588</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Case Reports</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Shinichi Harada、Yoshihiko Kagawa、Daiki Yamashita、Katsutoshi Nakamori、Takashi Saso、Kaoru Dohi">
+                                Shinichi Harada、Yoshihiko Kagawa、Daiki Yamashita<span class="authors-more"> 等 6 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">A 50-year-old man with long-standing persistent atrial fibrillation received radiofrequency catheter ablation after electrical cardioversion. The second radiofrequency application on anterior antrum of the right superior pulmonary vein induced sinus arrest following a sinus cycle length prolongation. Sinus arrest persisted. Right ventricular pacing was required for 3 min until a sinus rhythm was restored. Preprocedural contrast-enhanced computed tomography revealed that the ablation site was near the right sinus node artery (SNA). Retrospective analysis during catheter ablation confirmed a direct anatomical relationship between the ablation site and the right SNA. In the present case, rapid recovery without coronary intervention suggests a transient and reversible mechanism, such as SNA spasm. This case highlights the importance of preprocedural anatomical assessment of the SNA and performing ablation under sinus rhythm, which may facilitate early recognition of sinus node dysfunction and help prevent irreversible injury.
+
+LEARNING OBJECTIVE: A right sinus node artery might be close to the right superior pulmonary vein and can be affected by right pulmonary vein isolation. In cases of persistent atrial fibrillation, performing ablation under sinus rhythm allows immediate recognition of sinus node dysfunction and may help prevent irreversible sinus node injury.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">一例长程持续性房颤患者在右侧上肺静脉前庭消融时出现窦性停搏，术前CT与回顾性分析提示消融部位邻近右窦房结动脉，考虑为可逆性动脉痉挛所致，未行冠脉介入即恢复。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">肺静脉隔离是房颤消融的基石，但右肺静脉前庭与右窦房结动脉（SNA）的解剖毗邻关系在术前常被忽视。既往对消融相关窦房结功能不全的报道多为持续性损伤，缺乏对可逆性SNA受累机制的识别与预防策略，本研究通过个案提示术前解剖评估与窦律下消融的临床价值。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">单例病例报告。对象为50岁男性长程持续性房颤患者，电复律后接受射频导管消融。在右肺静脉隔离过程中记录消融部位与窦性周期的变化，出现窦性停搏后行右心室起搏支持。术前增强CT用于评估消融靶点与右SNA的解剖关系，并在术后对消融时的影像与电解剖资料进行回顾性分析。主要观察指标为消融中窦房结功能（窦性周期长度、窦性停搏持续时间及恢复情况）。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">第二次射频放电位于右上肺静脉前庭前部，放电后先出现窦性周期延长、继而发生窦性停搏并持续存在，需右心室起搏3分钟直至窦性心律恢复。术前增强CT显示该消融部位邻近右SNA，回顾性分析证实消融靶点与右SNA存在直接解剖毗邻关系。患者未接受冠状动脉介入治疗即快速恢复窦性心律，摘要未报告具体窦性周期长度数值及随访时间。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">该病例提示右SNA可邻近右上肺静脉并受右肺静脉隔离累及，其无冠脉介入即快速恢复的特点支持短暂可逆机制（如SNA痉挛）。临床意义在于：术前应通过增强CT评估SNA走行，持续性房颤消融宜尽可能在窦性心律下进行，以便早期识别窦房结功能异常并避免不可逆损伤；局限性为单个病例报告，因果关系与发生率尚需更大样本验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42889588/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1016/j.jccase.2026.06.003" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42889588/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="J Mol Cell Cardiol Plus"
+                         data-search="absence of arrhythmogenic effects in camp subcellular compartments supports pde8 as a target in atrial fibrillation. david revuelta nefeli grammatika pavlidou cristina aceituno issam abu taha andrea brunetti antonino ginel evaldas girdauskas dobromir dobrev leif hove-madsen cristina e molina background: targeting phosphodiesterase 8b (pde8b) has been proposed as a strategy to restore l-type ca2+ current (ica,l) in patients with atrial fibrillation (af). however, the effects of total pde8 inhibition on other ca2+ handling or 3&#39;,5&#39;-cyclic adenosine monophosphate (camp) nanodomains have not been assessed and thus the potential proarrhythmic consequences are still undetermined.
+
+objective: the aim of this study was to assess whether pde8 contributes to the regulation of camp signaling in other ca2+ handling-related compartments and to sarcoplasmic reticulum ca2+ release-mediated arrhythmogenic events.
+
+results: fluorescence resonance energy transfer (fret) live-cell imaging, confocal ca2+ imaging and co-immunoprecipitation (co-ip) were performed in atrial myocytes and tissues allocated across experimental assays from a total cumulative cohort of 141 patients with or without af (sinus rhythm, ctl). camp levels were not significantly increased upon non-isoform-selective total pde8 inhibition in the cytosol, in ryanodine receptor 2 (ryr2) or in the sarcomere nanodomains, troponin i (tpni) and myosin binding protein c (mybp-c). consistently, no significant changes in the frequency of arrhythmogenic ca2+ sparks or ca2+ waves after total pde8 inhibitor application were detected.
+
+conclusion: these results suggest that pde8 inhibition promotes a compartment-specific regulation of camp signaling that exclusively affects the l-type ca2+ channel in human atrial myocytes. therefore, pde8 inhibition can be used to restore ica,l in patients with af, without promoting spontaneous arrhythmogenic ca2+ releases in isolated human atrial myocytes. j mol cell cardiol plus"
+                         id="paper-7">
+
+                    <div class="paper-top">
+                        <div class="paper-index">7</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42891130/" target="_blank" rel="noopener noreferrer">Absence of arrhythmogenic effects in cAMP subcellular compartments supports PDE8 as a target in atrial fibrillation.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">J Mol Cell Cardiol Plus</span><span class="dot">·</span><span class="paper-date">2026-10-17</span><span class="dot">·</span><span class="paper-date">PMID 42891130</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="David Revuelta、Nefeli Grammatika Pavlidou、Cristina Aceituno、Issam Abu Taha、Andrea Brunetti、Antonino Ginel、Evaldas Girdauskas、Dobromir Dobrev、Leif Hove-Madsen、Cristina E Molina">
+                                David Revuelta、Nefeli Grammatika Pavlidou、Cristina Aceituno<span class="authors-more"> 等 10 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">BACKGROUND: Targeting Phosphodiesterase 8B (PDE8B) has been proposed as a strategy to restore L-type Ca2+ current (ICa,L) in patients with atrial fibrillation (AF). However, the effects of total PDE8 inhibition on other Ca2+ handling or 3&#39;,5&#39;-cyclic adenosine monophosphate (cAMP) nanodomains have not been assessed and thus the potential proarrhythmic consequences are still undetermined.
+
+OBJECTIVE: The aim of this study was to assess whether PDE8 contributes to the regulation of cAMP signaling in other Ca2+ handling-related compartments and to sarcoplasmic reticulum Ca2+ release-mediated arrhythmogenic events.
+
+RESULTS: Fluorescence resonance energy transfer (FRET) live-cell imaging, confocal Ca2+ imaging and co-immunoprecipitation (Co-IP) were performed in atrial myocytes and tissues allocated across experimental assays from a total cumulative cohort of 141 patients with or without AF (sinus rhythm, Ctl). cAMP levels were not significantly increased upon non-isoform-selective total PDE8 inhibition in the cytosol, in ryanodine receptor 2 (RyR2) or in the sarcomere nanodomains, troponin I (TpnI) and myosin binding protein C (MyBP-C). Consistently, no significant changes in the frequency of arrhythmogenic Ca2+ sparks or Ca2+ waves after total PDE8 inhibitor application were detected.
+
+CONCLUSION: These results suggest that PDE8 inhibition promotes a compartment-specific regulation of cAMP signaling that exclusively affects the L-type Ca2+ channel in human atrial myocytes. Therefore, PDE8 inhibition can be used to restore ICa,L in patients with AF, without promoting spontaneous arrhythmogenic Ca2+ releases in isolated human atrial myocytes.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">在人房肌细胞中，非亚型选择性抑制PDE8只调控L型钙通道，而不升高胞质、RyR2及肌小节纳米域cAMP，也未诱发致心律失常性钙火花或钙波。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">靶向磷酸二酯酶8B（PDE8B）被认为可恢复房颤（AF）患者受损的L型钙电流（ICa,L），但既往未评估总PDE8抑制对其他钙处理相关cAMP纳米域的影响，因此其潜在致心律失常风险尚未明确，这是将PDE8推向治疗靶点前必须回答的安全性问题。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">基础实验研究，使用离体人心房肌细胞与心房组织；累积队列共141例房颤或窦律（对照）患者，标本按实验需要分配至不同检测。采用荧光共振能量转移（FRET）活细胞成像、共聚焦钙成像与免疫共沉淀（Co-IP）。观察终点为胞质、RyR2、肌小节纳米域（肌钙蛋白I、MyBP-C）的cAMP水平，以及致心律失常性钙火花和钙波的发生频率。具体统计方法摘要未报告。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">应用非亚型选择性总PDE8抑制剂后，胞质、RyR2以及肌小节纳米域（TpnI、MyBP-C）的cAMP水平均未见显著升高；相应地，致心律失常性钙火花与钙波频率亦无显著改变。效应量、95%置信区间及P值摘要未报告。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">结果提示PDE8抑制在人房肌细胞中产生区室特异性的cAMP调控，仅作用于L型钙通道，因而可在恢复AF患者ICa,L的同时不促发自发性致心律失常性钙释放。局限在于证据全部来自离体人心房细胞与组织的细胞及分子层面指标，摘要未报告定量统计结果，尚需在体模型与临床研究验证其疗效与长期安全性。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42891130/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1016/j.jmccpl.2026.100871" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42891130/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+            </div>
         </section>
-        <section class="topic-group">
+        <section class="topic-group" data-group-topic="室性心律失常">
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>室性心律失常</span>
                 <span class="topic-count">1 篇</span>
             </h2>
-            <ul class="archive-list">
-                <li>
-                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42888428/" target="_blank" rel="noopener noreferrer">Seizures Secondary to Aconitum Plant Poisoning: a case report.</a>
-                    </span>
-                    <span class="a-authors">Zhijie Zhao、Jiabi Zhang、Juan Du、Luhuan Liu、Guosheng Rao、Manhong Zhou</span>
-                    <span class="a-journal">J Med Case Rep</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42888428/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1186/s13256-026-06571-1" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42888428/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-            </ul>
+
+            <div class="paper-list">
+                <article class="paper-card"
+                         data-topic="室性心律失常"
+                         data-journal="J Med Case Rep"
+                         data-search="seizures secondary to aconitum plant poisoning: a case report. zhijie zhao jiabi zhang juan du luhuan liu guosheng rao manhong zhou background: aconitum plant poisoning typically manifests as isolated early cardiotoxicity or late neurotoxicity. however, the dynamic temporal evolution from arrhythmia-driven cardiogenic syncope to true epileptic seizures mediated by direct central nervous system injury remains rarely documented and poorly characterized.
+
+case presentation: we report a 53-year-old han chinese male who presented with ventricular tachycardia rapidly degenerating into ventricular fibrillation and cardiac arrest following ingestion of homemade aconitum kusnezoffii (caowu)-infused liquor. initial convulsions were tightly coupled with malignant arrhythmias, consistent with cardiogenic syncope. after successful resuscitation, hemoperfusion, and restoration of stable sinus rhythm, the patient developed breakthrough generalized tonic-clonic seizures on hospital days 4-6. electroencephalography performed during sedation withdrawal revealed bilateral occipital spike-and-slow and sharp-and-slow waves with focal epileptiform discharges, confirming direct central nervous system neurotoxicity rather than recurrent cardiac ischemia. a mechanism-based, staged treatment strategy was employed: early advanced cardiac life support and hemoperfusion targeted cardiotoxicity, while sodium valproate and acetylglutamine were administered for antiepileptic prophylaxis and neuroprotection. the patient was discharged on day 13; antiepileptic therapy was successfully tapered and discontinued at 3 months without seizure recurrence, with normalization of electroencephalography and electrocardiography.
+
+conclusions: this case provides the first systematic documentation, validated by electroencephalography, of the transition from cardiogenic convulsions to true epileptic seizures in aconitum alkaloid poisoning. the findings highlight the critical role of pharmacokinetic-driven central nervous system retention in delayed seizure onset and underscore the necessity of prolonged neurological monitoring, early electroencephalography evaluation for late-onset convulsions, and sustained antiepileptic prophylaxis to reduce mortality and long-term neurological sequelae.
+
+key clinical message: aconitum plant poisoning may manifest as early cardiogenic syncope and convulsions secondary to malignant arrhythmias, progressing in the late stage to genuine seizures caused by central nervous system (cns) injury. effective management requires a staged treatment strategy targeting both cardiotoxicity and neurotoxicity, with a focus on stabilizing cardiac rhythm and providing neuroprotection as needed. j med case rep"
+                         id="paper-1">
+
+                    <div class="paper-top">
+                        <div class="paper-index">1</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42888428/" target="_blank" rel="noopener noreferrer">Seizures Secondary to Aconitum Plant Poisoning: a case report.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">J Med Case Rep</span><span class="dot">·</span><span class="paper-date">2026-10-17</span><span class="dot">·</span><span class="paper-date">PMID 42888428</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="室性心律失常">室性心律失常</span>
+                                <span class="tag tag-type">Journal Article</span>
+                                <span class="tag tag-type">Case Reports</span>
+                            </div>
+
+                            <p class="paper-authors" title="Zhijie Zhao、Jiabi Zhang、Juan Du、Luhuan Liu、Guosheng Rao、Manhong Zhou">
+                                Zhijie Zhao、Jiabi Zhang、Juan Du<span class="authors-more"> 等 6 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">BACKGROUND: Aconitum plant poisoning typically manifests as isolated early cardiotoxicity or late neurotoxicity. However, the dynamic temporal evolution from arrhythmia-driven cardiogenic syncope to true epileptic seizures mediated by direct central nervous system injury remains rarely documented and poorly characterized.
+
+CASE PRESENTATION: We report a 53-year-old Han Chinese male who presented with ventricular tachycardia rapidly degenerating into ventricular fibrillation and cardiac arrest following ingestion of homemade Aconitum kusnezoffii (caowu)-infused liquor. Initial convulsions were tightly coupled with malignant arrhythmias, consistent with cardiogenic syncope. After successful resuscitation, hemoperfusion, and restoration of stable sinus rhythm, the patient developed breakthrough generalized tonic-clonic seizures on hospital days 4-6. Electroencephalography performed during sedation withdrawal revealed bilateral occipital spike-and-slow and sharp-and-slow waves with focal epileptiform discharges, confirming direct central nervous system neurotoxicity rather than recurrent cardiac ischemia. A mechanism-based, staged treatment strategy was employed: early advanced cardiac life support and hemoperfusion targeted cardiotoxicity, while sodium valproate and acetylglutamine were administered for antiepileptic prophylaxis and neuroprotection. The patient was discharged on day 13; antiepileptic therapy was successfully tapered and discontinued at 3 months without seizure recurrence, with normalization of electroencephalography and electrocardiography.
+
+CONCLUSIONS: This case provides the first systematic documentation, validated by electroencephalography, of the transition from cardiogenic convulsions to true epileptic seizures in Aconitum alkaloid poisoning. The findings highlight the critical role of pharmacokinetic-driven central nervous system retention in delayed seizure onset and underscore the necessity of prolonged neurological monitoring, early electroencephalography evaluation for late-onset convulsions, and sustained antiepileptic prophylaxis to reduce mortality and long-term neurological sequelae.
+
+KEY CLINICAL MESSAGE: Aconitum plant poisoning may manifest as early cardiogenic syncope and convulsions secondary to malignant arrhythmias, progressing in the late stage to genuine seizures caused by central nervous system (CNS) injury. Effective management requires a staged treatment strategy targeting both cardiotoxicity and neurotoxicity, with a focus on stabilizing cardiac rhythm and providing neuroprotection as needed.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">53岁男性饮自制草乌酒后先出现室速、室颤致心脏骤停并伴心源性抽搐，住院第4–6天又出现经脑电图证实的真性癫痫发作，提示乌头碱中毒存在由心脏毒性向延迟性中枢神经毒性演变的分期病程。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">乌头属植物中毒经典表现为早期单纯心脏毒性或晚期神经毒性，但从恶性心律失常所致心源性晕厥性抽搐，动态演变为中枢神经系统直接损伤所致真性癫痫发作的全过程，文献记载极少、特征不清；临床上迟发抽搐易被误判为再发心肌缺血或心律失常，导致监测不足与治疗延误。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">单例个案报告（n=1）。对象为53岁汉族男性，暴露为饮用自制草乌（Aconitum kusnezoffii）浸酒。观察内容为中毒后临床表现的时相演变，即抽搐与恶性心律失常是否耦联、迟发抽搐的出现时间、脑电图定位与痫样放电特征、分期治疗（高级心脏生命支持与血液灌流针对心脏毒性；丙戊酸钠与乙酰谷酰胺用于抗癫痫预防及神经保护）的反应及随访结局。摘要未报告摄入剂量、血乌头碱浓度、影像学与实验室具体数值，也未进行统计分析。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">初始抽搐与室性心动过速迅速蜕变为室颤、心脏骤停紧密耦联，符合心源性晕厥。经复苏、血液灌流并恢复稳定窦性心律后，患者于住院第4–6天出现突破性全面强直-阵挛发作；减停镇静期间脑电图示双侧枕区棘-慢波与尖-慢波、伴局灶痫样放电，证实为直接中枢神经毒性而非再发心肌缺血。第13天出院，3个月时抗癫痫药物顺利减量停用，无癫痫复发，脑电图与心电图均恢复正常。摘要未报告具体用药剂量、血药浓度及除3个月以外的随访数据。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">本病例首次以脑电图证据系统记录了乌头碱中毒从心源性抽搐向真性癫痫发作的转变，提示药代动力学驱动的中枢神经系统毒性物质蓄积是迟发癫痫的关键机制。临床意义在于：对乌头中毒患者应延长神经功能监测、对迟发抽搐尽早行脑电图评估并维持足疗程抗癫痫预防，以降低死亡率和远期神经后遗症。局限性为单例报告，因果关系与结论外推受限，且缺乏毒物浓度与影像学客观佐证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42888428/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1186/s13256-026-06571-1" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42888428/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+            </div>
         </section>
-        <section class="topic-group">
+        <section class="topic-group" data-group-topic="器械治疗">
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>器械治疗</span>
                 <span class="topic-count">2 篇</span>
             </h2>
-            <ul class="archive-list">
-                <li>
-                    <span class="topic-pill" data-topic="器械治疗">器械治疗</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42889934/" target="_blank" rel="noopener noreferrer">Pediatric restrictive cardiomyopathy with rapid complete atrioventricular block progression.</a>
-                    </span>
-                    <span class="a-authors">Hiromu Ukai、Takanori Suzuki、Yoji Nomura、Yuya Yamada、Ryoichi Ito、Masahiro Yasuda、Satoru Kawai、Yuki Ito、Kisaki Amemiya、Yoshihiko Ikeda、Kinta Hatakeyama、Shuichiro Yoshida</span>
-                    <span class="a-journal">J Cardiol Cases</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42889934/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.jccase.2026.06.007" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42889934/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="器械治疗">器械治疗</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42888328/" target="_blank" rel="noopener noreferrer">A misleading wide-complex rhythm in an implantable cardioverter-defibrillator recipient.</a>
-                    </span>
-                    <span class="a-authors">João Gouveia Fiuza、Francisco Rodrigues Dos Santos、Vanda Neto、Inês Pires、Júlio Gil</span>
-                    <span class="a-journal">Neth Heart J</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42888328/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1007/s12471-026-02087-x" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42888328/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-            </ul>
+
+            <div class="paper-list">
+                <article class="paper-card"
+                         data-topic="器械治疗"
+                         data-journal="J Cardiol Cases"
+                         data-search="pediatric restrictive cardiomyopathy with rapid complete atrioventricular block progression. hiromu ukai takanori suzuki yoji nomura yuya yamada ryoichi ito masahiro yasuda satoru kawai yuki ito kisaki amemiya yoshihiko ikeda kinta hatakeyama shuichiro yoshida restrictive cardiomyopathy (rcm) is a rare pediatric cardiomyopathy characterized by ventricular diastolic dysfunction, and poor prognosis that often requires heart transplantation. we report the case of a 7-year-old boy with rcm complicated by complete atrioventricular block (cavb) in whom pathological examination of the explanted heart demonstrated extensive fibrosis involving the cardiac conduction system. at 1 year and 9 months of age, the patient presented with arrhythmia. echocardiography revealed marked biatrial enlargement and small ventricles. cardiac catheterization demonstrated elevated filling pressures confirming rcm. one month after diagnosis, the patient developed severe bradycardia and circulatory collapse, requiring extracorporeal membrane oxygenation. electrocardiography revealed complete atrioventricular (av) block, and a permanent pacemaker (pm) was implanted. despite recurrent heart failure episodes, cardiac function was maintained with medical therapy, including carvedilol and enalapril, without mechanical circulatory support until heart transplantation at 5 years of age. pathology of the explanted heart revealed extensive interstitial fibrosis involving the conduction system, suggesting that conduction tissue fibrosis caused the cavb. these findings provide pathological insight into the mechanism of advanced atrioventricular block in pediatric rcm. this case demonstrates that rcm may progress from first-degree av block to cavb due to conduction fibrosis.
+
+learning objective: understanding the clinical and pathological progression of restrictive cardiomyopathy (rcm) complicated by complete atrioventricular block in children is important. this case illustrates that fibrosis of the conduction system can lead to severe bradycardia and circulatory collapse, highlighting the importance of the early detection of conduction abnormalities and timely pacemaker implantation. it has also been demonstrated that appropriate medical therapy combined with pacemaker management can effectively bridge pediatric patients with rcm to heart transplantation. j cardiol cases"
+                         id="paper-1">
+
+                    <div class="paper-top">
+                        <div class="paper-index">1</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42889934/" target="_blank" rel="noopener noreferrer">Pediatric restrictive cardiomyopathy with rapid complete atrioventricular block progression.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">J Cardiol Cases</span><span class="dot">·</span><span class="paper-date">2026-10-17</span><span class="dot">·</span><span class="paper-date">PMID 42889934</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="器械治疗">器械治疗</span>
+                                <span class="tag tag-type">Case Reports</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Hiromu Ukai、Takanori Suzuki、Yoji Nomura、Yuya Yamada、Ryoichi Ito、Masahiro Yasuda、Satoru Kawai、Yuki Ito、Kisaki Amemiya、Yoshihiko Ikeda、Kinta Hatakeyama、Shuichiro Yoshida">
+                                Hiromu Ukai、Takanori Suzuki、Yoji Nomura<span class="authors-more"> 等 12 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">Restrictive cardiomyopathy (RCM) is a rare pediatric cardiomyopathy characterized by ventricular diastolic dysfunction, and poor prognosis that often requires heart transplantation. We report the case of a 7-year-old boy with RCM complicated by complete atrioventricular block (CAVB) in whom pathological examination of the explanted heart demonstrated extensive fibrosis involving the cardiac conduction system. At 1 year and 9 months of age, the patient presented with arrhythmia. Echocardiography revealed marked biatrial enlargement and small ventricles. Cardiac catheterization demonstrated elevated filling pressures confirming RCM. One month after diagnosis, the patient developed severe bradycardia and circulatory collapse, requiring extracorporeal membrane oxygenation. Electrocardiography revealed complete atrioventricular (AV) block, and a permanent pacemaker (PM) was implanted. Despite recurrent heart failure episodes, cardiac function was maintained with medical therapy, including carvedilol and enalapril, without mechanical circulatory support until heart transplantation at 5 years of age. Pathology of the explanted heart revealed extensive interstitial fibrosis involving the conduction system, suggesting that conduction tissue fibrosis caused the CAVB. These findings provide pathological insight into the mechanism of advanced atrioventricular block in pediatric RCM. This case demonstrates that RCM may progress from first-degree AV block to CAVB due to conduction fibrosis.
+
+LEARNING OBJECTIVE: Understanding the clinical and pathological progression of restrictive cardiomyopathy (RCM) complicated by complete atrioventricular block in children is important. This case illustrates that fibrosis of the conduction system can lead to severe bradycardia and circulatory collapse, highlighting the importance of the early detection of conduction abnormalities and timely pacemaker implantation. It has also been demonstrated that appropriate medical therapy combined with pacemaker management can effectively bridge pediatric patients with RCM to heart transplantation.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">1例7岁男孩限制型心肌病（RCM）在确诊1个月后由房室传导阻滞迅速进展为完全性房室传导阻滞（CAVB）并致循环衰竭，植入永久起搏器后药物维持至5岁成功心脏移植，移植心病理证实传导系统广泛纤维化。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">儿童RCM罕见，以心室舒张功能障碍为特征，预后差，常最终需心脏移植；此类患儿合并进展性房室传导阻滞的机制与自然病程尚缺乏病理层面的证据，早期识别传导异常并把握起搏器植入时机缺少可参照的个案经验。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">单例病例报告（无对照组、无统计学分析）。对象为1例7岁男孩，1岁9个月时因心律失常就诊；经超声心动图（双心房显著扩大、心室腔小）与心导管检查（充盈压升高）确诊RCM。观察指标为临床病程、心电图房室传导阻滞分级演变、心衰事件与治疗（卡维地洛、依那普利、永久起搏器、ECMO），以及心脏移植后离体心脏的组织病理学检查（重点观察传导系统纤维化）。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">确诊RCM后1个月即出现严重心动过缓与循环衰竭，需ECMO支持；心电图证实CAVB，遂植入永久起搏器。此后虽反复心衰发作，但经卡维地洛与依那普利等药物治疗联合起搏器管理，心功能得以维持，未使用机械循环支持，至5岁接受心脏移植。离体心脏病理显示广泛间质纤维化累及心脏传导系统，提示传导组织纤维化是CAVB的成因。摘要未报告充盈压数值、LVEF、起搏参数及纤维化定量等具体数据。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">该病例提示儿童RCM可因传导系统纤维化由一度房室传导阻滞进展为CAVB，导致严重心动过缓与循环衰竭；早期发现传导异常并及时植入起搏器，配合规范药物治疗，可作为儿童RCM过渡至心脏移植的桥接策略。局限性为单例报告、缺乏对照与纵向电生理—病理对照，纤维化与阻滞的因果关系仅为病理形态学推断，结论外推需更大样本验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42889934/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1016/j.jccase.2026.06.007" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42889934/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="器械治疗"
+                         data-journal="Neth Heart J"
+                         data-search="a misleading wide-complex rhythm in an implantable cardioverter-defibrillator recipient. joão gouveia fiuza francisco rodrigues dos santos vanda neto inês pires júlio gil  neth heart j"
+                         id="paper-2">
+
+                    <div class="paper-top">
+                        <div class="paper-index">2</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42888328/" target="_blank" rel="noopener noreferrer">A misleading wide-complex rhythm in an implantable cardioverter-defibrillator recipient.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Neth Heart J</span><span class="dot">·</span><span class="paper-date">2026-10-16</span><span class="dot">·</span><span class="paper-date">PMID 42888328</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="器械治疗">器械治疗</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="João Gouveia Fiuza、Francisco Rodrigues Dos Santos、Vanda Neto、Inês Pires、Júlio Gil">
+                                João Gouveia Fiuza、Francisco Rodrigues Dos Santos、Vanda Neto<span class="authors-more"> 等 5 位作者</span>                            </p>
+
+                            <div class="abstract-block">
+                                <p class="abstract-none">暂无摘要（该文献可能为社论、评论或通信类文章）</p>
+                            </div>
+
+                            <p class="ai-missing">未生成 AI 解读（仅显示原文摘要）</p>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42888328/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1007/s12471-026-02087-x" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42888328/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+            </div>
         </section>
-        <section class="topic-group">
+        <section class="topic-group" data-group-topic="遗传与基础">
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>遗传与基础</span>
                 <span class="topic-count">1 篇</span>
             </h2>
-            <ul class="archive-list">
-                <li>
-                    <span class="topic-pill" data-topic="遗传与基础">遗传与基础</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42889605/" target="_blank" rel="noopener noreferrer">Successful extravascular implantable cardioverter-defibrillator implantation in a patient with short QT syndrome: A case report.</a>
-                    </span>
-                    <span class="a-authors">Nobuhisa Kodera、Nobuhiro Nishii、Akira Ueoka、Koji Nakagawa、Hiroshi Morita、Shinsuke Yuasa</span>
-                    <span class="a-journal">J Cardiol Cases</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42889605/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.jccase.2026.06.002" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42889605/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-            </ul>
+
+            <div class="paper-list">
+                <article class="paper-card"
+                         data-topic="遗传与基础"
+                         data-journal="J Cardiol Cases"
+                         data-search="successful extravascular implantable cardioverter-defibrillator implantation in a patient with short qt syndrome: a case report. nobuhisa kodera nobuhiro nishii akira ueoka koji nakagawa hiroshi morita shinsuke yuasa short qt syndrome (sqts) can present with life-threatening ventricular fibrillation (vf), requiring timely resuscitation and secondary prevention. a male patient in his 20s was resuscitated from vf and diagnosed with sqts. genetic testing may identify rare variants, such as in slc4a3, expanding the known genetic spectrum of sqts. tall t waves may cause subcutaneous implantable cardioverter-defibrillator (s-icd) screening failure in some vectors, highlighting limitations of s-icds in certain sqts patients. extravascular icd implantation can be a feasible and effective option for patients with sqts when transvenous or subcutaneous icds are suboptimal.
+
+learning objectives: short qt syndrome (sqts) can present with life-threatening ventricular fibrillation, requiring timely resuscitation and secondary prevention.genetic testing may identify rare variants, such as in slc4a3, expanding the known genetic spectrum of sqts.tall t waves may cause subcutaneous implantable cardioverter-defibrillator (s-icd) screening failure in some vectors, highlighting limitations of s-icds in certain sqts patients.extravascular icd implantation can be a feasible and effective option for patients with sqts when transvenous or subcutaneous icds are suboptimal. j cardiol cases"
+                         id="paper-1">
+
+                    <div class="paper-top">
+                        <div class="paper-index">1</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42889605/" target="_blank" rel="noopener noreferrer">Successful extravascular implantable cardioverter-defibrillator implantation in a patient with short QT syndrome: A case report.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">J Cardiol Cases</span><span class="dot">·</span><span class="paper-date">2026-10-17</span><span class="dot">·</span><span class="paper-date">PMID 42889605</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="遗传与基础">遗传与基础</span>
+                                <span class="tag tag-type">Case Reports</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Nobuhisa Kodera、Nobuhiro Nishii、Akira Ueoka、Koji Nakagawa、Hiroshi Morita、Shinsuke Yuasa">
+                                Nobuhisa Kodera、Nobuhiro Nishii、Akira Ueoka<span class="authors-more"> 等 6 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">Short QT syndrome (SQTS) can present with life-threatening ventricular fibrillation (VF), requiring timely resuscitation and secondary prevention. A male patient in his 20s was resuscitated from VF and diagnosed with SQTS. Genetic testing may identify rare variants, such as in SLC4A3, expanding the known genetic spectrum of SQTS. Tall T waves may cause subcutaneous implantable cardioverter-defibrillator (S-ICD) screening failure in some vectors, highlighting limitations of S-ICDs in certain SQTS patients. Extravascular ICD implantation can be a feasible and effective option for patients with SQTS when transvenous or subcutaneous ICDs are suboptimal.
+
+LEARNING OBJECTIVES: Short QT syndrome (SQTS) can present with life-threatening ventricular fibrillation, requiring timely resuscitation and secondary prevention.Genetic testing may identify rare variants, such as in SLC4A3, expanding the known genetic spectrum of SQTS.Tall T waves may cause subcutaneous implantable cardioverter-defibrillator (S-ICD) screening failure in some vectors, highlighting limitations of S-ICDs in certain SQTS patients.Extravascular ICD implantation can be a feasible and effective option for patients with SQTS when transvenous or subcutaneous ICDs are suboptimal.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">一例20余岁男性短QT综合征患者经心室颤动复苏后，因T波高尖导致皮下ICD部分向量筛查失败，改行血管外ICD植入成功，为不适宜经静脉或皮下ICD者提供二级预防新选择。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">短QT综合征（SQTS）可首发为危及生命的室性心动过速/心室颤动（VF），需及时复苏并尽早行二级预防。经静脉ICD存在静脉通路狭窄、导线相关感染与导线断裂等风险；皮下ICD（S-ICD）虽避免心内导线，但依赖体表心电图多向量筛查，SQTS患者T波高尖，部分向量可能筛查不通过，使其应用受限。既往SQTS的ICD植入经验多为经静脉或皮下途径，血管外ICD（EV-ICD）在该人群中的可行性证据几乎缺如；同时SQTS的基因谱（如SLC4A3）仍有待扩展。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">单例个案报道，样本量1例。研究对象为一名20余岁男性，院外VF复苏后依据心电图确诊SQTS。干预为血管外ICD植入（采用胸骨下电极、非经静脉途径）。评估内容包括基因检测、体表心电图S-ICD多向量筛查、术前解剖与影像评估。观察终点为植入手术是否成功、S-ICD筛查各向量通过情况、围术期并发症及器械相关表现。统计方法仅为描述性报告，未行组间比较或统计检验。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">基因检测发现SLC4A3罕见变异，提示该基因可能扩展SQTS的已知遗传谱。术前S-ICD筛查因T波高尖在部分向量未通过，提示S-ICD在该类SQTS患者中适用范围有限。血管外ICD植入成功，手术可行。摘要未报告具体QTc值、筛查向量通过数量、随访时长、随访期恰当或不恰当放电事件及器械相关并发症等数据。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">本病例提示，对SQTS患者，当经静脉ICD或S-ICD不适宜（如S-ICD因高尖T波筛查失败）时，血管外ICD植入是可行且有效的二级预防选择；S-ICD术前应系统完成多向量体表心电图筛查，T波形态是重要限制因素；对早发VF患者行基因检测有助于拓展SQTS的遗传谱。局限性：本文为单例个案报道，缺乏随访期疗效与安全性数据，结果不能外推至总体SQTS人群，EV-ICD的长期获益仍需更多病例与随访验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42889605/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1016/j.jccase.2026.06.002" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42889605/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+            </div>
         </section>
+
+        <div class="filter-empty" id="filterEmpty">
+            <p>没有符合当前筛选条件的论文。</p>
+            <p class="hint">试试点「全部」或清空关键词。</p>
+        </div>
 
 
     </div>
@@ -1094,10 +1944,170 @@ main { padding: 26px 0 60px; }
 
 <footer class="site-footer">
     <div class="wrap">
-        <p>心脏电生理每日论文检索 · 归档视图</p>
-        <p>页面离线自包含，无外部依赖 · 生成于 2026-10-20 09:31</p>
+        <p>心脏电生理每日论文检索 · 数据来源 PubMed / Europe PMC 等公开数据库</p>
+        <p>页面离线自包含，无外部依赖 · 生成于 2026-10-20 09:57</p>
     </div>
 </footer>
+
+<script>
+(function () {
+    "use strict";
+
+    var topicBar = document.getElementById("topicFilters");
+    var journalBar = document.getElementById("journalFilters");
+    var searchBox = document.getElementById("textSearch");
+    var emptyTip = document.getElementById("filterEmpty");
+    var cards = Array.prototype.slice.call(document.querySelectorAll(".paper-card"));
+    var groups = Array.prototype.slice.call(document.querySelectorAll(".topic-group"));
+
+    if (!cards.length) { return; }
+
+    var state = { topic: "all", journal: "all", text: "" };
+
+    function apply() {
+        var needle = state.text.trim().toLowerCase();
+        var visible = 0;
+
+        cards.forEach(function (card) {
+            var okTopic = state.topic === "all" || card.getAttribute("data-topic") === state.topic;
+            var okJournal = state.journal === "all" || card.getAttribute("data-journal") === state.journal;
+            var hay = card.getAttribute("data-search") || "";
+            var okText = !needle || hay.indexOf(needle) !== -1;
+            var show = okTopic && okJournal && okText;
+            card.classList.toggle("hidden", !show);
+            if (show) { visible += 1; }
+        });
+
+        // 组内没有可见卡片时隐藏整组，避免留下空标题
+        groups.forEach(function (group) {
+            var any = group.querySelector(".paper-card:not(.hidden)");
+            group.style.display = any ? "" : "none";
+        });
+
+        if (emptyTip) { emptyTip.classList.toggle("show", visible === 0); }
+    }
+
+    function bind(bar, key, attr) {
+        if (!bar) { return; }
+        bar.addEventListener("click", function (event) {
+            var btn = event.target.closest(".filter-btn");
+            if (!btn || !bar.contains(btn)) { return; }
+            Array.prototype.forEach.call(bar.querySelectorAll(".filter-btn"), function (b) {
+                b.classList.toggle("active", b === btn);
+            });
+            state[key] = btn.getAttribute(attr);
+            apply();
+        });
+    }
+
+    bind(topicBar, "topic", "data-filter-topic");
+    bind(journalBar, "journal", "data-filter-journal");
+
+    if (searchBox) {
+        searchBox.addEventListener("input", function () {
+            state.text = searchBox.value || "";
+            apply();
+        });
+    }
+
+    // 期刊过多时默认折叠，只显示前 8 个 + 一个展开按钮
+    var moreBtn = document.getElementById("moreJournals");
+    if (moreBtn) {
+        var extras = document.querySelectorAll(".extra-journal");
+        Array.prototype.forEach.call(extras, function (b) { b.style.display = "none"; });
+        moreBtn.addEventListener("click", function () {
+            var open = moreBtn.getAttribute("data-open") === "1";
+            Array.prototype.forEach.call(extras, function (b) {
+                b.style.display = open ? "none" : "";
+            });
+            moreBtn.setAttribute("data-open", open ? "0" : "1");
+            moreBtn.textContent = open
+                ? "展开全部 " + extras.length + " 个期刊 ▾"
+                : "收起期刊列表 ▴";
+        });
+    }
+
+    // 键盘 /：直接聚焦搜索框
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "/" && document.activeElement !== searchBox) {
+            event.preventDefault();
+            if (searchBox) { searchBox.focus(); }
+        }
+    });
+})();
+
+/* 主题切换：跟随系统 → 手动选择 → 再点回到跟随系统。
+   三态循环，按钮 title 显示当前状态，localStorage 记忆手动选择。 */
+(function () {
+    var btn = document.getElementById("themeToggle");
+    if (!btn) { return; }
+    var root = document.documentElement;
+    var mql = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+
+    function current() {
+        var manual = root.getAttribute("data-theme");
+        if (manual === "dark" || manual === "light") { return manual; }
+        return (mql && mql.matches) ? "dark" : "light";
+    }
+    function label() {
+        var manual = root.getAttribute("data-theme");
+        var suffix = manual ? "" : "（跟随系统）";
+        btn.textContent = (current() === "dark" ? "☀️ 浅色" : "🌙 深色") + suffix;
+        btn.title = "当前：" + (current() === "dark" ? "深色" : "浅色") + suffix + "，点击切换";
+    }
+    btn.addEventListener("click", function () {
+        var next = current() === "dark" ? "light" : "dark";
+        root.setAttribute("data-theme", next);
+        try { localStorage.setItem("ep-digest-theme", next); } catch (e) {}
+        label();
+    });
+    if (mql && mql.addEventListener) {
+        mql.addEventListener("change", function () {
+            if (!root.getAttribute("data-theme")) { label(); }
+        });
+    }
+    label();
+})();
+
+/* 日期选择器：点开显示按月份分组的日期网格，点外部/Esc 关闭。
+   纯前端、不联网；每个日期都是指向 archive/<date>.html 的普通链接，
+   所以即使 JS 失效也仍然可用（只是不会弹出面板）。 */
+(function () {
+    var toggle = document.getElementById("dateToggle");
+    var panel = document.getElementById("datePanel");
+    if (!toggle || !panel) { return; }
+
+    function open() {
+        panel.hidden = false;
+        toggle.setAttribute("aria-expanded", "true");
+        var cur = panel.querySelector(".date-cell.current");
+        if (cur && cur.scrollIntoView) {
+            cur.scrollIntoView({ block: "nearest" });
+        }
+    }
+    function close() {
+        panel.hidden = true;
+        toggle.setAttribute("aria-expanded", "false");
+    }
+    function isOpen() { return !panel.hidden; }
+
+    toggle.addEventListener("click", function (event) {
+        event.stopPropagation();
+        if (isOpen()) { close(); } else { open(); }
+    });
+
+    panel.addEventListener("click", function (event) { event.stopPropagation(); });
+
+    document.addEventListener("click", function () { if (isOpen()) { close(); } });
+
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && isOpen()) {
+            close();
+            toggle.focus();
+        }
+    });
+})();
+</script>
 
 </body>
 </html>

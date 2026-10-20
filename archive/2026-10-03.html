@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light dark">
-<meta name="description" content="心脏电生理日报归档 · 2026-10-03">
-<title>归档 · 2026-10-03 · 心脏电生理日报</title>
+<meta name="description" content="心脏电生理每日论文检索 · 2026-10-03">
+<title>心脏电生理日报 · 2026-10-03</title>
 <script>
 /* 主题初始化：必须在样式生效前执行，避免深色用户看到白屏闪烁。
    读取顺序：localStorage 手动选择 > 系统偏好。写入 <html data-theme>。 */
@@ -16,39 +16,6 @@
             document.documentElement.setAttribute('data-theme', saved);
         }
     } catch (e) { /* 隐私模式下 localStorage 可能抛错，忽略即可 */ }
-})();
-
-/* 主题切换：跟随系统 → 手动选择 → 再点回到跟随系统。
-   三态循环，按钮 title 显示当前状态，localStorage 记忆手动选择。 */
-(function () {
-    var btn = document.getElementById("themeToggle");
-    if (!btn) { return; }
-    var root = document.documentElement;
-    var mql = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
-
-    function current() {
-        var manual = root.getAttribute("data-theme");
-        if (manual === "dark" || manual === "light") { return manual; }
-        return (mql && mql.matches) ? "dark" : "light";
-    }
-    function label() {
-        var manual = root.getAttribute("data-theme");
-        var suffix = manual ? "" : "（跟随系统）";
-        btn.textContent = (current() === "dark" ? "☀️ 浅色" : "🌙 深色") + suffix;
-        btn.title = "当前：" + (current() === "dark" ? "深色" : "浅色") + suffix + "，点击切换";
-    }
-    btn.addEventListener("click", function () {
-        var next = current() === "dark" ? "light" : "dark";
-        root.setAttribute("data-theme", next);
-        try { localStorage.setItem("ep-digest-theme", next); } catch (e) {}
-        label();
-    });
-    if (mql && mql.addEventListener) {
-        mql.addEventListener("change", function () {
-            if (!root.getAttribute("data-theme")) { label(); }
-        });
-    }
-    label();
 })();
 </script>
 <style>
@@ -906,196 +873,969 @@ main { padding: 26px 0 60px; }
 /* 展开时用 class 切换，比 hidden 属性更稳（display:flex 会覆盖 [hidden]） */
 .archive-nav.expanded .archive-nav-days { display: none; }
 
-/* 归档页专属微调 */
-.archive-list .a-authors {
-    flex: 0 0 auto;
+/* ---------------------------------------------------------------- 日期选择器 */
+
+.date-bar {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--header-border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+}
+
+.date-bar-label { color: var(--text-tertiary); }
+
+.date-bar-hint { color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+
+.date-select { position: relative; }
+
+.date-toggle {
+    font: inherit;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    color: var(--header-accent);
+    background: var(--surface);
+    border: 1px solid var(--header-border);
+    border-radius: 8px;
+    padding: 5px 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 132px;
+    justify-content: space-between;
+}
+.date-toggle:hover { background: var(--brand-soft); }
+.date-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.date-toggle-caret { color: var(--text-tertiary); font-size: 11px; }
+
+.date-panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 40;
+    width: 340px;
+    max-height: 60vh;
+    overflow-y: auto;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, .14);
+    padding: 12px;
+}
+.date-panel[hidden] { display: none; }
+
+.date-panel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     font-size: 12px;
     color: var(--text-tertiary);
-    max-width: 260px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
 }
-@media (max-width: 640px) { .archive-list .a-authors { display: none; } }
+.date-panel-latest { color: var(--brand); }
+
+.date-month + .date-month { margin-top: 10px; }
+
+.date-month-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.date-month-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+}
+
+.date-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 30px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+    background: var(--surface-muted);
+    border: 1px solid transparent;
+}
+.date-cell:hover { background: var(--brand-soft); text-decoration: none; }
+.date-cell.current {
+    background: var(--brand);
+    color: var(--surface);
+    font-weight: 700;
+    border-color: var(--brand);
+}
+
+@media print { .date-bar { display: none; } }
+
 </style>
 </head>
 <body>
 
 <header class="site-header">
     <div class="wrap">
-        <h1>心脏电生理日报 · 归档</h1>
-        <p class="subtitle">2026-10-03 全部论文清单</p>
+        <h1>心脏电生理每日论文检索</h1>
+        <p class="subtitle">Cardiac Electrophysiology Daily Digest · 按亚专业分组的文献速览</p>
         <div class="header-meta">
-<span class="chip">📅 <strong>2026-10-03</strong></span>            <span class="chip">🕒 生成时间 <strong>2026-10-20 09:31</strong></span>
+<span class="chip">📅 日报日期 <strong>2026-10-03</strong></span>            <span class="chip">🕒 生成时间 <strong>2026-10-20 09:57</strong></span>
             <span class="chip">📄 论文总数 <strong>11</strong></span>
             <span class="chip">🤖 含 AI 解读 <strong>9</strong></span>
-        </div>
+<span class="chip">📝 无摘要 <strong>2</strong></span>        </div>
         <nav class="header-nav">
-            <a href="../index.html">← 返回主页</a>
-            <a href="#top">回到顶部</a>
+<a href="../archive/2026-10-03.html">本篇归档页</a><a href="../index.html">最新一期</a>            <a href="#top">回到顶部</a>
+            <button type="button" class="theme-toggle" id="themeToggle"
+                    aria-label="切换深色/浅色模式" title="切换深色/浅色模式">🌗 主题</button>
         </nav>
+
+        <div class="date-bar">
+            <label class="date-bar-label" for="dateToggle">日期</label>
+            <div class="date-select" id="dateSelect">
+                <button type="button" class="date-toggle" id="dateToggle"
+                        aria-haspopup="listbox" aria-expanded="false"
+                        aria-controls="datePanel">
+                    <span class="date-toggle-text">2026-10-03</span>
+                    <span class="date-toggle-caret" aria-hidden="true">▾</span>
+                </button>
+                <div class="date-panel" id="datePanel" role="listbox" hidden>
+                    <div class="date-panel-head">
+                        <span>共 13 天</span>
+<a class="date-panel-latest" href="../index.html">跳到最新一期 →</a>                    </div>
+                    <div class="date-panel-body">
+                        <div class="date-month">
+                            <div class="date-month-label">2026 年 10 月</div>
+                            <div class="date-month-days">
+                                <a href="../archive/2026-10-03.html"
+                                   class="date-cell current"
+                                   role="option" aria-selected="true">03</a>
+                                <a href="../archive/2026-10-02.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">02</a>
+                                <a href="../archive/2026-10-01.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">01</a>
+                            </div>
+                        </div>
+                        <div class="date-month">
+                            <div class="date-month-label">2026 年 9 月</div>
+                            <div class="date-month-days">
+                                <a href="../archive/2026-09-30.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">30</a>
+                                <a href="../archive/2026-09-29.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">29</a>
+                                <a href="../archive/2026-09-28.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">28</a>
+                                <a href="../archive/2026-09-27.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">27</a>
+                                <a href="../archive/2026-09-26.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">26</a>
+                                <a href="../archive/2026-09-25.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">25</a>
+                                <a href="../archive/2026-09-24.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">24</a>
+                                <a href="../archive/2026-09-23.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">23</a>
+                                <a href="../archive/2026-09-22.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">22</a>
+                                <a href="../archive/2026-09-21.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">21</a>
+                                <a href="../archive/2026-09-20.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">20</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <span class="date-bar-hint">共 13 天归档</span>
+        </div>
     </div>
 </header>
 
-<main id="top">
+<div class="filters" id="top">
+    <div class="wrap">
+        <div class="filter-row">
+            <span class="filter-label">主题</span>
+            <div class="filter-buttons" id="topicFilters">
+                <button type="button" class="filter-btn active" data-filter-topic="all">全部 <span class="count">11</span></button>
+                <button type="button" class="filter-btn" data-filter-topic="房颤与消融">房颤与消融 <span class="count">2</span></button>
+                <button type="button" class="filter-btn" data-filter-topic="室性心律失常">室性心律失常 <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-topic="器械治疗">器械治疗 <span class="count">4</span></button>
+                <button type="button" class="filter-btn" data-filter-topic="遗传与基础">遗传与基础 <span class="count">2</span></button>
+                <button type="button" class="filter-btn" data-filter-topic="其他">其他 <span class="count">2</span></button>
+            </div>
+        </div>
+        <div class="filter-row">
+            <span class="filter-label">期刊</span>
+            <div class="filter-buttons" id="journalFilters">
+                <button type="button" class="filter-btn active" data-filter-journal="all">全部</button>
+                <button type="button" class="filter-btn" data-filter-journal="Europace">Europace <span class="count">2</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="J Arrhythm">J Arrhythm <span class="count">2</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="BMC Nurs">BMC Nurs <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="Circ J">Circ J <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="Indian Pacing Electrophysiol J">Indian Pacing Electrophysiol J <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="Inn Med (Heidelb)">Inn Med (Heidelb) <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="JACC Case Rep">JACC Case Rep <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="Metabolomics">Metabolomics <span class="count">1</span></button>
+                <button type="button" class="filter-btn extra-journal" data-filter-journal="Stem Cell Res">Stem Cell Res <span class="count">1</span></button>
+                <button type="button" class="filter-btn more-btn" id="moreJournals">展开全部 9 个期刊 ▾</button>
+            </div>
+        </div>
+        <div class="filter-row">
+            <span class="filter-label">检索</span>
+            <input type="search" id="textSearch" class="search-box" placeholder="输入关键词过滤标题 / 作者 / 摘要（本地匹配，不联网）" aria-label="关键词过滤">
+        </div>
+    </div>
+</div>
+
+<main>
     <div class="wrap">
 
 
-        <section class="topic-group">
+        <section class="topic-group" data-group-topic="房颤与消融">
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>房颤与消融</span>
                 <span class="topic-count">2 篇</span>
             </h2>
-            <ul class="archive-list">
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42829660/" target="_blank" rel="noopener noreferrer">Coronary Sinus Electrogram Changes After Cavotricuspid Isthmus Ablation for Typical Atrial Flutter: What Is the Mechanism?</a>
-                    </span>
-                    <span class="a-authors">Nakamura S、Nakashima T、Ido T、Takahashi S、Aoyama T</span>
-                    <span class="a-journal">J Arrhythm</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42829660/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1002/joa3.70475" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42829660/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42827193/" target="_blank" rel="noopener noreferrer">[Atrial fibrillation screening-reading the P-wave].</a>
-                    </span>
-                    <span class="a-authors">Felix Wiedmann、Frederike Marie Weitkamp、Constanze Schmidt</span>
-                    <span class="a-journal">Inn Med (Heidelb)</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42827193/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1007/s00108-026-02193-3" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42827193/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-            </ul>
+
+            <div class="paper-list">
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="J Arrhythm"
+                         data-search="coronary sinus electrogram changes after cavotricuspid isthmus ablation for typical atrial flutter: what is the mechanism? nakamura s nakashima t ido t takahashi s aoyama t typical atrial flutter was terminated and sinus rhythm was restored. we discussed the mechanism of changes in the coronary sinus atrial electrograms. j arrhythm"
+                         id="paper-1">
+
+                    <div class="paper-top">
+                        <div class="paper-index">1</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42829660/" target="_blank" rel="noopener noreferrer">Coronary Sinus Electrogram Changes After Cavotricuspid Isthmus Ablation for Typical Atrial Flutter: What Is the Mechanism?</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">J Arrhythm</span><span class="dot">·</span><span class="paper-date">2026-10-03</span><span class="dot">·</span><span class="paper-date">PMID 42829660</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">brief-report</span>
+                                <span class="tag tag-type">Journal Article</span>
+<span class="tag tag-oa">开放获取</span>                            </div>
+
+                            <p class="paper-authors" title="Nakamura S、Nakashima T、Ido T、Takahashi S、Aoyama T">
+                                Nakamura S、Nakashima T、Ido T<span class="authors-more"> 等 5 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">Typical atrial flutter was terminated and sinus rhythm was restored. We discussed the mechanism of changes in the coronary sinus atrial electrograms.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">本文报告一例典型心房扑动经三尖瓣峡部消融终止并恢复窦性心律后，冠状静脉窦心房电图发生变化，并探讨其机制。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">典型心房扑动的根治性治疗是峡部依赖折返环的三尖瓣峡部消融；消融后冠状静脉窦（CS）心房电图形态改变究竟反映传导路径的重新分配、消融本身造成的局部电位改变，还是仍存在未被察觉的缓慢传导，这一问题在临床上尚未充分阐明，而识别这类改变有助于判断消融是否达到双向阻滞以及是否可能出现复发。为此，作者通过本病例分析了消融后 CS 心房电图改变的机制。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">研究类型为病例报告，摘要未报告患者年龄、性别及合并症等基线信息，也未报告样本量的具体构成。干预为针对典型心房扑动实施三尖瓣峡部（cavotricuspid isthmus）消融。观察指标为消融前后冠状静脉窦心房电图的形态与激动顺序变化。摘要未报告终点定义、随访方案及统计方法，因此本研究不适用组间比较分析。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">摘要仅报告典型心房扑动被终止并恢复窦性心律，消融后冠状静脉窦心房电图出现改变，并据此对机制进行了讨论。摘要未报告扑动周期长度、消融能量与放电次数、峡部双向阻滞的验证结果、CS 电图的具体形态与激动时序参数，以及任何效应量、95% 置信区间或 P 值。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">该病例提示：三尖瓣峡部消融后冠状静脉窦心房电图的改变应结合激动顺序与阻滞验证结果综合判读，避免将消融造成的局部电位变化误判为传导恢复或残余缓慢传导。但本文为单例报告，没有对照与量化数据，结论不能外推，仅能作为提出机制假说的线索，有待更大样本的电生理标测研究加以验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42829660/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1002/joa3.70475" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42829660/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="Inn Med (Heidelb)"
+                         data-search="[atrial fibrillation screening-reading the p-wave]. felix wiedmann frederike marie weitkamp constanze schmidt background: atrial fibrillation (af) is frequently intermittent and may therefore remain undetected on a short resting electrocardiogram (ecg). at the same time, a sinus-rhythm ecg contains information on the underlying atrial substrate.
+
+objective: to review conventional and artificial intelligence (ai)-based ecg markers of an atrial risk phenotype and their potential role in targeted af screening.
+
+materials and methods: narrative appraisal of current consensus and guideline documents and of clinical, electrophysiological, and population-based studies on p‑wave parameters, ai-ecg, and risk-adapted af screening.
+
+results: p‑wave duration, interatrial block, p‑wave terminal force in v1, and other parameters are associated with atrial remodelling and future af. ai models additionally extract high-dimensional patterns from sinus-rhythm ecgs and can predict occult or future af. initial prospective data indicate that such risk signals can enrich the diagnostic yield of prolonged rhythm monitoring.
+
+conclusion: the most plausible current clinical application is risk-adapted selection for prolonged rhythm monitoring. a p-wave or ai-based risk score neither establishes a diagnosis of af nor, by itself, constitutes an indication for treatment. inn med (heidelb)"
+                         id="paper-2">
+
+                    <div class="paper-top">
+                        <div class="paper-index">2</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42827193/" target="_blank" rel="noopener noreferrer">[Atrial fibrillation screening-reading the P-wave].</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Inn Med (Heidelb)</span><span class="dot">·</span><span class="paper-date">2026-10-02</span><span class="dot">·</span><span class="paper-date">PMID 42827193</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">English Abstract</span>
+                                <span class="tag tag-type">Journal Article</span>
+                                <span class="tag tag-type">Review</span>
+                            </div>
+
+                            <p class="paper-authors" title="Felix Wiedmann、Frederike Marie Weitkamp、Constanze Schmidt">
+                                Felix Wiedmann、Frederike Marie Weitkamp、Constanze Schmidt                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">BACKGROUND: Atrial fibrillation (AF) is frequently intermittent and may therefore remain undetected on a short resting electrocardiogram (ECG). At the same time, a sinus-rhythm ECG contains information on the underlying atrial substrate.
+
+OBJECTIVE: To review conventional and artificial intelligence (AI)-based ECG markers of an atrial risk phenotype and their potential role in targeted AF screening.
+
+MATERIALS AND METHODS: Narrative appraisal of current consensus and guideline documents and of clinical, electrophysiological, and population-based studies on P‑wave parameters, AI-ECG, and risk-adapted AF screening.
+
+RESULTS: P‑wave duration, interatrial block, P‑wave terminal force in V1, and other parameters are associated with atrial remodelling and future AF. AI models additionally extract high-dimensional patterns from sinus-rhythm ECGs and can predict occult or future AF. Initial prospective data indicate that such risk signals can enrich the diagnostic yield of prolonged rhythm monitoring.
+
+CONCLUSION: The most plausible current clinical application is risk-adapted selection for prolonged rhythm monitoring. A P-wave or AI-based risk score neither establishes a diagnosis of AF nor, by itself, constitutes an indication for treatment.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">综述指出，窦律心电图的P波参数与AI-ECG模型可识别心房基质风险表型，用于富集高危人群以筛选隐匿性AF，但其本身不能诊断AF或作为治疗指征。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">AF常为阵发性，短时静息心电图易漏诊；而窦律心电图本身携带心房基质信息。既往指南对如何用P波及AI指标指导靶向AF筛查缺乏系统梳理，本文旨在评估这些心房风险表型标志物在风险适应性筛查中的潜在作用。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">叙述性综述，非系统评价、无样本量与干预分组。文献来源为现行共识与指南文件，以及关于P波参数、AI-ECG与风险适应性AF筛查的临床、电生理和人群研究。关注的指标包括P波时限、房间传导阻滞、V1导联P波终末电势等传统参数及AI模型提取的高维窦律ECG特征。摘要未报告定量终点与统计方法。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">P波时限、房间传导阻滞、V1导联P波终末电势等参数与心房重构及未来AF发生相关；AI模型可自窦律心电图提取高维模式并预测隐匿性或未来AF。初步前瞻性数据提示，此类风险信号可提高延长节律监测的诊断阳性率。摘要未报告具体效应量、95%CI或P值。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">目前最合理的临床应用是以P波或AI风险评分进行风险分层，据此选择患者接受延长节律监测；该类评分既不确立AF诊断，其本身也不构成治疗指征。对电生理实践而言，其价值在于优化筛查资源配置与监测对象选择；局限性在于本文为叙述性综述，缺乏定量合并证据，前瞻性验证仍有限。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42827193/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1007/s00108-026-02193-3" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42827193/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+            </div>
         </section>
-        <section class="topic-group">
+        <section class="topic-group" data-group-topic="室性心律失常">
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>室性心律失常</span>
                 <span class="topic-count">1 篇</span>
             </h2>
-            <ul class="archive-list">
-                <li>
-                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42829189/" target="_blank" rel="noopener noreferrer">The Coronary Sinus: A clinical perspective for the electrophysiologist</a>
-                    </span>
-                    <span class="a-authors">Amin A、Makkar N、Gupta I、Patil S、Deshmukh A、Asirvatham SJ</span>
-                    <span class="a-journal">Indian Pacing Electrophysiol J</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42829189/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.ipej.2026.10.001" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42829189/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-            </ul>
+
+            <div class="paper-list">
+                <article class="paper-card"
+                         data-topic="室性心律失常"
+                         data-journal="Indian Pacing Electrophysiol J"
+                         data-search="the coronary sinus: a clinical perspective for the electrophysiologist amin a makkar n gupta i patil s deshmukh a asirvatham sj the coronary sinus (cs) is a specialized cardiac structure whose embryologic and anatomic features may contribute to arrhythmogenesis. composed of both venous and myocardial elements, it can be conceptualized as a distinct cardiac chamber with connections to both the left and right atria-characteristics that make it an important site for the initiation and maintenance of atrial arrhythmias, as well as a key structure in explaining the underlying physiology of atrioventricular nodal reentrant tachycardia (avnrt) and the origin of epicardial bypass tracts. the vein, ligament, and myocardial bundle of marshall arise from the proximal cs and maintain electrical connections with the left atrium and the left-sided pulmonary veins. because of their electrophysiological and autonomic properties, these structures may contribute to both atrial and ventricular arrhythmias. furthermore, the proximity of cs tributaries to the ventricular myocardium provides access for the mapping and ablation of selected ventricular arrhythmias, complementing the established role of these vessels in left ventricular pacing. indian pacing electrophysiol j"
+                         id="paper-1">
+
+                    <div class="paper-top">
+                        <div class="paper-index">1</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42829189/" target="_blank" rel="noopener noreferrer">The Coronary Sinus: A clinical perspective for the electrophysiologist</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Indian Pacing Electrophysiol J</span><span class="dot">·</span><span class="paper-date">2026-10-03</span><span class="dot">·</span><span class="paper-date">PMID 42829189</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="室性心律失常">室性心律失常</span>
+                                <span class="tag tag-type">Review</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Amin A、Makkar N、Gupta I、Patil S、Deshmukh A、Asirvatham SJ">
+                                Amin A、Makkar N、Gupta I<span class="authors-more"> 等 6 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">The coronary sinus (CS) is a specialized cardiac structure whose embryologic and anatomic features may contribute to arrhythmogenesis. Composed of both venous and myocardial elements, it can be conceptualized as a distinct cardiac chamber with connections to both the left and right atria-characteristics that make it an important site for the initiation and maintenance of atrial arrhythmias, as well as a key structure in explaining the underlying physiology of atrioventricular nodal reentrant tachycardia (AVNRT) and the origin of epicardial bypass tracts. The vein, ligament, and myocardial bundle of Marshall arise from the proximal CS and maintain electrical connections with the left atrium and the left-sided pulmonary veins. Because of their electrophysiological and autonomic properties, these structures may contribute to both atrial and ventricular arrhythmias. Furthermore, the proximity of CS tributaries to the ventricular myocardium provides access for the mapping and ablation of selected ventricular arrhythmias, complementing the established role of these vessels in left ventricular pacing.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">综述指出，冠状窦由静脉与心肌成分共同构成，可视为一个连接左右心房的独立心腔，既是房性心律失常发生和维持的关键部位，也是解释AVNRT、心外膜旁路及Marshall结构相关心律失常的重要解剖基础，并为部分室性心律失常提供标测与消融通路。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">冠状窦的胚胎学与解剖学特征提示其可能参与致心律失常过程，但临床上常仅将其视为解剖标志或左室起搏导线入路。既往证据的缺口在于：未充分把冠状窦当作一个具有静脉与心肌双重成分、与左右心房均有连接的独立心腔来理解；对Marshall静脉、韧带及心肌束与左房、左侧肺静脉之间的电连接及其自主神经特性，在房性与室性心律失常发生机制中的作用认识不足；对冠状窦分支毗邻心室肌这一特点，在室性心律失常标测与消融中的潜在价值也缺乏系统梳理。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">本文为叙述性综述，不是原始临床研究；摘要未报告研究类型细节、研究对象、样本量、干预或暴露、主要与次要终点，也未报告任何统计方法。综述内容围绕以下方面展开：冠状窦的胚胎学与解剖学特征；其由静脉与心肌成分构成、可作为连接左右心房的独立心腔；其在房性心律失常启动与维持中的作用；其与房室结折返性心动过速（AVNRT）生理机制及心外膜旁路起源的关系；近端冠状窦发出的Marshall静脉、韧带与心肌束及其与左房和左侧肺静脉的电连接和自主神经特性；冠状窦分支与心室肌的毗邻关系及其在室性心律失常标测消融和左室起搏中的应用。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">摘要未报告任何定量数据，因此没有效应量、95% 置信区间或 P 值可供引用。定性要点包括：冠状窦兼具静脉与心肌成分，可被概念化为一个独立心腔，并与左右心房相连；这些特征使其成为房性心律失常发生和维持的重要部位，也是解释 AVNRT 生理机制及心外膜旁路起源的关键结构；近端冠状窦发出 Marshall 静脉、韧带与心肌束，并保持与左房及左侧肺静脉的电连接，由于其电生理与自主神经特性，可能参与房性与室性心律失常；冠状窦分支邻近心室肌，为特定室性心律失常的标测与消融提供入路，补充了这些血管在左室起搏中的既有作用。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">综述强调，对电生理医生而言，冠状窦不只是一个解剖标志或起搏入路，而是一个需要系统评估的致心律失常结构：理解其心肌袖、Marshall 结构与左房及左侧肺静脉的电连接，有助于阐明 AVNRT、心外膜旁路以及起源于 Marshall 结构的房性心律失常的机制，并优化消融策略；冠状窦分支与心室肌的毗邻关系也为部分室性心律失常提供标测与消融通路。局限性在于：本文为叙述性综述，摘要未报告系统检索策略、纳入文献数量及任何定量分析，所述机制与临床推论缺乏原始数据支持，其中许多尚待前瞻性研究验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42829189/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1016/j.ipej.2026.10.001" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42829189/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+            </div>
         </section>
-        <section class="topic-group">
+        <section class="topic-group" data-group-topic="器械治疗">
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>器械治疗</span>
                 <span class="topic-count">4 篇</span>
             </h2>
-            <ul class="archive-list">
-                <li>
-                    <span class="topic-pill" data-topic="器械治疗">器械治疗</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42829445/" target="_blank" rel="noopener noreferrer">Effect of a structured nurse-led empowerment protocol on knowledge, practical skills, and self-care behaviours among patients with permanent pacemakers: a quasi-experimental study</a>
-                    </span>
-                    <span class="a-authors">Kamel WNS、Assaf ARA、Shehata AM、Afify NMM</span>
-                    <span class="a-journal">BMC Nurs</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42829445/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1186/s12912-026-05368-3" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42829445/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="器械治疗">器械治疗</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42830528/" target="_blank" rel="noopener noreferrer">Risk Stratification for Pericardial Effusion After Leadless Pacemaker Implantation　- Multicenter Study</a>
-                    </span>
-                    <span class="a-authors">Komai Y、Minamiguchi H、Ishimura M、Sakamoto Y、Nakano M、Kajiyama T、Nakano M、Chiba T、Ryuzaki S、Takanashi Y、Nishikawa Y、Kanda T、Matsumura M、Mori N、Hamanaka Y、Sakio T、Shibuya Y、Yoshimoto D、Uemura Y、Narumi S、Kobayashi Y、Kondo Y</span>
-                    <span class="a-journal">Circ J</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42830528/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1253/circj.cj-25-1061" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42830528/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="器械治疗">器械治疗</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42829576/" target="_blank" rel="noopener noreferrer">Cardiac Resynchronization as an Enabler of ARNI Efficacy: Insights From a Real-World Cohort</a>
-                    </span>
-                    <span class="a-authors">Santoro A、Spaccaterra L、Collantoni M、Baiocchi C、Natali BM、Lunghetti S、Pagliaro A、Manetti N、Morrone F、Fineschi M、Palazzuoli A</span>
-                    <span class="a-journal">J Arrhythm</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42829576/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1002/joa3.70488" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42829576/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="器械治疗">器械治疗</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42828523/" target="_blank" rel="noopener noreferrer">Algorithm-Facilitated Pacemaker-Mediated Tachycardia Mimicking Refractory Septic Shock</a>
-                    </span>
-                    <span class="a-authors">Abrol A、Okpebholo J、Worsnick SA、Djekidel K、Vijayaraman P</span>
-                    <span class="a-journal">JACC Case Rep</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42828523/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.jaccas.2026.110616" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42828523/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-            </ul>
+
+            <div class="paper-list">
+                <article class="paper-card"
+                         data-topic="器械治疗"
+                         data-journal="BMC Nurs"
+                         data-search="effect of a structured nurse-led empowerment protocol on knowledge, practical skills, and self-care behaviours among patients with permanent pacemakers: a quasi-experimental study kamel wns assaf ara shehata am afify nmm background patients with permanent pacemakers frequently demonstrate insufficient knowledge and inadequate self-care behaviours, which increase the risk of avoidable post-implantation complications. structured, theory-informed empowerment protocols may improve these outcomes, yet robust evidence from low- and middle-income countries remains limited. grounded in bandura&#39;s self-efficacy theory and a patient-empowerment model, this study evaluated the effect of a nurse-led empowerment protocol on knowledge, practical skills, and self-care behaviours among patients with permanent pacemakers.methods a non-equivalent control-group, pretest-posttest quasi-experimental design was used and reported in accordance with the transparent reporting of evaluations with nonrandomized designs (trend) statement. seventy adults with newly implanted permanent pacemakers were recruited from tanta university hospitals, egypt, between december 2025 and april 2026. because the two arms were recruited in consecutive calendar periods to prevent educational contamination, allocation was non-random and group membership is confounded with time period. the control group (n = 35) received routine hospital care; the study group (n = 35) additionally received a structured empowerment protocol (four individual sessions of 30-45 min each, using illustrated arabic booklets, demonstration and return demonstration, followed by weekly telephone reinforcement during the first month). three co-primary outcomes were assessed at baseline, immediately post-intervention, and at one-month follow-up: knowledge (pacemaker-related knowledge questionnaire, 0-20), practice competence (observational checklist, 0-50), and self-care behaviour (self-care behaviours scale, 0-20). data were analysed using repeated-measures anova (group × time) with greenhouse-geisser correction and independent and paired t-tests; a family-wise threshold of α = 0.017 (0.05/3) was applied across the three co-primary group × time tests. between-group effect sizes and 95% confidence intervals (cis) were computed.results the study group improved significantly more than the control group on all three co-primary outcomes. mean knowledge scores rose from 6.51 ± 2.45 to 15.31 ± 3.46 post-intervention (control: 5.57 ± 2.47 to 7.46 ± 5.60; group × time f(1.43, 97.38) = 148.09, p &lt; 0.001, η²p = 0.685; between-group post-intervention difference 7.85 points, 95% ci 5.67-10.03, cohen&#39;s d = 1.69). practice competence improved from 16.29 ± 2.87 to 41.17 ± 10.00 in the study group (control: 14.91 ± 3.33 to 18.54 ± 12.21; f(1.59, 108.12) = 120.34, p &lt; 0.001, η²p = 0.639; difference 22.63, 95% ci 17.40-27.86, d = 2.03). self-care behaviour scores increased from 13.63 ± 3.11 to 19.00 ± 3.23 in the study group (control: 12.86 ± 2.30 to 15.00 ± 3.10; f(2, 136) = 49.85, p &lt; 0.001, η²p = 0.423; difference 4.00, 95% ci 2.52-5.48, d = 1.26). all three interactions remained significant at the family-wise threshold, and the groups did not differ significantly on any recorded baseline characteristic. gains were partially sustained at one-month follow-up.conclusions in this non-randomised study, participants who received a structured, nurse-led empowerment protocol showed substantial and partially sustained gains in knowledge, practical skills, and self-care behaviours, whereas the corresponding gains observed under routine hospital care alone were minimal. because the two groups were recruited in consecutive calendar periods rather than randomised concurrently, and because outcome assessment was unblinded, these results are best interpreted as an association observed under a quasi-experimental design rather than as causal evidence equivalent to that of a randomised controlled trial. they nonetheless provide a reasonable basis for evaluating systematic, interactive empowerment programmes-incorporating individualised education and scheduled reinforcement-as an addition to routine post-implantation nursing care, and for testing them in randomised, attention-controlled trials with blinded assessment and longer follow-up.trial registration clinicaltrials.gov, nct07743346. registered on 26 july 2026. retrospectively registered. available at: https://clinicaltrials.gov/study/nct07743346 . bmc nurs"
+                         id="paper-1">
+
+                    <div class="paper-top">
+                        <div class="paper-index">1</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42829445/" target="_blank" rel="noopener noreferrer">Effect of a structured nurse-led empowerment protocol on knowledge, practical skills, and self-care behaviours among patients with permanent pacemakers: a quasi-experimental study</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">BMC Nurs</span><span class="dot">·</span><span class="paper-date">2026-10-03</span><span class="dot">·</span><span class="paper-date">PMID 42829445</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="器械治疗">器械治疗</span>
+                                <span class="tag tag-type">research-article</span>
+                                <span class="tag tag-type">Journal Article</span>
+<span class="tag tag-oa">开放获取</span>                            </div>
+
+                            <p class="paper-authors" title="Kamel WNS、Assaf ARA、Shehata AM、Afify NMM">
+                                Kamel WNS、Assaf ARA、Shehata AM<span class="authors-more"> 等 4 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">Background Patients with permanent pacemakers frequently demonstrate insufficient knowledge and inadequate self-care behaviours, which increase the risk of avoidable post-implantation complications. Structured, theory-informed empowerment protocols may improve these outcomes, yet robust evidence from low- and middle-income countries remains limited. Grounded in Bandura&#39;s self-efficacy theory and a patient-empowerment model, this study evaluated the effect of a nurse-led empowerment protocol on knowledge, practical skills, and self-care behaviours among patients with permanent pacemakers.Methods A non-equivalent control-group, pretest-posttest quasi-experimental design was used and reported in accordance with the Transparent Reporting of Evaluations with Nonrandomized Designs (TREND) statement. Seventy adults with newly implanted permanent pacemakers were recruited from Tanta University Hospitals, Egypt, between December 2025 and April 2026. Because the two arms were recruited in consecutive calendar periods to prevent educational contamination, allocation was non-random and group membership is confounded with time period. The control group (n = 35) received routine hospital care; the study group (n = 35) additionally received a structured empowerment protocol (four individual sessions of 30-45 min each, using illustrated Arabic booklets, demonstration and return demonstration, followed by weekly telephone reinforcement during the first month). Three co-primary outcomes were assessed at baseline, immediately post-intervention, and at one-month follow-up: knowledge (Pacemaker-Related Knowledge Questionnaire, 0-20), practice competence (Observational Checklist, 0-50), and self-care behaviour (Self-Care Behaviours Scale, 0-20). Data were analysed using repeated-measures ANOVA (group × time) with Greenhouse-Geisser correction and independent and paired t-tests; a family-wise threshold of α = 0.017 (0.05/3) was applied across the three co-primary group × time tests. Between-group effect sizes and 95% confidence intervals (CIs) were computed.Results The study group improved significantly more than the control group on all three co-primary outcomes. Mean knowledge scores rose from 6.51 ± 2.45 to 15.31 ± 3.46 post-intervention (control: 5.57 ± 2.47 to 7.46 ± 5.60; group × time F(1.43, 97.38) = 148.09, p &lt; 0.001, η²p = 0.685; between-group post-intervention difference 7.85 points, 95% CI 5.67-10.03, Cohen&#39;s d = 1.69). Practice competence improved from 16.29 ± 2.87 to 41.17 ± 10.00 in the study group (control: 14.91 ± 3.33 to 18.54 ± 12.21; F(1.59, 108.12) = 120.34, p &lt; 0.001, η²p = 0.639; difference 22.63, 95% CI 17.40-27.86, d = 2.03). Self-care behaviour scores increased from 13.63 ± 3.11 to 19.00 ± 3.23 in the study group (control: 12.86 ± 2.30 to 15.00 ± 3.10; F(2, 136) = 49.85, p &lt; 0.001, η²p = 0.423; difference 4.00, 95% CI 2.52-5.48, d = 1.26). All three interactions remained significant at the family-wise threshold, and the groups did not differ significantly on any recorded baseline characteristic. Gains were partially sustained at one-month follow-up.Conclusions In this non-randomised study, participants who received a structured, nurse-led empowerment protocol showed substantial and partially sustained gains in knowledge, practical skills, and self-care behaviours, whereas the corresponding gains observed under routine hospital care alone were minimal. Because the two groups were recruited in consecutive calendar periods rather than randomised concurrently, and because outcome assessment was unblinded, these results are best interpreted as an association observed under a quasi-experimental design rather than as causal evidence equivalent to that of a randomised controlled trial. They nonetheless provide a reasonable basis for evaluating systematic, interactive empowerment programmes-incorporating individualised education and scheduled reinforcement-as an addition to routine post-implantation nursing care, and for testing them in randomised, attention-controlled trials with blinded assessment and longer follow-up.Trial registration ClinicalTrials.gov, NCT07743346. Registered on 26 July 2026. Retrospectively registered. Available at: https://clinicaltrials.gov/study/NCT07743346 .</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">在70例新植入永久起搏器的埃及患者中，护士主导的结构化赋能方案较常规护理显著改善起搏器相关知识、操作技能与自我照护行为，且1个月随访时疗效部分维持。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">永久起搏器植入患者普遍存在疾病与器械相关知识不足、自我照护行为欠佳的问题，可导致本可避免的术后并发症。以Bandura自我效能理论和患者赋能模型为基础的结构化教育干预可能改善这些结局，但来自中低收入国家的稳健证据仍然有限，本研究即在埃及人群中评估护士主导赋能方案的效果。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">非等效对照组、前后测的类实验研究，按TREND声明报告。2025年12月至2026年4月于埃及Tanta大学医院连续纳入70例新植入永久起搏器的成人患者，因按连续日历时间段分组以避免教育污染，分配非随机且组别与时间期混杂：对照组（n=35）接受常规院内护理，研究组（n=35）在此基础上接受结构化赋能方案（4次30-45分钟个别授课，使用阿拉伯语图解手册、示范与回示教，第1个月每周电话强化）。三项共同主要终点为起搏器相关知识（0-20分）、操作技能（观察 checklist，0-50分）和自我照护行为（0-20分），于基线、干预结束时及1个月随访评估；采用重复测量方差分析（组别×时间，Greenhouse-Geisser校正）及独立/配对t检验，三项组别×时间检验采用α=0.017的族系误差阈值，并计算组间效应量与95%CI。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">研究组在三项共同主要终点上的改善均显著优于对照组。知识评分由6.51±2.45升至干预后15.31±3.46（对照组5.57±2.47升至7.46±5.60；组别×时间F(1.43, 97.38)=148.09，P&lt;0.001，η²p=0.685；干预后组间差值7.85分，95%CI 5.67-10.03，Cohen&#39;s d=1.69）。操作技能由16.29±2.87升至41.17±10.00（对照组14.91±3.33升至18.54±12.21；F(1.59, 108.12)=120.34，P&lt;0.001，η²p=0.639；差值22.63，95%CI 17.40-27.86，d=2.03）。自我照护行为由13.63±3.11升至19.00±3.23（对照组12.86±2.30升至15.00±3.10；F(2, 136)=49.85，P&lt;0.001，η²p=0.423；差值4.00，95%CI 2.52-5.48，d=1.26）。三项交互作用在族系误差阈值下均仍显著，两组基线特征无显著差异；1个月随访时各项获益部分维持。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">在这项非随机类实验研究中，接受护士主导结构化赋能方案的患者在知识、操作技能和自我照护行为方面获得大幅且部分持续的改善，而单纯常规院内护理的改善有限。由于两组按连续日历时间段而非同期随机分组、且结局评估未设盲，结果宜解释为类实验设计下观察到的关联，而非等同于RCT的因果证据；该方案为在随机、注意对照、盲法评估及更长随访的试验中进一步验证系统化互动式赋能教育（个体化教育加计划性强化）作为起搏器植入术后常规护理补充的价值提供了依据。研究为单中心、样本量小、回顾性注册（NCT07743346），外推需谨慎。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42829445/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1186/s12912-026-05368-3" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42829445/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="器械治疗"
+                         data-journal="Circ J"
+                         data-search="risk stratification for pericardial effusion after leadless pacemaker implantation　- multicenter study komai y minamiguchi h ishimura m sakamoto y nakano m kajiyama t nakano m chiba t ryuzaki s takanashi y nishikawa y kanda t matsumura m mori n hamanaka y sakio t shibuya y yoshimoto d uemura y narumi s kobayashi y kondo y background postoperative pericardial effusion (ppe) is a known complication associated with the use of leadless pacemakers (lpms). the risk score (rs) is a useful tool for risk stratification. this study evaluated the utility of risk stratification using the rs in japanese patients who received the micra lpm.methods and results we retrospectively enrolled 443 patients who received micra lpms that were implanted at 4 institutions between august 2017 and august 2024. patients were risk stratified using the rs into 3 groups: low risk (score ≤0), intermediate risk (score 1), and high risk (score ≥2). ppes were observed in 9.0% (20/221), 11.7% (9/77) and 17.9% (26/145) of patients in the low-, intermediate-, and high-risk groups, respectively (p=0.041). in multivariable analysis, chronic obstructive pulmonary disease was a significant risk factor (p=0.014) for ppe, whereas prior cardiac surgery significantly reduced the risk of ppe (p=0.023). older age, being female, and hemodialysis were not identified as risk factors. subsequently, we modified the rs (mrs). using the mrs, ppes were observed in 8.8% (27/306), 16.5% (14/85), and 26.9% (14/52) of patients in the low-, intermediate-, and high-risk groups, respectively (p&lt;0.001).conclusions the original rs is useful for ppe risk stratification after micra lpm implantation. however, the mrs provides better risk discrimination and may therefore be a more suitable tool for use in the japanese population. circ j"
+                         id="paper-2">
+
+                    <div class="paper-top">
+                        <div class="paper-index">2</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42830528/" target="_blank" rel="noopener noreferrer">Risk Stratification for Pericardial Effusion After Leadless Pacemaker Implantation　- Multicenter Study</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Circ J</span><span class="dot">·</span><span class="paper-date">2026-10-03</span><span class="dot">·</span><span class="paper-date">PMID 42830528</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="器械治疗">器械治疗</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Komai Y、Minamiguchi H、Ishimura M、Sakamoto Y、Nakano M、Kajiyama T、Nakano M、Chiba T、Ryuzaki S、Takanashi Y、Nishikawa Y、Kanda T、Matsumura M、Mori N、Hamanaka Y、Sakio T、Shibuya Y、Yoshimoto D、Uemura Y、Narumi S、Kobayashi Y、Kondo Y">
+                                Komai Y、Minamiguchi H、Ishimura M<span class="authors-more"> 等 22 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">Background Postoperative pericardial effusion (PPE) is a known complication associated with the use of leadless pacemakers (LPMs). The risk score (RS) is a useful tool for risk stratification. This study evaluated the utility of risk stratification using the RS in Japanese patients who received the Micra LPM.Methods and results We retrospectively enrolled 443 patients who received Micra LPMs that were implanted at 4 institutions between August 2017 and August 2024. Patients were risk stratified using the RS into 3 groups: low risk (score ≤0), intermediate risk (score 1), and high risk (score ≥2). PPEs were observed in 9.0% (20/221), 11.7% (9/77) and 17.9% (26/145) of patients in the low-, intermediate-, and high-risk groups, respectively (P=0.041). In multivariable analysis, chronic obstructive pulmonary disease was a significant risk factor (P=0.014) for PPE, whereas prior cardiac surgery significantly reduced the risk of PPE (P=0.023). Older age, being female, and hemodialysis were not identified as risk factors. Subsequently, we modified the RS (mRS). Using the mRS, PPEs were observed in 8.8% (27/306), 16.5% (14/85), and 26.9% (14/52) of patients in the low-, intermediate-, and high-risk groups, respectively (P&lt;0.001).Conclusions The original RS is useful for PPE risk stratification after Micra LPM implantation. However, the mRS provides better risk discrimination and may therefore be a more suitable tool for use in the Japanese population.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">在日本多中心443例Micra无导线起搏器植入患者中，原版风险评分可分层预测术后心包积液（低危9.0%、中危11.7%、高危17.9%，P=0.041），改良评分区分度更佳（8.8%、16.5%、26.9%，P&lt;0.001）。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">无导线起搏器（LPM）植入后心包积液（PPE）是已知并发症，一旦发生可致心脏压塞，需提前识别高危人群。既往已有针对Micra植入的PPE风险评分（RS），但其在日本人群中的适用性及分层效能尚缺乏验证，且原始评分纳入的部分危险因素（如高龄、女性、血液透析）在不同人群中权重可能不同，因此有必要在日本人群中重新评估并优化风险分层工具。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">回顾性多中心研究，纳入2017年8月至2024年8月间4家机构植入Micra LPM的443例患者。按原始RS分为低危（评分≤0，n=221）、中危（评分1，n=77）、高危（评分≥2，n=145）三层，比较各组PPE发生率；采用多因素分析筛选PPE的危险因素，并据此构建改良风险评分（mRS）重新分层，评价其区分能力。PPE为主要观察终点。摘要未报告mRS具体构成条目及判别力（如C统计量）等细节。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">原始RS三层PPE发生率分别为9.0%（20/221）、11.7%（9/77）、17.9%（26/145），组间差异有统计学意义（P=0.041）。多因素分析中，慢性阻塞性肺疾病是PPE的独立危险因素（P=0.014），既往心脏外科手术则显著降低PPE风险（P=0.023）；高龄、女性及血液透析未被评为危险因素。应用改良评分mRS后，低、中、高危组PPE发生率分别为8.8%（27/306）、16.5%（14/85）、26.9%（14/52），P&lt;0.001，分层梯度较原始RS更明显。摘要未报告各因素的效应量（OR）及95%CI。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">原始RS对Micra LPM植入后PPE具有可用的风险分层价值，而mRS在日本人群中区分度更优，可能更适合作为术前风险评估工具。临床意义在于可据此对高危患者加强术中操作规范与术后超声随访监测；局限性为回顾性设计、样本量有限、mRS的构建与验证基于同一队列且摘要未提供效应量与模型判别力指标，尚需外部队列前瞻性验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42830528/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1253/circj.cj-25-1061" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42830528/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="器械治疗"
+                         data-journal="J Arrhythm"
+                         data-search="cardiac resynchronization as an enabler of arni efficacy: insights from a real-world cohort santoro a spaccaterra l collantoni m baiocchi c natali bm lunghetti s pagliaro a manetti n morrone f fineschi m palazzuoli a background sacubitril/valsartan (arni) improves outcomes in heart failure with reduced ejection fraction (hfref). in patients undergoing cardiac resynchronization therapy (crt), the potential synergy between device-based and pharmacological strategies remains underexplored.methods the aim of this study was to assess the effect of arni therapy on reverse remodeling, clinical response, and cardiovascular events at 1 year in crt recipients, in order to clarify the potential synergistic role of pharmacological and device-based strategies. a retrospective cohort of 194 consecutive crt patients was analyzed, of whom 65 (33.5%) received arni. echocardiographic response was defined as an increase in lvef &gt; 5% or ≥ 15% reduction in lv end-systolic volume at 12 months; clinical response as an improvement of at least one nyha class. the primary endpoint was echocardiographic response. device-detected remote monitoring heart failure (rm-hf) events were pre-specified as the key time-to-event endpoint, while mortality and hf hospitalization were exploratory.results baseline characteristics were comparable, although systolic blood pressure was higher in arni recipients. at 12 months, arni therapy was associated with greater reverse remodeling (δlvef 14.4% ± 10.2% vs. 10.8% ± 11.0%, p = 0.04). rates of echocardiographic (68% vs. 67%) and clinical response (68% vs. 74%) were similar. mortality and hf hospitalization did not differ significantly. in contrast, arni recipients showed fewer rm-hf events, with higher event-free survival among echocardiographic responders (95.7% vs. 82.6%; log-rank p = 0.021, q = 0.042) and clinical responders (93.4% vs. 85.3%; p = 0.040, q = 0.040).conclusions in this real-world crt cohort, arni therapy enhanced reverse remodeling and reduced subclinical congestion events detected by remote monitoring. these findings support a synergistic interaction between crt and arni, where resynchronization provides the substrate for pharmacological efficacy. j arrhythm"
+                         id="paper-3">
+
+                    <div class="paper-top">
+                        <div class="paper-index">3</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42829576/" target="_blank" rel="noopener noreferrer">Cardiac Resynchronization as an Enabler of ARNI Efficacy: Insights From a Real-World Cohort</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">J Arrhythm</span><span class="dot">·</span><span class="paper-date">2026-10-03</span><span class="dot">·</span><span class="paper-date">PMID 42829576</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="器械治疗">器械治疗</span>
+                                <span class="tag tag-type">research-article</span>
+                                <span class="tag tag-type">Journal Article</span>
+<span class="tag tag-oa">开放获取</span>                            </div>
+
+                            <p class="paper-authors" title="Santoro A、Spaccaterra L、Collantoni M、Baiocchi C、Natali BM、Lunghetti S、Pagliaro A、Manetti N、Morrone F、Fineschi M、Palazzuoli A">
+                                Santoro A、Spaccaterra L、Collantoni M<span class="authors-more"> 等 11 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">Background Sacubitril/valsartan (ARNI) improves outcomes in heart failure with reduced ejection fraction (HFrEF). In patients undergoing cardiac resynchronization therapy (CRT), the potential synergy between device-based and pharmacological strategies remains underexplored.Methods The aim of this study was to assess the effect of ARNI therapy on reverse remodeling, clinical response, and cardiovascular events at 1 year in CRT recipients, in order to clarify the potential synergistic role of pharmacological and device-based strategies. A retrospective cohort of 194 consecutive CRT patients was analyzed, of whom 65 (33.5%) received ARNI. Echocardiographic response was defined as an increase in LVEF &gt; 5% or ≥ 15% reduction in LV end-systolic volume at 12 months; clinical response as an improvement of at least one NYHA class. The primary endpoint was echocardiographic response. Device-detected remote monitoring heart failure (RM-HF) events were pre-specified as the key time-to-event endpoint, while mortality and HF hospitalization were exploratory.Results Baseline characteristics were comparable, although systolic blood pressure was higher in ARNI recipients. At 12 months, ARNI therapy was associated with greater reverse remodeling (ΔLVEF 14.4% ± 10.2% vs. 10.8% ± 11.0%, p = 0.04). Rates of echocardiographic (68% vs. 67%) and clinical response (68% vs. 74%) were similar. Mortality and HF hospitalization did not differ significantly. In contrast, ARNI recipients showed fewer RM-HF events, with higher event-free survival among echocardiographic responders (95.7% vs. 82.6%; log-rank p = 0.021, q = 0.042) and clinical responders (93.4% vs. 85.3%; p = 0.040, q = 0.040).Conclusions In this real-world CRT cohort, ARNI therapy enhanced reverse remodeling and reduced subclinical congestion events detected by remote monitoring. These findings support a synergistic interaction between CRT and ARNI, where resynchronization provides the substrate for pharmacological efficacy.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">在194例接受CRT的真实世界队列中，联合ARNI虽未提高12个月超声与临床应答率，但带来更大幅度的LVEF改善，并显著减少器械远程监测发现的亚临床心衰事件。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">沙库巴曲缬沙坦（ARNI）可改善射血分数降低心衰（HFrEF）患者的预后，心脏再同步治疗（CRT）则是该人群的器械治疗基石；然而，两者是否存在协同作用尚缺乏证据，既往研究也很少在接受CRT的患者中同时评估药物与器械策略对逆重构、临床应答及心衰事件的影响。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">单中心回顾性队列研究，连续纳入194例CRT患者，其中65例（33.5%）接受ARNI治疗。主要终点为12个月超声应答，定义为LVEF升高&gt;5%或左室收缩末期容积下降≥15%；临床应答定义为NYHA分级改善至少1级；器械远程监测心衰（RM-HF）事件被预设为关键时间-事件终点，全因死亡与心衰住院为探索性终点。统计方法摘要未报告具体细节（结果中采用log-rank检验并以q值进行多重比较校正）。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">两组基线特征总体可比，仅ARNI组收缩压更高。12个月时，ARNI组逆重构幅度更大（ΔLVEF 14.4%±10.2% vs. 10.8%±11.0%，p=0.04）；超声应答率（68% vs. 67%）与临床应答率（68% vs. 74%）组间相似；死亡与心衰住院无显著差异。ARNI组RM-HF事件更少：在超声应答者中，无事件生存率为95.7% vs. 82.6%（log-rank p=0.021，q=0.042）；在临床应答者中为93.4% vs. 85.3%（p=0.040，q=0.040）。效应量的95%CI摘要未报告。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">在这一真实世界CRT队列中，ARNI治疗增强了左室逆重构并减少了远程监测所发现的亚临床淤血事件，提示CRT与ARNI之间存在协同作用：再同步化纠正电机械不同步，为药物发挥疗效提供基质。但本研究为回顾性、非随机、样本量有限且事件数较少，存在残余混杂，上述协同效应需前瞻性研究验证；同时应警惕以RM-HF替代硬终点可能高估临床获益。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42829576/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1002/joa3.70488" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42829576/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="器械治疗"
+                         data-journal="JACC Case Rep"
+                         data-search="algorithm-facilitated pacemaker-mediated tachycardia mimicking refractory septic shock abrol a okpebholo j worsnick sa djekidel k vijayaraman p background algorithms that minimize right ventricular pacing, such as atrioventricular (av) hysteresis, prolong the av delay to promote intrinsic conduction. with intact ventriculoatrial (va) conduction, this can facilitate pacemaker-mediated tachycardia (pmt).case summary a 62-year-old woman with a dual-chamber pacemaker presented with respiratory failure and hypotension at a paced rate of 110 beats/min, treated for presumed sepsis with escalating vasopressors. interrogation showed an upper tracking rate of 130 beats/min, av hysteresis on, and postventricular atrial refractory period (pvarp) (225 milliseconds) shorter than va conduction (360 milliseconds), producing a 550-millisecond endless-loop pmt (∼109 beats/min) that escaped device detection. disabling hysteresis and extending pvarp terminated it, allowing vasopressor weaning.discussion when pvarp is shorter than the va interval, a long av delay converts retrograde conduction into a slow re-entrant circuit that escapes device diagnostics and mimics sinus tachycardia.take-home messages suspect slow pmt in paced patients with fixed tachycardia near 100-110 beats/min when av hysteresis is active. disabling hysteresis and extending pvarp beyond va conduction is diagnostic and lifesaving. jacc case rep"
+                         id="paper-4">
+
+                    <div class="paper-top">
+                        <div class="paper-index">4</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42828523/" target="_blank" rel="noopener noreferrer">Algorithm-Facilitated Pacemaker-Mediated Tachycardia Mimicking Refractory Septic Shock</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">JACC Case Rep</span><span class="dot">·</span><span class="paper-date">2026-10-03</span><span class="dot">·</span><span class="paper-date">PMID 42828523</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="器械治疗">器械治疗</span>
+                                <span class="tag tag-type">Journal Article</span>
+                                <span class="tag tag-type">Case Reports</span>
+                            </div>
+
+                            <p class="paper-authors" title="Abrol A、Okpebholo J、Worsnick SA、Djekidel K、Vijayaraman P">
+                                Abrol A、Okpebholo J、Worsnick SA<span class="authors-more"> 等 5 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">Background Algorithms that minimize right ventricular pacing, such as atrioventricular (AV) hysteresis, prolong the AV delay to promote intrinsic conduction. With intact ventriculoatrial (VA) conduction, this can facilitate pacemaker-mediated tachycardia (PMT).Case summary A 62-year-old woman with a dual-chamber pacemaker presented with respiratory failure and hypotension at a paced rate of 110 beats/min, treated for presumed sepsis with escalating vasopressors. Interrogation showed an upper tracking rate of 130 beats/min, AV hysteresis ON, and postventricular atrial refractory period (PVARP) (225 milliseconds) shorter than VA conduction (360 milliseconds), producing a 550-millisecond endless-loop PMT (∼109 beats/min) that escaped device detection. Disabling hysteresis and extending PVARP terminated it, allowing vasopressor weaning.Discussion When PVARP is shorter than the VA interval, a long AV delay converts retrograde conduction into a slow re-entrant circuit that escapes device diagnostics and mimics sinus tachycardia.Take-home messages Suspect slow PMT in paced patients with fixed tachycardia near 100-110 beats/min when AV hysteresis is active. Disabling hysteresis and extending PVARP beyond VA conduction is diagnostic and lifesaving.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">双腔起搏器患者因开启AV滞后功能、PVARP短于VA传导时间，形成约109次/分的慢频率起搏器介导性心动过速，被误诊为脓毒症休克，关闭滞后并延长PVARP后终止。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">减少右心室起搏的算法（如房室滞后，AV hysteresis）通过延长AV延迟促进自身传导，但在室房（VA）传导完整的患者中可能促成起搏器介导性心动过速（PMT）。此类慢频率PMT可落入起搏器诊断盲区，表现为固定频率的起搏心动过速，临床上易被误判为窦性心动过速或脓毒症休克所致代偿性心率增快，从而延误正确处理。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">单例病例报告（JACC Case Rep）。对象为62岁女性，植入双腔起搏器，因呼吸衰竭和低血压就诊，起搏频率110次/分，按疑似脓毒症处理并逐步升级血管升压药。起搏器程控参数包括上限跟踪频率、AV滞后状态、心室后心房不应期（PVARP）及VA传导时间；通过关闭AV滞后并延长PVARP进行诊断性与治疗性干预。摘要未报告样本量以外的统计方法及终点定义。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">程控显示上限跟踪频率130次/分，AV滞后开启，PVARP为225 ms，短于VA传导时间360 ms，形成周期550 ms的无限循环性PMT（约109次/分），未被设备自动诊断识别。关闭AV滞后并延长PVARP后心动过速终止，随后成功撤除血管升压药。摘要未报告血压、升压药剂量及随访时间等具体数值。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">当PVARP短于VA间期时，延长的AV延迟可将逆行传导转化为慢频率折返环路，逃避起搏器诊断并模仿窦性心动过速。对起搏器患者出现接近100–110次/分的固定频率心动过速且AV滞后开启时，应怀疑慢频率PMT；关闭滞后并将PVARP延长至超过VA传导时间兼具诊断和治疗价值，可避免误诊为脓毒症休克及不必要的升压治疗。局限性为单例报告，结论的外推需更多病例验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42828523/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1016/j.jaccas.2026.110616" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42828523/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+            </div>
         </section>
-        <section class="topic-group">
+        <section class="topic-group" data-group-topic="遗传与基础">
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>遗传与基础</span>
                 <span class="topic-count">2 篇</span>
             </h2>
-            <ul class="archive-list">
-                <li>
-                    <span class="topic-pill" data-topic="遗传与基础">遗传与基础</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42829397/" target="_blank" rel="noopener noreferrer">Metabolomic biomarkers and metabolic remodelling in genetically characterised hypertrophic cardiomyopathy: a systematic review</a>
-                    </span>
-                    <span class="a-authors">Ahmad Razmy AH、Abd Latip N、Ab-Rahim S、Sheikh Abdul Kadir SH</span>
-                    <span class="a-journal">Metabolomics</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42829397/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1007/s11306-026-02526-1" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42829397/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="遗传与基础">遗传与基础</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42854559/" target="_blank" rel="noopener noreferrer">Generation of a human induced pluripotent stem cell line (ZZUNEUi040-A) from a male patient with hypertrophic cardiomyopathy carrying a heterozygous TPM1 (c.644C &amp;gt; T) mutation</a>
-                    </span>
-                    <span class="a-authors">Zhang J、Peng R、Ding N、Li X</span>
-                    <span class="a-journal">Stem Cell Res</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42854559/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.scr.2026.104109" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42854559/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-            </ul>
+
+            <div class="paper-list">
+                <article class="paper-card"
+                         data-topic="遗传与基础"
+                         data-journal="Metabolomics"
+                         data-search="metabolomic biomarkers and metabolic remodelling in genetically characterised hypertrophic cardiomyopathy: a systematic review ahmad razmy ah abd latip n ab-rahim s sheikh abdul kadir sh introduction hypertrophic cardiomyopathy (hcm) is the most common inherited cardiomyopathy and a major cause of heart failure, malignant arrhythmias and sudden cardiac death. although pathogenic variants in sarcomeric genes such as mybpc3, myh7, tnnt2, and tnni3 are well-recognised contributors to the disease, the mechanisms linking these mutations to the heterogeneous phenotypes remain poorly understood. increasing evidence suggests that hcm is fundamentally associated with disturbances in myocardial energetics and metabolic remodelling.objectives this systematic review aimed to synthesise metabolomic evidence from genetically characterised hcm cohorts, with three specific objectives: (1) to characterise the metabolic pathways dysregulated in hcm, (2) to determine whether distinct metabolic signatures are associated with specific sarcomeric gene variants and (3) to evaluate the diagnostic, prognostic, and therapeutic relevance of identified metabolite biomarkers in hcm management. by explicitly examining whether genotype-specific metabolomic signatures exist in the current literature, this review addresses a question of direct relevance to precision medicine approaches in hcm.methods a systematic search of pubmed, scopus and web of science identified 14 eligible studies comprising 1511 participants.results most studies employed liquid chromatography-mass spectrometry (lcms) based metabolomics using plasma or myocardial tissue samples. across studies, recurrent metabolic alterations were observed in pathways related to fatty acid oxidation, branched-chain amino acid (bcaa) metabolism, ketone body utilisation, tricarboxylic acid (tca) cycle intermediates and lipid metabolism. circulating acyl carnitines, amino acids, and eicosanoid metabolites were among the most frequently reported biomarkers associated with disease presence or severity. myocardial tissue analyses demonstrated impaired mitochondrial energetics, reductions in high-energy phosphate metabolites, and shifts toward alternative metabolic substrates.conclusion no distinct genotype-specific metabolic signature was identified across studies; the metabolic remodelling pattern reflected phenotypic severity rather than the causal variants. while metabolomics shows potential in improving disease characterisation and biomarker discovery, further longitudinal and externally validated studies are required before clinical translation. metabolomics"
+                         id="paper-1">
+
+                    <div class="paper-top">
+                        <div class="paper-index">1</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42829397/" target="_blank" rel="noopener noreferrer">Metabolomic biomarkers and metabolic remodelling in genetically characterised hypertrophic cardiomyopathy: a systematic review</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Metabolomics</span><span class="dot">·</span><span class="paper-date">2026-10-03</span><span class="dot">·</span><span class="paper-date">PMID 42829397</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="遗传与基础">遗传与基础</span>
+                                <span class="tag tag-type">Systematic Review</span>
+                                <span class="tag tag-type">review-article</span>
+                                <span class="tag tag-type">Journal Article</span>
+<span class="tag tag-oa">开放获取</span>                            </div>
+
+                            <p class="paper-authors" title="Ahmad Razmy AH、Abd Latip N、Ab-Rahim S、Sheikh Abdul Kadir SH">
+                                Ahmad Razmy AH、Abd Latip N、Ab-Rahim S<span class="authors-more"> 等 4 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">Introduction Hypertrophic cardiomyopathy (HCM) is the most common inherited cardiomyopathy and a major cause of heart failure, malignant arrhythmias and sudden cardiac death. Although pathogenic variants in sarcomeric genes such as MYBPC3, MYH7, TNNT2, and TNNI3 are well-recognised contributors to the disease, the mechanisms linking these mutations to the heterogeneous phenotypes remain poorly understood. Increasing evidence suggests that HCM is fundamentally associated with disturbances in myocardial energetics and metabolic remodelling.Objectives This systematic review aimed to synthesise metabolomic evidence from genetically characterised HCM cohorts, with three specific objectives: (1) to characterise the metabolic pathways dysregulated in HCM, (2) to determine whether distinct metabolic signatures are associated with specific sarcomeric gene variants and (3) to evaluate the diagnostic, prognostic, and therapeutic relevance of identified metabolite biomarkers in HCM management. By explicitly examining whether genotype-specific metabolomic signatures exist in the current literature, this review addresses a question of direct relevance to precision medicine approaches in HCM.Methods A systematic search of PubMed, Scopus and Web of Science identified 14 eligible studies comprising 1511 participants.Results Most studies employed liquid chromatography-mass spectrometry (LCMS) based metabolomics using plasma or myocardial tissue samples. Across studies, recurrent metabolic alterations were observed in pathways related to fatty acid oxidation, branched-chain amino acid (BCAA) metabolism, ketone body utilisation, tricarboxylic acid (TCA) cycle intermediates and lipid metabolism. Circulating acyl carnitines, amino acids, and eicosanoid metabolites were among the most frequently reported biomarkers associated with disease presence or severity. Myocardial tissue analyses demonstrated impaired mitochondrial energetics, reductions in high-energy phosphate metabolites, and shifts toward alternative metabolic substrates.Conclusion No distinct genotype-specific metabolic signature was identified across studies; the metabolic remodelling pattern reflected phenotypic severity rather than the causal variants. While metabolomics shows potential in improving disease characterisation and biomarker discovery, further longitudinal and externally validated studies are required before clinical translation.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">该系统评价纳入14项研究、1511例遗传学明确的高肥厚型心肌病患者，发现代谢重塑涉及脂肪酸氧化、支链氨基酸与酮体代谢，且无基因型特异性代谢特征，代谢改变主要随表型严重度而变。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">肥厚型心肌病（HCM）是最常见的遗传性心肌病，也是心力衰竭、恶性心律失常与心源性猝死的重要原因。MYBPC3、MYH7、TNNT2、TNNI3 等肌节基因致病变异已被公认参与致病，但从基因变异到高度异质表型的机制仍不清楚。越来越多证据提示 HCM 与心肌能量代谢紊乱及代谢重塑相关，而现有文献尚缺乏对“基因型—代谢表型”关系的系统梳理，制约了精准医学在 HCM 中的应用。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">研究类型为系统评价。检索 PubMed、Scopus 与 Web of Science，最终纳入14项符合条件的、经遗传学定性的 HCM 代谢组学研究，合计1511例受试者。多数研究采用液相色谱-质谱（LC-MS）平台，样本为血浆或心肌组织。预设三个目标：（1）描述 HCM 中失调的代谢通路；（2）判断是否存在与特定肌节基因变异相关的代谢特征；（3）评估所鉴定代谢标志物在 HCM 诊断、预后与治疗方面的价值。摘要未报告定量合并分析、异质性检验或偏倚风险评价的具体方法。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">跨研究反复出现的代谢改变集中于脂肪酸氧化、支链氨基酸（BCAA）代谢、酮体利用、三羧酸（TCA）循环中间产物及脂质代谢等通路。循环酰基肉碱、氨基酸与类花生酸（eicosanoid）代谢物是报道最多、与疾病存在或严重程度相关的标志物。心肌组织分析显示线粒体能量代谢受损、高能磷酸盐代谢物减少，并出现底物利用向替代能源的转移。关于基因型分层，研究未发现与特定肌节致病变异相对应的独特代谢标签，代谢重塑模式更多反映表型严重程度而非因果变异。摘要未报告效应量、95% 置信区间及 P 值。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">现有证据提示 HCM 的代谢重塑是表型严重程度的伴随特征，而非由特定肌节基因变异决定，因此暂不支持基于代谢组学的基因型推断。代谢组学在细化疾病表型描述与发现生物标志物方面具有潜力，但目前研究以横断面设计为主、样本量有限、缺乏外部验证与纵向随访，尚不足以指导临床决策。对电生理实践而言，代谢标志物能否预测恶性心律失常与心源性猝死风险、从而优化 ICD 选择，仍需前瞻性研究验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42829397/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1007/s11306-026-02526-1" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42829397/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="遗传与基础"
+                         data-journal="Stem Cell Res"
+                         data-search="generation of a human induced pluripotent stem cell line (zzuneui040-a) from a male patient with hypertrophic cardiomyopathy carrying a heterozygous tpm1 (c.644c &amp;gt; t) mutation zhang j peng r ding n li x tropomyosin 1 (tpm1) encodes tropomyosin alpha-1 chain, a key cardiac sarcomere component, while tpm1 mutations cause hypertrophic cardiomyopathy (hcm), a major cause of sudden cardiac death in the young. we generated the human ipsc line zzuneui040-a from peripheral blood mononuclear cells of a 10-year-old male with non-obstructive asymmetric hcm carrying a heterozygous tpm1 c.644c &gt; t (p.ser215leu) mutation via sendai virus non-integrating reprogramming technology. the line showed normal karyotype (46,xy), undifferentiated hpsc-state markers, and trilineage differentiation potential, serving as a valuable model for hcm pathogenesis studies and drug screening. stem cell res"
+                         id="paper-2">
+
+                    <div class="paper-top">
+                        <div class="paper-index">2</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42854559/" target="_blank" rel="noopener noreferrer">Generation of a human induced pluripotent stem cell line (ZZUNEUi040-A) from a male patient with hypertrophic cardiomyopathy carrying a heterozygous TPM1 (c.644C &amp;gt; T) mutation</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Stem Cell Res</span><span class="dot">·</span><span class="paper-date">2026-10-03</span><span class="dot">·</span><span class="paper-date">PMID 42854559</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="遗传与基础">遗传与基础</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Zhang J、Peng R、Ding N、Li X">
+                                Zhang J、Peng R、Ding N<span class="authors-more"> 等 4 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">Tropomyosin 1 (TPM1) encodes tropomyosin alpha-1 chain, a key cardiac sarcomere component, while TPM1 mutations cause hypertrophic cardiomyopathy (HCM), a major cause of sudden cardiac death in the young. We generated the human iPSC line ZZUNEUi040-A from peripheral blood mononuclear cells of a 10-year-old male with non-obstructive asymmetric HCM carrying a heterozygous TPM1 c.644C &gt; T (p.Ser215Leu) mutation via Sendai virus non-integrating reprogramming technology. The line showed normal karyotype (46,XY), undifferentiated hPSC-State markers, and trilineage differentiation potential, serving as a valuable model for HCM pathogenesis studies and drug screening.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">研究者从携带 TPM1 c.644C&gt;T 杂合突变的 10 岁男性非梗阻性 HCM 患者外周血单个核细胞出发，经 Sendai 病毒非整合重编程建立 iPSC 系 ZZUNEUi040-A，核型与多能性均正常。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">TPM1 编码原肌球蛋白 α-1 链，是心脏肌节的关键组分；TPM1 突变可导致肥厚型心肌病（HCM），而 HCM 是年轻人心脏性猝死的重要原因。既往缺乏携带该突变的患者来源人源细胞模型，限制了对其发病机制的研究与药物筛选。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">基础研究（细胞系构建与鉴定）。对象为 1 例 10 岁男性非梗阻性不对称性 HCM 患者，携带 TPM1 c.644C&gt;T（p.Ser215Leu）杂合突变。取材为外周血单个核细胞，采用 Sendai 病毒非整合重编程技术诱导为人类诱导多能干细胞系 ZZUNEUi040-A。鉴定终点包括核型分析、未分化 hPSC 状态标志物表达及三系分化潜能；统计方法摘要未报告。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">所建细胞系核型正常（46,XY），表达未分化 hPSC 状态标志物，并具备三系分化潜能。摘要未报告定量标志物表达水平、分化效率、P 值及 95% 置信区间。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">ZZUNEUi040-A 是一株携带 TPM1 c.644C&gt;T 突变的患者来源 iPSC 系，可作为 HCM 发病机制研究与药物筛选的人源模型。局限性在于摘要未报告心肌分化后的表型与功能验证（如肌节结构、电生理或收缩功能指标），且为单例、单细胞系，不能反映 TPM1 突变的基因型-表型异质性；该模型本身不直接改变电生理临床实践，需经心肌细胞分化与功能研究后才有转化价值。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42854559/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1016/j.scr.2026.104109" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42854559/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+            </div>
         </section>
-        <section class="topic-group">
+        <section class="topic-group" data-group-topic="其他">
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>其他</span>
                 <span class="topic-count">2 篇</span>
             </h2>
-            <ul class="archive-list">
-                <li>
-                    <span class="topic-pill" data-topic="其他">其他</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42828486/" target="_blank" rel="noopener noreferrer">Clinical relevance of lead-induced tricuspid regurgitation after transvenous ICD implantation in arrhythmogenic cardiomyopathy</a>
-                    </span>
-                    <span class="a-authors">Migliore F、Pittorru R、Cipriani A、Winnicki G、Zancanaro G、Rosso J、Pisoni S、Previtero M、Azzolin V、De Lazzari M、Martini N、Rizzo A、Bauce B、Corrado D</span>
-                    <span class="a-journal">Europace</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42828486/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1093/europace/euag284" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42828486/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="其他">其他</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42828485/" target="_blank" rel="noopener noreferrer">Delayed structural myocardial injury after stereotactic arrhythmia radioablation: A serial CMR study in a porcine model</a>
-                    </span>
-                    <span class="a-authors">Goethals E、Nys L、De Roover R、Poels K、Holemans P、Blondeel M、Vandenboer V、Vermoortele D、Depuydt T、Berkovic P、Ector J、Claus P、Vandenberk B、Dries E</span>
-                    <span class="a-journal">Europace</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42828485/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1093/europace/euag283" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42828485/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-            </ul>
+
+            <div class="paper-list">
+                <article class="paper-card"
+                         data-topic="其他"
+                         data-journal="Europace"
+                         data-search="clinical relevance of lead-induced tricuspid regurgitation after transvenous icd implantation in arrhythmogenic cardiomyopathy migliore f pittorru r cipriani a winnicki g zancanaro g rosso j pisoni s previtero m azzolin v de lazzari m martini n rizzo a bauce b corrado d  europace"
+                         id="paper-1">
+
+                    <div class="paper-top">
+                        <div class="paper-index">1</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42828486/" target="_blank" rel="noopener noreferrer">Clinical relevance of lead-induced tricuspid regurgitation after transvenous ICD implantation in arrhythmogenic cardiomyopathy</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Europace</span><span class="dot">·</span><span class="paper-date">2026-10-03</span><span class="dot">·</span><span class="paper-date">PMID 42828486</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="其他">其他</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Migliore F、Pittorru R、Cipriani A、Winnicki G、Zancanaro G、Rosso J、Pisoni S、Previtero M、Azzolin V、De Lazzari M、Martini N、Rizzo A、Bauce B、Corrado D">
+                                Migliore F、Pittorru R、Cipriani A<span class="authors-more"> 等 14 位作者</span>                            </p>
+
+                            <div class="abstract-block">
+                                <p class="abstract-none">暂无摘要（该文献可能为社论、评论或通信类文章）</p>
+                            </div>
+
+                            <p class="ai-missing">未生成 AI 解读（仅显示原文摘要）</p>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42828486/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1093/europace/euag284" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42828486/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="其他"
+                         data-journal="Europace"
+                         data-search="delayed structural myocardial injury after stereotactic arrhythmia radioablation: a serial cmr study in a porcine model goethals e nys l de roover r poels k holemans p blondeel m vandenboer v vermoortele d depuydt t berkovic p ector j claus p vandenberk b dries e  europace"
+                         id="paper-2">
+
+                    <div class="paper-top">
+                        <div class="paper-index">2</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42828485/" target="_blank" rel="noopener noreferrer">Delayed structural myocardial injury after stereotactic arrhythmia radioablation: A serial CMR study in a porcine model</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Europace</span><span class="dot">·</span><span class="paper-date">2026-10-03</span><span class="dot">·</span><span class="paper-date">PMID 42828485</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="其他">其他</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Goethals E、Nys L、De Roover R、Poels K、Holemans P、Blondeel M、Vandenboer V、Vermoortele D、Depuydt T、Berkovic P、Ector J、Claus P、Vandenberk B、Dries E">
+                                Goethals E、Nys L、De Roover R<span class="authors-more"> 等 14 位作者</span>                            </p>
+
+                            <div class="abstract-block">
+                                <p class="abstract-none">暂无摘要（该文献可能为社论、评论或通信类文章）</p>
+                            </div>
+
+                            <p class="ai-missing">未生成 AI 解读（仅显示原文摘要）</p>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42828485/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1093/europace/euag283" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42828485/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+            </div>
         </section>
+
+        <div class="filter-empty" id="filterEmpty">
+            <p>没有符合当前筛选条件的论文。</p>
+            <p class="hint">试试点「全部」或清空关键词。</p>
+        </div>
 
 
     </div>
@@ -1103,10 +1843,170 @@ main { padding: 26px 0 60px; }
 
 <footer class="site-footer">
     <div class="wrap">
-        <p>心脏电生理每日论文检索 · 归档视图</p>
-        <p>页面离线自包含，无外部依赖 · 生成于 2026-10-20 09:31</p>
+        <p>心脏电生理每日论文检索 · 数据来源 PubMed / Europe PMC 等公开数据库</p>
+        <p>页面离线自包含，无外部依赖 · 生成于 2026-10-20 09:57</p>
     </div>
 </footer>
+
+<script>
+(function () {
+    "use strict";
+
+    var topicBar = document.getElementById("topicFilters");
+    var journalBar = document.getElementById("journalFilters");
+    var searchBox = document.getElementById("textSearch");
+    var emptyTip = document.getElementById("filterEmpty");
+    var cards = Array.prototype.slice.call(document.querySelectorAll(".paper-card"));
+    var groups = Array.prototype.slice.call(document.querySelectorAll(".topic-group"));
+
+    if (!cards.length) { return; }
+
+    var state = { topic: "all", journal: "all", text: "" };
+
+    function apply() {
+        var needle = state.text.trim().toLowerCase();
+        var visible = 0;
+
+        cards.forEach(function (card) {
+            var okTopic = state.topic === "all" || card.getAttribute("data-topic") === state.topic;
+            var okJournal = state.journal === "all" || card.getAttribute("data-journal") === state.journal;
+            var hay = card.getAttribute("data-search") || "";
+            var okText = !needle || hay.indexOf(needle) !== -1;
+            var show = okTopic && okJournal && okText;
+            card.classList.toggle("hidden", !show);
+            if (show) { visible += 1; }
+        });
+
+        // 组内没有可见卡片时隐藏整组，避免留下空标题
+        groups.forEach(function (group) {
+            var any = group.querySelector(".paper-card:not(.hidden)");
+            group.style.display = any ? "" : "none";
+        });
+
+        if (emptyTip) { emptyTip.classList.toggle("show", visible === 0); }
+    }
+
+    function bind(bar, key, attr) {
+        if (!bar) { return; }
+        bar.addEventListener("click", function (event) {
+            var btn = event.target.closest(".filter-btn");
+            if (!btn || !bar.contains(btn)) { return; }
+            Array.prototype.forEach.call(bar.querySelectorAll(".filter-btn"), function (b) {
+                b.classList.toggle("active", b === btn);
+            });
+            state[key] = btn.getAttribute(attr);
+            apply();
+        });
+    }
+
+    bind(topicBar, "topic", "data-filter-topic");
+    bind(journalBar, "journal", "data-filter-journal");
+
+    if (searchBox) {
+        searchBox.addEventListener("input", function () {
+            state.text = searchBox.value || "";
+            apply();
+        });
+    }
+
+    // 期刊过多时默认折叠，只显示前 8 个 + 一个展开按钮
+    var moreBtn = document.getElementById("moreJournals");
+    if (moreBtn) {
+        var extras = document.querySelectorAll(".extra-journal");
+        Array.prototype.forEach.call(extras, function (b) { b.style.display = "none"; });
+        moreBtn.addEventListener("click", function () {
+            var open = moreBtn.getAttribute("data-open") === "1";
+            Array.prototype.forEach.call(extras, function (b) {
+                b.style.display = open ? "none" : "";
+            });
+            moreBtn.setAttribute("data-open", open ? "0" : "1");
+            moreBtn.textContent = open
+                ? "展开全部 " + extras.length + " 个期刊 ▾"
+                : "收起期刊列表 ▴";
+        });
+    }
+
+    // 键盘 /：直接聚焦搜索框
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "/" && document.activeElement !== searchBox) {
+            event.preventDefault();
+            if (searchBox) { searchBox.focus(); }
+        }
+    });
+})();
+
+/* 主题切换：跟随系统 → 手动选择 → 再点回到跟随系统。
+   三态循环，按钮 title 显示当前状态，localStorage 记忆手动选择。 */
+(function () {
+    var btn = document.getElementById("themeToggle");
+    if (!btn) { return; }
+    var root = document.documentElement;
+    var mql = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+
+    function current() {
+        var manual = root.getAttribute("data-theme");
+        if (manual === "dark" || manual === "light") { return manual; }
+        return (mql && mql.matches) ? "dark" : "light";
+    }
+    function label() {
+        var manual = root.getAttribute("data-theme");
+        var suffix = manual ? "" : "（跟随系统）";
+        btn.textContent = (current() === "dark" ? "☀️ 浅色" : "🌙 深色") + suffix;
+        btn.title = "当前：" + (current() === "dark" ? "深色" : "浅色") + suffix + "，点击切换";
+    }
+    btn.addEventListener("click", function () {
+        var next = current() === "dark" ? "light" : "dark";
+        root.setAttribute("data-theme", next);
+        try { localStorage.setItem("ep-digest-theme", next); } catch (e) {}
+        label();
+    });
+    if (mql && mql.addEventListener) {
+        mql.addEventListener("change", function () {
+            if (!root.getAttribute("data-theme")) { label(); }
+        });
+    }
+    label();
+})();
+
+/* 日期选择器：点开显示按月份分组的日期网格，点外部/Esc 关闭。
+   纯前端、不联网；每个日期都是指向 archive/<date>.html 的普通链接，
+   所以即使 JS 失效也仍然可用（只是不会弹出面板）。 */
+(function () {
+    var toggle = document.getElementById("dateToggle");
+    var panel = document.getElementById("datePanel");
+    if (!toggle || !panel) { return; }
+
+    function open() {
+        panel.hidden = false;
+        toggle.setAttribute("aria-expanded", "true");
+        var cur = panel.querySelector(".date-cell.current");
+        if (cur && cur.scrollIntoView) {
+            cur.scrollIntoView({ block: "nearest" });
+        }
+    }
+    function close() {
+        panel.hidden = true;
+        toggle.setAttribute("aria-expanded", "false");
+    }
+    function isOpen() { return !panel.hidden; }
+
+    toggle.addEventListener("click", function (event) {
+        event.stopPropagation();
+        if (isOpen()) { close(); } else { open(); }
+    });
+
+    panel.addEventListener("click", function (event) { event.stopPropagation(); });
+
+    document.addEventListener("click", function () { if (isOpen()) { close(); } });
+
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && isOpen()) {
+            close();
+            toggle.focus();
+        }
+    });
+})();
+</script>
 
 </body>
 </html>

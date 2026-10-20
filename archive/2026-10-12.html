@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light dark">
-<meta name="description" content="心脏电生理日报归档 · 2026-10-12">
-<title>归档 · 2026-10-12 · 心脏电生理日报</title>
+<meta name="description" content="心脏电生理每日论文检索 · 2026-10-12">
+<title>心脏电生理日报 · 2026-10-12</title>
 <script>
 /* 主题初始化：必须在样式生效前执行，避免深色用户看到白屏闪烁。
    读取顺序：localStorage 手动选择 > 系统偏好。写入 <html data-theme>。 */
@@ -16,39 +16,6 @@
             document.documentElement.setAttribute('data-theme', saved);
         }
     } catch (e) { /* 隐私模式下 localStorage 可能抛错，忽略即可 */ }
-})();
-
-/* 主题切换：跟随系统 → 手动选择 → 再点回到跟随系统。
-   三态循环，按钮 title 显示当前状态，localStorage 记忆手动选择。 */
-(function () {
-    var btn = document.getElementById("themeToggle");
-    if (!btn) { return; }
-    var root = document.documentElement;
-    var mql = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
-
-    function current() {
-        var manual = root.getAttribute("data-theme");
-        if (manual === "dark" || manual === "light") { return manual; }
-        return (mql && mql.matches) ? "dark" : "light";
-    }
-    function label() {
-        var manual = root.getAttribute("data-theme");
-        var suffix = manual ? "" : "（跟随系统）";
-        btn.textContent = (current() === "dark" ? "☀️ 浅色" : "🌙 深色") + suffix;
-        btn.title = "当前：" + (current() === "dark" ? "深色" : "浅色") + suffix + "，点击切换";
-    }
-    btn.addEventListener("click", function () {
-        var next = current() === "dark" ? "light" : "dark";
-        root.setAttribute("data-theme", next);
-        try { localStorage.setItem("ep-digest-theme", next); } catch (e) {}
-        label();
-    });
-    if (mql && mql.addEventListener) {
-        mql.addEventListener("change", function () {
-            if (!root.getAttribute("data-theme")) { label(); }
-        });
-    }
-    label();
 })();
 </script>
 <style>
@@ -906,257 +873,1513 @@ main { padding: 26px 0 60px; }
 /* 展开时用 class 切换，比 hidden 属性更稳（display:flex 会覆盖 [hidden]） */
 .archive-nav.expanded .archive-nav-days { display: none; }
 
-/* 归档页专属微调 */
-.archive-list .a-authors {
-    flex: 0 0 auto;
+/* ---------------------------------------------------------------- 日期选择器 */
+
+.date-bar {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--header-border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+}
+
+.date-bar-label { color: var(--text-tertiary); }
+
+.date-bar-hint { color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+
+.date-select { position: relative; }
+
+.date-toggle {
+    font: inherit;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    color: var(--header-accent);
+    background: var(--surface);
+    border: 1px solid var(--header-border);
+    border-radius: 8px;
+    padding: 5px 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 132px;
+    justify-content: space-between;
+}
+.date-toggle:hover { background: var(--brand-soft); }
+.date-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.date-toggle-caret { color: var(--text-tertiary); font-size: 11px; }
+
+.date-panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 40;
+    width: 340px;
+    max-height: 60vh;
+    overflow-y: auto;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, .14);
+    padding: 12px;
+}
+.date-panel[hidden] { display: none; }
+
+.date-panel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     font-size: 12px;
     color: var(--text-tertiary);
-    max-width: 260px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
 }
-@media (max-width: 640px) { .archive-list .a-authors { display: none; } }
+.date-panel-latest { color: var(--brand); }
+
+.date-month + .date-month { margin-top: 10px; }
+
+.date-month-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.date-month-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+}
+
+.date-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 30px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+    background: var(--surface-muted);
+    border: 1px solid transparent;
+}
+.date-cell:hover { background: var(--brand-soft); text-decoration: none; }
+.date-cell.current {
+    background: var(--brand);
+    color: var(--surface);
+    font-weight: 700;
+    border-color: var(--brand);
+}
+
+@media print { .date-bar { display: none; } }
+
 </style>
 </head>
 <body>
 
 <header class="site-header">
     <div class="wrap">
-        <h1>心脏电生理日报 · 归档</h1>
-        <p class="subtitle">2026-10-12 全部论文清单</p>
+        <h1>心脏电生理每日论文检索</h1>
+        <p class="subtitle">Cardiac Electrophysiology Daily Digest · 按亚专业分组的文献速览</p>
         <div class="header-meta">
-<span class="chip">📅 <strong>2026-10-12</strong></span>            <span class="chip">🕒 生成时间 <strong>2026-10-20 09:31</strong></span>
+<span class="chip">📅 日报日期 <strong>2026-10-12</strong></span>            <span class="chip">🕒 生成时间 <strong>2026-10-20 09:57</strong></span>
             <span class="chip">📄 论文总数 <strong>18</strong></span>
             <span class="chip">🤖 含 AI 解读 <strong>16</strong></span>
-        </div>
+<span class="chip">📝 无摘要 <strong>2</strong></span>        </div>
         <nav class="header-nav">
-            <a href="../index.html">← 返回主页</a>
-            <a href="#top">回到顶部</a>
+<a href="../archive/2026-10-12.html">本篇归档页</a><a href="../index.html">最新一期</a>            <a href="#top">回到顶部</a>
+            <button type="button" class="theme-toggle" id="themeToggle"
+                    aria-label="切换深色/浅色模式" title="切换深色/浅色模式">🌗 主题</button>
         </nav>
+
+        <div class="date-bar">
+            <label class="date-bar-label" for="dateToggle">日期</label>
+            <div class="date-select" id="dateSelect">
+                <button type="button" class="date-toggle" id="dateToggle"
+                        aria-haspopup="listbox" aria-expanded="false"
+                        aria-controls="datePanel">
+                    <span class="date-toggle-text">2026-10-12</span>
+                    <span class="date-toggle-caret" aria-hidden="true">▾</span>
+                </button>
+                <div class="date-panel" id="datePanel" role="listbox" hidden>
+                    <div class="date-panel-head">
+                        <span>共 22 天</span>
+<a class="date-panel-latest" href="../index.html">跳到最新一期 →</a>                    </div>
+                    <div class="date-panel-body">
+                        <div class="date-month">
+                            <div class="date-month-label">2026 年 10 月</div>
+                            <div class="date-month-days">
+                                <a href="../archive/2026-10-12.html"
+                                   class="date-cell current"
+                                   role="option" aria-selected="true">12</a>
+                                <a href="../archive/2026-10-11.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">11</a>
+                                <a href="../archive/2026-10-10.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">10</a>
+                                <a href="../archive/2026-10-09.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">09</a>
+                                <a href="../archive/2026-10-08.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">08</a>
+                                <a href="../archive/2026-10-07.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">07</a>
+                                <a href="../archive/2026-10-06.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">06</a>
+                                <a href="../archive/2026-10-05.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">05</a>
+                                <a href="../archive/2026-10-04.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">04</a>
+                                <a href="../archive/2026-10-03.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">03</a>
+                                <a href="../archive/2026-10-02.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">02</a>
+                                <a href="../archive/2026-10-01.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">01</a>
+                            </div>
+                        </div>
+                        <div class="date-month">
+                            <div class="date-month-label">2026 年 9 月</div>
+                            <div class="date-month-days">
+                                <a href="../archive/2026-09-30.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">30</a>
+                                <a href="../archive/2026-09-29.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">29</a>
+                                <a href="../archive/2026-09-28.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">28</a>
+                                <a href="../archive/2026-09-27.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">27</a>
+                                <a href="../archive/2026-09-26.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">26</a>
+                                <a href="../archive/2026-09-25.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">25</a>
+                                <a href="../archive/2026-09-24.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">24</a>
+                                <a href="../archive/2026-09-23.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">23</a>
+                                <a href="../archive/2026-09-22.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">22</a>
+                                <a href="../archive/2026-09-21.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">21</a>
+                                <a href="../archive/2026-09-20.html"
+                                   class="date-cell"
+                                   role="option" aria-selected="false">20</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <span class="date-bar-hint">共 22 天归档</span>
+        </div>
     </div>
 </header>
 
-<main id="top">
+<div class="filters" id="top">
+    <div class="wrap">
+        <div class="filter-row">
+            <span class="filter-label">主题</span>
+            <div class="filter-buttons" id="topicFilters">
+                <button type="button" class="filter-btn active" data-filter-topic="all">全部 <span class="count">18</span></button>
+                <button type="button" class="filter-btn" data-filter-topic="房颤与消融">房颤与消融 <span class="count">9</span></button>
+                <button type="button" class="filter-btn" data-filter-topic="室性心律失常">室性心律失常 <span class="count">4</span></button>
+                <button type="button" class="filter-btn" data-filter-topic="器械治疗">器械治疗 <span class="count">2</span></button>
+                <button type="button" class="filter-btn" data-filter-topic="遗传与基础">遗传与基础 <span class="count">3</span></button>
+            </div>
+        </div>
+        <div class="filter-row">
+            <span class="filter-label">期刊</span>
+            <div class="filter-buttons" id="journalFilters">
+                <button type="button" class="filter-btn active" data-filter-journal="all">全部</button>
+                <button type="button" class="filter-btn" data-filter-journal="Pacing Clin Electrophysiol">Pacing Clin Electrophysiol <span class="count">3</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="Cureus">Cureus <span class="count">2</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="Quant Imaging Med Surg">Quant Imaging Med Surg <span class="count">2</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="Rev Med Liege">Rev Med Liege <span class="count">2</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="Ann Card Anaesth">Ann Card Anaesth <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="Ann Intensive Care">Ann Intensive Care <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="CJC Open">CJC Open <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="Cardiology">Cardiology <span class="count">1</span></button>
+                <button type="button" class="filter-btn extra-journal" data-filter-journal="Circ Arrhythm Electrophysiol">Circ Arrhythm Electrophysiol <span class="count">1</span></button>
+                <button type="button" class="filter-btn extra-journal" data-filter-journal="Diabetes Obes Metab">Diabetes Obes Metab <span class="count">1</span></button>
+                <button type="button" class="filter-btn extra-journal" data-filter-journal="Eur J Prev Cardiol">Eur J Prev Cardiol <span class="count">1</span></button>
+                <button type="button" class="filter-btn extra-journal" data-filter-journal="Indian Pacing Electrophysiol J">Indian Pacing Electrophysiol J <span class="count">1</span></button>
+                <button type="button" class="filter-btn extra-journal" data-filter-journal="J Adv Res">J Adv Res <span class="count">1</span></button>
+                <button type="button" class="filter-btn more-btn" id="moreJournals">展开全部 13 个期刊 ▾</button>
+            </div>
+        </div>
+        <div class="filter-row">
+            <span class="filter-label">检索</span>
+            <input type="search" id="textSearch" class="search-box" placeholder="输入关键词过滤标题 / 作者 / 摘要（本地匹配，不联网）" aria-label="关键词过滤">
+        </div>
+    </div>
+</div>
+
+<main>
     <div class="wrap">
 
 
-        <section class="topic-group">
+        <section class="topic-group" data-group-topic="房颤与消融">
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>房颤与消融</span>
                 <span class="topic-count">9 篇</span>
             </h2>
-            <ul class="archive-list">
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42862780/" target="_blank" rel="noopener noreferrer">Left Atrial Appendage Closure or Medical Therapy in Atrial Fibrillation: A Systematic Review and Meta-analysis.</a>
-                    </span>
-                    <span class="a-authors">Ahmad Al-Abdouh、Omar Obeidat、Khaled Alabdallah、Mahir Yilmaz、Ibrahim Mortada、Daoud Eldawud、Mohammed Mhanna、Laith Alhuneafat、Fares Ghanem、Amartya Kundu、Ahmad Jabri、Khalil Anouti、Dustin Staloch、Arun Narayanan、Muhie Dean Sabayon</span>
-                    <span class="a-journal">Cardiology</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42862780/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1159/crd/absag019" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42862780/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42861164/" target="_blank" rel="noopener noreferrer">Tricuspid Stenosis Due to Cardiac Sarcoma.</a>
-                    </span>
-                    <span class="a-authors">Mirza M Baig、Muhammad Ansar</span>
-                    <span class="a-journal">Cureus</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42861164/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.7759/cureus.116092" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42861164/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42864268/" target="_blank" rel="noopener noreferrer">GLP-1 Receptor Agonists and Thromboembolic Risk in Patients With Atrial Fibrillation or Flutter and Type 2 Diabetes: A Propensity Score-Matched Cohort Study</a>
-                    </span>
-                    <span class="a-authors">Lo SW、Liao TE、Ramachandran SP、Tu YF、Hsieh RJ、Lee YC、Chang KY、Chiang CH</span>
-                    <span class="a-journal">Diabetes Obes Metab</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42864268/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1111/dom.71443" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42864268/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42861574/" target="_blank" rel="noopener noreferrer">Physical activity, atrial fibrillation and the dose-response relationship: a systematic review and meta-analysis.</a>
-                    </span>
-                    <span class="a-authors">C L Davies、S Pallikadavath、D S March、S Lock、A Puranik、A Singh、G A Ng、G P McCann</span>
-                    <span class="a-journal">Eur J Prev Cardiol</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42861574/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1093/eurjpc/zwag535" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42861574/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42863672/" target="_blank" rel="noopener noreferrer">Left pulmonary vein re-isolation and unexpected extensive posterior wall isolation with vein of Marshall ethanol infusion after cryoballoon pulmonary vein isolation and roof-line ablation</a>
-                    </span>
-                    <span class="a-authors">Kasai Y、Kitai T、Morita J、Satomi K</span>
-                    <span class="a-journal">Indian Pacing Electrophysiol J</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42863672/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.ipej.2026.10.010" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42863672/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42860654/" target="_blank" rel="noopener noreferrer">Blanking Period after Atrial Fibrillation Catheter Ablation: A Systematic Review and Meta-Analysis.</a>
-                    </span>
-                    <span class="a-authors">David T Zhang、Sakshum Chadha、Suraj S Patel、Kevin Melcer、Abhijeet Singh、Ibrahim O Almasry、Roger Fan、Eric J Rashba</span>
-                    <span class="a-journal">Pacing Clin Electrophysiol</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42860654/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1111/pace.70467" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42860654/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42864730/" target="_blank" rel="noopener noreferrer">Association Between Baseline Cognitive Impairment and Atrial Fibrillation Recurrence After Catheter Ablation</a>
-                    </span>
-                    <span class="a-authors">Dong H、Ying Q、Zhou L、He L、Jiang C、Long D、Ma C</span>
-                    <span class="a-journal">Pacing Clin Electrophysiol</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42864730/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1111/pace.70453" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42864730/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42864729/" target="_blank" rel="noopener noreferrer">Timing of Catheter Ablation After Heart Failure Diagnosis for Atrial Fibrillation: A Propensity-Score-Matched Analysis</a>
-                    </span>
-                    <span class="a-authors">Al-Abdouh A、Obeidat O、Alhuneafat L、Goyal S、Rayyan A、Alqudah Q、Khateeb S、Jain S、Shubietah A、Ma&#39;aita A、Roukoz H、Castro JR、Benditt D、Khalife W、Staloch D、Narayanan A、Sabayon MD、Al-Sadawi M</span>
-                    <span class="a-journal">Pacing Clin Electrophysiol</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42864729/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1111/pace.70466" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42864729/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42861152/" target="_blank" rel="noopener noreferrer">Unipolar electrogram-guided vs. ablation index-guided high-power short-duration pulmonary vein isolation in patients with paroxysmal atrial fibrillation: a single-center randomized controlled trial.</a>
-                    </span>
-                    <span class="a-authors">Wei-Wei Wang、Si-Qi Li、Hui-Zhong Lin、Qiong Jiang、Xu-Dong Sun、Hua Chen、Zhao-Yang Chen、Jian-Hua Chen</span>
-                    <span class="a-journal">Quant Imaging Med Surg</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42861152/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.21037/qims-2026-0593" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42861152/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-            </ul>
+
+            <div class="paper-list">
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="Cardiology"
+                         data-search="left atrial appendage closure or medical therapy in atrial fibrillation: a systematic review and meta-analysis. ahmad al-abdouh omar obeidat khaled alabdallah mahir yilmaz ibrahim mortada daoud eldawud mohammed mhanna laith alhuneafat fares ghanem amartya kundu ahmad jabri khalil anouti dustin staloch arun narayanan muhie dean sabayon background: the use of anticoagulation in patients with atrial fibrillation is often limited by the significant risk of bleeding, and difficulties maintaining consistent adherence over time. these challenges have led to the development of left atrial appendage closure (laac) as an alternative stroke prevention strategy in this patient population. our study aimed to evaluate laac versus medical therapy in patients with atrial fibrillation.
+
+methods: a comprehensive search was conducted using pubmed, embase, and cochrane library from database inception through april 1, 2026. the predefined endpoints were composite outcome of systemic embolism, cardiovascular mortality, or stroke in addition to other endpoints including all-cause mortality, cardiovascular mortality, strokes, and major bleeding. all outcomes were pooled using a random effect mantel-haenszel model. the between-study variance (τ2) was estimated using the paul mendel method, which is the preferred method when the number of included studies is small.
+
+results: a total of five randomized controlled trials, 5,404 patients were analyzed; 2,878 underwent laac and 2,526 received medical therapy. the median follow-up across studies was 4 years. laac met noninferiority compared with medical therapy in atrial fibrillation for major bleeding (rr 0.86; 95% ci 0.59-1.26) and all-cause mortality (rr 0.93; 95% ci 0.71-1.22). in contrast, noninferiority was not met for the composite outcome (rr 0.97; 95% ci 0.64-1.47), cardiovascular mortality (rr 0.86; 95% ci 0.51-1.42), systemic embolism (rr 1.93; 95% ci 0.21-17.5), and all stroke (rr 1.11; 95% ci 0.73-1.67).
+
+conclusion: this meta-analysis showed that laac was noninferior to anticoagulation for all-cause mortality and major bleeding, but it did not meet noninferiority for the other assessed outcomes, including stroke, cardiovascular mortality, and/or systemic embolism. cardiology"
+                         id="paper-1">
+
+                    <div class="paper-top">
+                        <div class="paper-index">1</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42862780/" target="_blank" rel="noopener noreferrer">Left Atrial Appendage Closure or Medical Therapy in Atrial Fibrillation: A Systematic Review and Meta-analysis.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Cardiology</span><span class="dot">·</span><span class="paper-date">2026-10-12</span><span class="dot">·</span><span class="paper-date">PMID 42862780</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Journal Article</span>
+                                <span class="tag tag-type">Review</span>
+                            </div>
+
+                            <p class="paper-authors" title="Ahmad Al-Abdouh、Omar Obeidat、Khaled Alabdallah、Mahir Yilmaz、Ibrahim Mortada、Daoud Eldawud、Mohammed Mhanna、Laith Alhuneafat、Fares Ghanem、Amartya Kundu、Ahmad Jabri、Khalil Anouti、Dustin Staloch、Arun Narayanan、Muhie Dean Sabayon">
+                                Ahmad Al-Abdouh、Omar Obeidat、Khaled Alabdallah<span class="authors-more"> 等 15 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">BACKGROUND: The use of anticoagulation in patients with atrial fibrillation is often limited by the significant risk of bleeding, and difficulties maintaining consistent adherence over time. These challenges have led to the development of left atrial appendage closure (LAAC) as an alternative stroke prevention strategy in this patient population. Our study aimed to evaluate LAAC versus medical therapy in patients with atrial fibrillation.
+
+METHODS: A comprehensive search was conducted using PubMed, Embase, and Cochrane Library from database inception through April 1, 2026. The predefined endpoints were composite outcome of systemic embolism, cardiovascular mortality, or stroke in addition to other endpoints including all-cause mortality, cardiovascular mortality, strokes, and major bleeding. All outcomes were pooled using a random effect Mantel-Haenszel model. The between-study variance (τ2) was estimated using the Paul Mendel method, which is the preferred method when the number of included studies is small.
+
+RESULTS: A total of five randomized controlled trials, 5,404 patients were analyzed; 2,878 underwent LAAC and 2,526 received medical therapy. The median follow-up across studies was 4 years. LAAC met noninferiority compared with medical therapy in atrial fibrillation for major bleeding (RR 0.86; 95% CI 0.59-1.26) and all-cause mortality (RR 0.93; 95% CI 0.71-1.22). In contrast, noninferiority was not met for the composite outcome (RR 0.97; 95% CI 0.64-1.47), cardiovascular mortality (RR 0.86; 95% CI 0.51-1.42), systemic embolism (RR 1.93; 95% CI 0.21-17.5), and all stroke (RR 1.11; 95% CI 0.73-1.67).
+
+CONCLUSION: This meta-analysis showed that LAAC was noninferior to anticoagulation for all-cause mortality and major bleeding, but it did not meet noninferiority for the other assessed outcomes, including stroke, cardiovascular mortality, and/or systemic embolism.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">纳入5项RCT、共5404例房颤患者的荟萃分析显示，左心耳封堵在全因死亡与大出血上不劣于药物治疗，但在卒中、心血管死亡及系统性栓塞等终点未达到非劣效。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">房颤患者长期口服抗凝常受大出血风险高、依从性难以维持的限制，左心耳封堵（LAAC）因此被开发为替代性卒中预防策略。既往证据多为单 trials 或观察性研究，缺乏对随机对照证据的系统汇总，本研究旨在比较 LAAC 与药物治疗在房颤人群中的疗效与安全性。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">系统综述与荟萃分析。检索 PubMed、Embase 及 Cochrane Library，自建库至2026年4月1日。共纳入5项随机对照试验、5404例患者，其中2878例接受 LAAC，2526例接受药物治疗；研究中位随访4年。预设终点为系统性栓塞、心血管死亡或卒中的复合终点，以及全因死亡、心血管死亡、卒中、大出血。采用随机效应 Mantel-Haenszel 模型合并效应量，研究间方差 τ² 采用 Paul Mendel 法估计；摘要未报告非劣效界值及异质性指标。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">大出血 RR 0.86（95%CI 0.59–1.26）、全因死亡 RR 0.93（95%CI 0.71–1.22），LAAC 达到非劣效。复合终点 RR 0.97（95%CI 0.64–1.47）、心血管死亡 RR 0.86（95%CI 0.51–1.42）、系统性栓塞 RR 1.93（95%CI 0.21–17.5）、全部卒中 RR 1.11（95%CI 0.73–1.67），均未达到非劣效。摘要未报告各终点的具体 P 值、异质性 I² 及绝对事件率。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">在房颤患者中，LAAC 在全因死亡与大出血方面不劣于抗凝药物治疗，但在卒中、心血管死亡和/或系统性栓塞等终点未证实非劣效，提示其不能简单替代抗凝用于全面卒中预防。由于摘要未交代非劣效界值、事件绝对风险及异质性，且系统性栓塞的置信区间极宽，上述结论需谨慎解读；临床决策仍应结合患者出血与血栓风险个体化，并等待更长随访与一致终点定义的研究验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42862780/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1159/crd/absag019" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42862780/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="Cureus"
+                         data-search="tricuspid stenosis due to cardiac sarcoma. mirza m baig muhammad ansar primary cardiac sarcomas are rare, aggressive malignant tumors with high recurrence rates and poor prognosis. their initial presentation is often vague, contributing to diagnostic delay and rapid clinical deterioration. we report the case of a 32-year-old man who presented with gastrointestinal symptoms and constitutional features, initially suggesting a hepatobiliary or infectious cause. as his condition progressed, signs of right-sided heart failure emerged, prompting transthoracic echocardiography, which revealed a large right atrial mass causing tricuspid inflow obstruction and a significant pericardial effusion. surgical resection confirmed biphasic synovial sarcoma, a subtype previously described in small case series. despite an initially uncomplicated postoperative course, he subsequently developed atrial flutter with associated left ventricular dysfunction, necessitating cardioversion. anthracycline toxicity remains a possible contributing factor. this case underscores the importance of maintaining a broad differential diagnosis in young patients with unexplained systemic symptoms and highlights the diagnostic value of early echocardiographic assessment when right-sided cardiac involvement is suspected. it also reinforces the need for multidisciplinary management given the tumor&#39;s aggressive behavior and potential for rapid clinical decline. cureus"
+                         id="paper-2">
+
+                    <div class="paper-top">
+                        <div class="paper-index">2</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42861164/" target="_blank" rel="noopener noreferrer">Tricuspid Stenosis Due to Cardiac Sarcoma.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Cureus</span><span class="dot">·</span><span class="paper-date">2026-10-12</span><span class="dot">·</span><span class="paper-date">PMID 42861164</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Case Reports</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Mirza M Baig、Muhammad Ansar">
+                                Mirza M Baig、Muhammad Ansar                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">Primary cardiac sarcomas are rare, aggressive malignant tumors with high recurrence rates and poor prognosis. Their initial presentation is often vague, contributing to diagnostic delay and rapid clinical deterioration. We report the case of a 32-year-old man who presented with gastrointestinal symptoms and constitutional features, initially suggesting a hepatobiliary or infectious cause. As his condition progressed, signs of right-sided heart failure emerged, prompting transthoracic echocardiography, which revealed a large right atrial mass causing tricuspid inflow obstruction and a significant pericardial effusion. Surgical resection confirmed biphasic synovial sarcoma, a subtype previously described in small case series. Despite an initially uncomplicated postoperative course, he subsequently developed atrial flutter with associated left ventricular dysfunction, necessitating cardioversion. Anthracycline toxicity remains a possible contributing factor. This case underscores the importance of maintaining a broad differential diagnosis in young patients with unexplained systemic symptoms and highlights the diagnostic value of early echocardiographic assessment when right-sided cardiac involvement is suspected. It also reinforces the need for multidisciplinary management given the tumor&#39;s aggressive behavior and potential for rapid clinical decline.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">32岁男性原发性心脏双相滑膜肉瘤致三尖瓣流入道梗阻，术后出现心房扑动伴左室功能不全并需心脏复律。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">原发性心脏肉瘤罕见、侵袭性强、复发率高且预后差，早期表现常不典型，易被误诊为肝胆或感染性疾病，导致诊断延迟和病情迅速恶化。本病例提示对年轻患者出现不明原因全身症状时应扩大鉴别诊断，并在怀疑右心受累时尽早行超声心动图评估；双相滑膜肉瘤此前仅见于小样本病例系列，需积累诊疗经验。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">个案报道，样本量为1例32岁男性；患者以胃肠道症状和全身症状起病，后出现右心衰竭表现，接受经胸超声心动图检查及手术切除，术后病理确诊为双相滑膜肉瘤，并随访术后病程及心律失常情况。摘要未报告对照干预、主要/次要终点、统计方法及随访时长。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">经胸超声心动图发现右心房巨大肿块，造成三尖瓣流入道梗阻并伴显著心包积液；手术切除后病理证实为双相滑膜肉瘤。术后早期病程平稳，但随后出现心房扑动并伴左心室功能不全，需行心脏复律；蒽环类药物毒性被认为是可能的影响因素。摘要未报告肿瘤大小、LVEF具体数值及随访时间。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">本病例强调，年轻患者出现无法解释的全身症状时应保持宽广的鉴别诊断，怀疑右心受累时早期超声心动图具有重要诊断价值；鉴于肿瘤侵袭性强、病情可迅速恶化，需多学科协作管理。局限性为单一个案，缺乏长期结局和对照证据，蒽环类药物毒性与左室功能不全的关系尚不能确定。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42861164/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.7759/cureus.116092" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42861164/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="Diabetes Obes Metab"
+                         data-search="glp-1 receptor agonists and thromboembolic risk in patients with atrial fibrillation or flutter and type 2 diabetes: a propensity score-matched cohort study lo sw liao te ramachandran sp tu yf hsieh rj lee yc chang ky chiang ch  diabetes obes metab"
+                         id="paper-3">
+
+                    <div class="paper-top">
+                        <div class="paper-index">3</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42864268/" target="_blank" rel="noopener noreferrer">GLP-1 Receptor Agonists and Thromboembolic Risk in Patients With Atrial Fibrillation or Flutter and Type 2 Diabetes: A Propensity Score-Matched Cohort Study</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Diabetes Obes Metab</span><span class="dot">·</span><span class="paper-date">2026-10-12</span><span class="dot">·</span><span class="paper-date">PMID 42864268</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Lo SW、Liao TE、Ramachandran SP、Tu YF、Hsieh RJ、Lee YC、Chang KY、Chiang CH">
+                                Lo SW、Liao TE、Ramachandran SP<span class="authors-more"> 等 8 位作者</span>                            </p>
+
+                            <div class="abstract-block">
+                                <p class="abstract-none">暂无摘要（该文献可能为社论、评论或通信类文章）</p>
+                            </div>
+
+                            <p class="ai-missing">未生成 AI 解读（仅显示原文摘要）</p>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42864268/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1111/dom.71443" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42864268/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="Eur J Prev Cardiol"
+                         data-search="physical activity, atrial fibrillation and the dose-response relationship: a systematic review and meta-analysis. c l davies s pallikadavath d s march s lock a puranik a singh g a ng g p mccann background and aim: regular physical activity (pa) may reduce atrial fibrillation (af) risk in the general population, however, contemporary data suggests individuals engaging in the highest levels of pa may exhibit a paradoxical rise in af risk. the point at which the dose-response curve reverses remains unclear. this meta-analysis aimed to assess the association between pa and af across the full continuum of pa exposure.
+
+methods: four databases were searched (from january 1990 to june 2025). eligible studies included those that reported pa exposure compared against a sedentary control group and assessed af incidence or prevalence. pa exposures were standardised to metabolic equivalent of task hours per week (met-hr/wk). pooled odds ratios (ors) were calculated using a weighted random-effects model. a weighted restricted cubic spline model of logarithmic odds was used to produce a dose-response curve.
+
+results: 37 studies were included (n = 1,298,291 individuals). in the general population, pa was associated with a reduction in odds of af by 22% (22 studies; or 0.78; 95% ci 0.68, 0.89). athlete status was associated with an increase in the odds of af (15 studies; or 2.74; 95% ci 1.72, 4.39). dose-response analysis (26 studies; n = 1,022,790 individuals) showed 26 met-hr/wk of pa was associated with the greatest reduction in odds of af, with doses beyond 78 met-hr/wk associated with increased odds of af; the equivalent of 6-7 hours per week of endurance training.
+
+conclusion: pa and af demonstrate a u-shaped relationship whereby beyond a quantitative dose threshold of 78 met-hr/wk, the protective effect of exercise may reverse. eur j prev cardiol"
+                         id="paper-4">
+
+                    <div class="paper-top">
+                        <div class="paper-index">4</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42861574/" target="_blank" rel="noopener noreferrer">Physical activity, atrial fibrillation and the dose-response relationship: a systematic review and meta-analysis.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Eur J Prev Cardiol</span><span class="dot">·</span><span class="paper-date">2026-10-12</span><span class="dot">·</span><span class="paper-date">PMID 42861574</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="C L Davies、S Pallikadavath、D S March、S Lock、A Puranik、A Singh、G A Ng、G P McCann">
+                                C L Davies、S Pallikadavath、D S March<span class="authors-more"> 等 8 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">BACKGROUND AND AIM: Regular physical activity (PA) may reduce atrial fibrillation (AF) risk in the general population, however, contemporary data suggests individuals engaging in the highest levels of PA may exhibit a paradoxical rise in AF risk. The point at which the dose-response curve reverses remains unclear. This meta-analysis aimed to assess the association between PA and AF across the full continuum of PA exposure.
+
+METHODS: Four databases were searched (from January 1990 to June 2025). Eligible studies included those that reported PA exposure compared against a sedentary control group and assessed AF incidence or prevalence. PA exposures were standardised to metabolic equivalent of task hours per week (MET-hr/wk). Pooled odds ratios (ORs) were calculated using a weighted random-effects model. A weighted restricted cubic spline model of logarithmic odds was used to produce a dose-response curve.
+
+RESULTS: 37 studies were included (n = 1,298,291 individuals). In the general population, PA was associated with a reduction in odds of AF by 22% (22 studies; OR 0.78; 95% CI 0.68, 0.89). Athlete status was associated with an increase in the odds of AF (15 studies; OR 2.74; 95% CI 1.72, 4.39). Dose-response analysis (26 studies; n = 1,022,790 individuals) showed 26 MET-hr/wk of PA was associated with the greatest reduction in odds of AF, with doses beyond 78 MET-hr/wk associated with increased odds of AF; the equivalent of 6-7 hours per week of endurance training.
+
+CONCLUSION: PA and AF demonstrate a U-shaped relationship whereby beyond a quantitative dose threshold of 78 MET-hr/wk, the protective effect of exercise may reverse.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">37项研究、约130万人的荟萃分析显示，体力活动与房颤呈U型关系：26 MET-hr/wk时风险最低，超过78 MET-hr/wk（约每周6–7小时耐力训练）保护作用逆转。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">规律体力活动被认为可降低一般人群房颤风险，但近年数据提示运动量最高的人群反而出现房颤风险升高的&#34;运动悖论&#34;。剂量-反应曲线在何处由保护转为有害尚不明确，既往研究多局限于中等强度或单一暴露区间，缺乏覆盖从久坐到精英运动员全暴露范围的量化证据。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">系统综述与荟萃分析，检索4个数据库（1990年1月至2025年6月）。纳入报告体力活动暴露、与久坐对照组比较并评估房颤发病率或患病率的研究；体力活动暴露统一标准化为MET-hr/wk。采用加权随机效应模型计算合并OR，并以加权限制性立方样条模型（对数OR）拟合剂量-反应曲线。共纳入37项研究、n=1,298,291；剂量-反应分析纳入26项研究、n=1,022,790。终点为房颤发病或患病。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">一般人群中，体力活动与房颤风险降低22%相关（22项研究；OR 0.78，95%CI 0.68–0.89）。运动员身份与房颤风险升高相关（15项研究；OR 2.74，95%CI 1.72–4.39）。剂量-反应分析显示26 MET-hr/wk时房颤风险降幅最大，超过78 MET-hr/wk后房颤风险升高，该剂量相当于每周6–7小时耐力训练。异质性、发表偏倚及各研究混杂因素校正情况：摘要未报告。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">体力活动与房颤呈U型关系，超过78 MET-hr/wk这一量化剂量阈值后，运动的保护效应可能逆转。该结果为运动处方制定及耐力运动员、长期高强度训练者的房颤筛查与随访提供了量化参考。局限性在于阈值源于观察性研究的群体水平数据，不能直接推断个体因果关系，且摘要未报告异质性与偏倚评估，仍需前瞻性研究验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42861574/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1093/eurjpc/zwag535" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42861574/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="Indian Pacing Electrophysiol J"
+                         data-search="left pulmonary vein re-isolation and unexpected extensive posterior wall isolation with vein of marshall ethanol infusion after cryoballoon pulmonary vein isolation and roof-line ablation kasai y kitai t morita j satomi k  indian pacing electrophysiol j"
+                         id="paper-5">
+
+                    <div class="paper-top">
+                        <div class="paper-index">5</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42863672/" target="_blank" rel="noopener noreferrer">Left pulmonary vein re-isolation and unexpected extensive posterior wall isolation with vein of Marshall ethanol infusion after cryoballoon pulmonary vein isolation and roof-line ablation</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Indian Pacing Electrophysiol J</span><span class="dot">·</span><span class="paper-date">2026-10-12</span><span class="dot">·</span><span class="paper-date">PMID 42863672</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Journal Article</span>
+                                <span class="tag tag-type">Case Reports</span>
+                            </div>
+
+                            <p class="paper-authors" title="Kasai Y、Kitai T、Morita J、Satomi K">
+                                Kasai Y、Kitai T、Morita J<span class="authors-more"> 等 4 位作者</span>                            </p>
+
+                            <div class="abstract-block">
+                                <p class="abstract-none">暂无摘要（该文献可能为社论、评论或通信类文章）</p>
+                            </div>
+
+                            <p class="ai-missing">未生成 AI 解读（仅显示原文摘要）</p>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42863672/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1016/j.ipej.2026.10.010" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42863672/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="Pacing Clin Electrophysiol"
+                         data-search="blanking period after atrial fibrillation catheter ablation: a systematic review and meta-analysis. david t zhang sakshum chadha suraj s patel kevin melcer abhijeet singh ibrahim o almasry roger fan eric j rashba background: atrial arrhythmias that recur within the first 3 months after atrial fibrillation (af) catheter ablation are conventionally attributed to a &#34;blanking period&#34; and not classified as procedural failure. accumulating evidence suggests that such early recurrences of atrial tachyarrhythmias (erat) may instead predict late recurrence, raising concern that the conventional 3-month window overestimates the duration during which recurrences are benign.
+
+objective: to assess the association between erat during each of the first 3 months after af catheter ablation and late recurrence of atrial tachyarrhythmias (lrat), and whether this association differs by ablation energy source.
+
+methods: we searched ovid medline, embase, and web of science without restriction on date or publication status for studies of af catheter ablation reporting erat during defined intervals of the blanking period, stratified by subsequent lrat status. ablation energy sources included radiofrequency, cryoballoon, and pulsed field. the exposure was erat during the first, second, and third months after ablation, and the outcome was lrat. odds ratios (ors) with 95% confidence intervals (cis) were pooled using random-effects models.
+
+results: twelve studies comprising 7,751 patients (2,505 with lrat, 5,246 without) were included. mean follow-up was 22.0 months, mean age 60.7 years, 25.8% were women, 52.5% had paroxysmal af, mean cha2ds2-vasc score was 2.1, mean left atrial diameter 42.6 mm, and mean left ventricular ejection fraction 58.1%. erat was associated with subsequent lrat, and the strength of this association increased across the blanking period: month 1 (12 studies; or 1.76, 95% ci 1.01-3.08; p = 0.05), month 2 (10 studies; or 3.46, 95% ci 2.15-5.57; p &lt; 0.001), and month 3 (10 studies; or 21.4, 95% ci 10.9-42.2; p &lt; 0.001). the graded association was reproduced within the radiofrequency and cryoballoon subgroups.
+
+conclusion: erat was associated with subsequent lrat throughout the blanking period, with a graded relationship that strengthened month by month and was strongest in the third month. these findings support a blanking period shorter than the conventional 3 months. pacing clin electrophysiol"
+                         id="paper-6">
+
+                    <div class="paper-top">
+                        <div class="paper-index">6</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42860654/" target="_blank" rel="noopener noreferrer">Blanking Period after Atrial Fibrillation Catheter Ablation: A Systematic Review and Meta-Analysis.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Pacing Clin Electrophysiol</span><span class="dot">·</span><span class="paper-date">2026-10-12</span><span class="dot">·</span><span class="paper-date">PMID 42860654</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Journal Article</span>
+                                <span class="tag tag-type">Review</span>
+                            </div>
+
+                            <p class="paper-authors" title="David T Zhang、Sakshum Chadha、Suraj S Patel、Kevin Melcer、Abhijeet Singh、Ibrahim O Almasry、Roger Fan、Eric J Rashba">
+                                David T Zhang、Sakshum Chadha、Suraj S Patel<span class="authors-more"> 等 8 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">BACKGROUND: Atrial arrhythmias that recur within the first 3 months after atrial fibrillation (AF) catheter ablation are conventionally attributed to a &#34;blanking period&#34; and not classified as procedural failure. Accumulating evidence suggests that such early recurrences of atrial tachyarrhythmias (ERAT) may instead predict late recurrence, raising concern that the conventional 3-month window overestimates the duration during which recurrences are benign.
+
+OBJECTIVE: To assess the association between ERAT during each of the first 3 months after AF catheter ablation and late recurrence of atrial tachyarrhythmias (LRAT), and whether this association differs by ablation energy source.
+
+METHODS: We searched Ovid MEDLINE, Embase, and Web of Science without restriction on date or publication status for studies of AF catheter ablation reporting ERAT during defined intervals of the blanking period, stratified by subsequent LRAT status. Ablation energy sources included radiofrequency, cryoballoon, and pulsed field. The exposure was ERAT during the first, second, and third months after ablation, and the outcome was LRAT. Odds ratios (ORs) with 95% confidence intervals (CIs) were pooled using random-effects models.
+
+RESULTS: Twelve studies comprising 7,751 patients (2,505 with LRAT, 5,246 without) were included. Mean follow-up was 22.0 months, mean age 60.7 years, 25.8% were women, 52.5% had paroxysmal AF, mean CHA2DS2-VASc score was 2.1, mean left atrial diameter 42.6 mm, and mean left ventricular ejection fraction 58.1%. ERAT was associated with subsequent LRAT, and the strength of this association increased across the blanking period: month 1 (12 studies; OR 1.76, 95% CI 1.01-3.08; p = 0.05), month 2 (10 studies; OR 3.46, 95% CI 2.15-5.57; p &lt; 0.001), and month 3 (10 studies; OR 21.4, 95% CI 10.9-42.2; p &lt; 0.001). The graded association was reproduced within the radiofrequency and cryoballoon subgroups.
+
+CONCLUSION: ERAT was associated with subsequent LRAT throughout the blanking period, with a graded relationship that strengthened month by month and was strongest in the third month. These findings support a blanking period shorter than the conventional 3 months.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">一项纳入12项研究、7751例患者的荟萃分析显示，房颤消融后空白期内早期房性快速性心律失常复发与晚期复发相关，且关联强度逐月递增，第3个月最强（OR 21.4），提示传统3个月空白期可能过长。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">房颤导管消融后3个月内的早期复发目前按惯例归因于&#34;空白期&#34;，不计为手术失败；但越来越多的证据提示，早期房性快速性心律失常复发（ERAT）可能反而预示晚期复发（LRAT）。如果这种关联确实存在，那么把复发一律视为良性且不予处理，并沿用3个月这一时间界限，就可能高估可容忍的复发窗口。本研究旨在按月量化空白期内各阶段ERAT与LRAT的关联，并比较不同消融能量来源下该关联是否一致，为重新界定空白期时长提供依据。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">系统综述与荟萃分析。检索Ovid MEDLINE、Embase和Web of Science，不限制发表日期与发表状态，纳入报告空白期内特定时间段ERAT并按后续LRAT状态分层的房颤导管消融研究。消融能量来源包括射频、冷冻球囊和脉冲场消融。暴露为消融后第1、2、3个月内发生的ERAT，结局为LRAT。采用随机效应模型合并OR及95%CI。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">共纳入12项研究、7751例患者（LRAT 2505例，无LRAT 5246例）。平均随访22.0个月，平均年龄60.7岁，女性占25.8%，阵发性房颤占52.5%，平均CHA2DS2-VASc评分2.1，平均左心房内径42.6 mm，平均LVEF 58.1%。ERAT与后续LRAT相关，且关联强度随空白期推进逐月递增：第1个月（12项研究；OR 1.76，95%CI 1.01-3.08；P=0.05）、第2个月（10项研究；OR 3.46，95%CI 2.15-5.57；P&lt;0.001）、第3个月（10项研究；OR 21.4，95%CI 10.9-42.2；P&lt;0.001）。射频和冷冻球囊亚组均再现这一梯度关联；脉冲场消融亚组结果摘要未报告。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">整个空白期内ERAT均与后续LRAT相关，且呈逐月增强的梯度关系，第3个月最强：提示越接近传统3个月界限的复发，越难视为良性。结果支持将空白期缩短至短于现行3个月；这对早期复发后的再消融决策、抗心律失常药物停用时机和随访安排有直接影响。局限性：研究为观察性数据的汇总，ERAT监测方式（如间断holter与植入式监测）与复发定义可能异质；脉冲场消融证据不足；OR随时间递增可能部分反映随访窗口与检出强度的差异，尚需前瞻性研究验证缩短空白期后的临床结局。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42860654/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1111/pace.70467" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42860654/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="Pacing Clin Electrophysiol"
+                         data-search="association between baseline cognitive impairment and atrial fibrillation recurrence after catheter ablation dong h ying q zhou l he l jiang c long d ma c background cognitive impairment is common among patients with atrial fibrillation (af), yet its prognostic significance in the context of catheter ablation remains unclear.aims we aimed to investigate whether baseline cognitive impairment, assessed by the montreal cognitive assessment (moca), was associated with post-ablation af recurrence.methods based on the china-af registry, we identified 2692 patients with nonvalvular af who underwent index catheter ablation and had baseline moca assessments from 2022 to 2024. patients were stratified into mild cognitive impairment (mci, moca ≤ 26) and normal cognition (moca &gt; 26) groups. the primary outcome was af recurrence beyond the blanking period. the secondary outcome was a composite of all-cause death, ischemic stroke, and major bleeding. to adjust for confounding factors, we applied inverse probability of treatment weighting (iptw) methodology. weighted cox proportional hazards models were used to estimate adjusted hazard ratios (ahrs).results after iptw adjustment, all baseline covariates were well balanced (all standardized mean differences &lt; 0.03). over a median follow-up of 218 days (iqr, 192-376), the mci group had a significantly higher risk of af recurrence (ahr 1.48; 95% ci, 1.27-1.73; p &lt; 0.001). the composite secondary endpoint did not demonstrate a statistically significant between-group difference (ahr, 1.05; 95% ci, 0.25-4.52; p = 0.945). the association between baseline mci and af recurrence was consistent across all prespecified subgroups (all p for interaction &gt; 0.05).conclusion in this large prospective registry study, an independent association was observed between baseline cognitive impairment and an elevated risk of post-ablation af recurrence. cognitive assessment may be useful for risk stratification but requires external validation.clinical trial registration clinicaltrials.gov identifier: nct06987825. pacing clin electrophysiol"
+                         id="paper-7">
+
+                    <div class="paper-top">
+                        <div class="paper-index">7</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42864730/" target="_blank" rel="noopener noreferrer">Association Between Baseline Cognitive Impairment and Atrial Fibrillation Recurrence After Catheter Ablation</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Pacing Clin Electrophysiol</span><span class="dot">·</span><span class="paper-date">2026-10-12</span><span class="dot">·</span><span class="paper-date">PMID 42864730</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Dong H、Ying Q、Zhou L、He L、Jiang C、Long D、Ma C">
+                                Dong H、Ying Q、Zhou L<span class="authors-more"> 等 7 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">Background Cognitive impairment is common among patients with atrial fibrillation (AF), yet its prognostic significance in the context of catheter ablation remains unclear.Aims We aimed to investigate whether baseline cognitive impairment, assessed by the Montreal Cognitive Assessment (MoCA), was associated with post-ablation AF recurrence.Methods Based on the China-AF Registry, we identified 2692 patients with nonvalvular AF who underwent index catheter ablation and had baseline MoCA assessments from 2022 to 2024. Patients were stratified into mild cognitive impairment (MCI, MoCA ≤ 26) and normal cognition (MoCA &gt; 26) groups. The primary outcome was AF recurrence beyond the blanking period. The secondary outcome was a composite of all-cause death, ischemic stroke, and major bleeding. To adjust for confounding factors, we applied inverse probability of treatment weighting (IPTW) methodology. Weighted Cox proportional hazards models were used to estimate adjusted hazard ratios (aHRs).Results After IPTW adjustment, all baseline covariates were well balanced (all standardized mean differences &lt; 0.03). Over a median follow-up of 218 days (IQR, 192-376), the MCI group had a significantly higher risk of AF recurrence (aHR 1.48; 95% CI, 1.27-1.73; p &lt; 0.001). The composite secondary endpoint did not demonstrate a statistically significant between-group difference (aHR, 1.05; 95% CI, 0.25-4.52; p = 0.945). The association between baseline MCI and AF recurrence was consistent across all prespecified subgroups (all p for interaction &gt; 0.05).Conclusion In this large prospective registry study, an independent association was observed between baseline cognitive impairment and an elevated risk of post-ablation AF recurrence. Cognitive assessment may be useful for risk stratification but requires external validation.Clinical trial registration Clinicaltrials.gov Identifier: NCT06987825.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">在2692例接受导管消融的非瓣膜性AF患者中，基线MoCA≤26的轻度认知障碍与术后AF复发风险独立相关（aHR 1.48，95%CI 1.27-1.73），而死亡、卒中与大出血的复合终点无组间差异。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">认知障碍在AF患者中普遍存在，但既往研究多关注卒中与抗凝结局，基线认知功能是否影响导管消融后的心律结局尚不明确。若认知障碍可作为复发风险分层的简易指标，将有助于筛选消融获益人群与安排术后随访强度，因此需要大样本前瞻性队列证据。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">基于中国房颤登记（China-AF Registry）的前瞻性队列研究，纳入2022—2024年接受首次导管消融、且具备基线MoCA评估的非瓣膜性AF患者2692例，按MoCA≤26（轻度认知障碍，MCI）与MoCA&gt;26（认知正常）分组。主要终点为空白期后的AF复发；次要终点为全因死亡、缺血性卒中与大出血的复合终点。采用逆概率治疗加权（IPTW）校正混杂，并以加权Cox比例风险模型估算校正风险比（aHR），同时进行预设亚组交互检验。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">IPTW后所有基线协变量均衡良好（标准化均数差均&lt;0.03）。中位随访218天（IQR 192-376），MCI组AF复发风险显著升高（aHR 1.48；95%CI 1.27-1.73；P&lt;0.001）；复合次要终点两组差异无统计学意义（aHR 1.05；95%CI 0.25-4.52；P=0.945）。所有预设亚组的关联方向一致（交互P均&gt;0.05）。摘要未报告各组的绝对复发率、消融能量方式（射频或脉冲场消融）及 MoCA 各认知域的分布。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">本研究提示基线认知障碍是导管消融后AF复发的独立危险因素，且该关联不受传统临床亚组影响，而硬终点事件在较短随访内未见差异。结果支持在消融术前加入简易认知筛查（如MoCA）以辅助风险分层与术后管理决策；但随访时间偏短、事件数有限，且认知障碍影响复发的机制（如自主神经张力、心房基质重构、依从性）未阐明，结论需外部人群验证后才能用于实践。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42864730/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1111/pace.70453" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42864730/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="Pacing Clin Electrophysiol"
+                         data-search="timing of catheter ablation after heart failure diagnosis for atrial fibrillation: a propensity-score-matched analysis al-abdouh a obeidat o alhuneafat l goyal s rayyan a alqudah q khateeb s jain s shubietah a ma&#39;aita a roukoz h castro jr benditt d khalife w staloch d narayanan a sabayon md al-sadawi m background catheter ablation improves outcomes in patients with atrial fibrillation (af) and heart failure (hf). however, most of the evidence on the importance of ablation timing has been anchored to af rather than hf onset, leaving the optimal interval between hf diagnosis and ablation incompletely defined.objectives to evaluate the association between the timing of catheter ablation following the first diagnosis of hf and subsequent clinical outcomes in patients with established af.methods we performed a retrospective propensity-score-matched cohort study using the trinetx research network. adults (≥18 years) with af who subsequently developed hf and underwent catheter ablation were included. the primary analysis compared ablation from day 1 through 3 months after hf diagnosis with ablation at least 91 days after hf diagnosis. propensity-score matching yielded 2,570 patients in each group. outcomes were assessed for 2 years after ablation and included all-cause mortality, electrical cardioversion, emergency department or inpatient encounters, and hf exacerbation. a 1-year timing threshold and analyses stratified by recorded left ventricular ejection fraction were examined as sensitivity analyses.results mean follow-up was 549.3±253.2 days after early ablation and 534.1±255.3 days after later ablation. mortality was similar between groups (11.0% vs 10.0%; hazard ratio [hr] 1.078, 95% confidence interval [ci] 0.910-1.276; p = 0.384), as were emergency department or inpatient encounters (66.2% vs 65.6%; hr 1.006, 95% ci 0.940-1.076; p = 0.865). early ablation was associated with fewer cardioversions (15.0% vs 18.6%; hr 0.788, 95% ci 0.689-0.901; p &lt; 0.001) and fewer hf exacerbation events (39.5% vs 46.0%; hr 0.824, 95% ci 0.758-0.896; p &lt; 0.001). the 1-year timing analysis showed a similar pattern for cardioversion and the hf exacerbation.conclusions among patients with af and hf who ultimately underwent ablation, ablation within 3 months of hf diagnosis was associated with fewer subsequent cardioversions and hf exacerbations than ablation performed from day 91 onward. however, there was no significant difference in mortality between the two cohorts. these findings identify the first months after hf diagnosis as a clinically relevant period for reassessing rhythm-control strategy and warrant prospective evaluation of ablation timing after hf recognition. pacing clin electrophysiol"
+                         id="paper-8">
+
+                    <div class="paper-top">
+                        <div class="paper-index">8</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42864729/" target="_blank" rel="noopener noreferrer">Timing of Catheter Ablation After Heart Failure Diagnosis for Atrial Fibrillation: A Propensity-Score-Matched Analysis</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Pacing Clin Electrophysiol</span><span class="dot">·</span><span class="paper-date">2026-10-12</span><span class="dot">·</span><span class="paper-date">PMID 42864729</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Al-Abdouh A、Obeidat O、Alhuneafat L、Goyal S、Rayyan A、Alqudah Q、Khateeb S、Jain S、Shubietah A、Ma&#39;aita A、Roukoz H、Castro JR、Benditt D、Khalife W、Staloch D、Narayanan A、Sabayon MD、Al-Sadawi M">
+                                Al-Abdouh A、Obeidat O、Alhuneafat L<span class="authors-more"> 等 18 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">Background Catheter ablation improves outcomes in patients with atrial fibrillation (AF) and heart failure (HF). However, most of the evidence on the importance of ablation timing has been anchored to AF rather than HF onset, leaving the optimal interval between HF diagnosis and ablation incompletely defined.Objectives To evaluate the association between the timing of catheter ablation following the first diagnosis of HF and subsequent clinical outcomes in patients with established AF.Methods We performed a retrospective propensity-score-matched cohort study using the TriNetX Research Network. Adults (≥18 years) with AF who subsequently developed HF and underwent catheter ablation were included. The primary analysis compared ablation from day 1 through 3 months after HF diagnosis with ablation at least 91 days after HF diagnosis. Propensity-score matching yielded 2,570 patients in each group. Outcomes were assessed for 2 years after ablation and included all-cause mortality, electrical cardioversion, emergency department or inpatient encounters, and HF exacerbation. A 1-year timing threshold and analyses stratified by recorded left ventricular ejection fraction were examined as sensitivity analyses.Results Mean follow-up was 549.3±253.2 days after early ablation and 534.1±255.3 days after later ablation. Mortality was similar between groups (11.0% vs 10.0%; hazard ratio [HR] 1.078, 95% confidence interval [CI] 0.910-1.276; p = 0.384), as were emergency department or inpatient encounters (66.2% vs 65.6%; HR 1.006, 95% CI 0.940-1.076; p = 0.865). Early ablation was associated with fewer cardioversions (15.0% vs 18.6%; HR 0.788, 95% CI 0.689-0.901; p &lt; 0.001) and fewer HF exacerbation events (39.5% vs 46.0%; HR 0.824, 95% CI 0.758-0.896; p &lt; 0.001). The 1-year timing analysis showed a similar pattern for cardioversion and the HF exacerbation.Conclusions Among patients with AF and HF who ultimately underwent ablation, ablation within 3 months of HF diagnosis was associated with fewer subsequent cardioversions and HF exacerbations than ablation performed from day 91 onward. However, there was no significant difference in mortality between the two cohorts. These findings identify the first months after HF diagnosis as a clinically relevant period for reassessing rhythm-control strategy and warrant prospective evaluation of ablation timing after HF recognition.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">在房颤合并心衰并最终接受消融的患者中，心衰首次诊断后3个月内行导管消融较91天后消融可减少电复律与心衰加重事件，但两组全因死亡率无差异。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">导管消融可改善房颤合并心衰患者的预后，但既往关于消融时机的研究多以房颤确诊时间为起点，而非以心衰确诊时间为起点，因此心衰诊断至消融之间的最佳时间窗尚未明确，临床上对何时启动节律控制策略缺乏依据。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">基于TriNetX研究网络的回顾性倾向评分匹配队列研究。纳入年龄≥18岁、先确诊房颤、随后发生心衰并接受导管消融的成人。主要分析比较心衰诊断后第1天至3个月内消融（早期）与心衰诊断后≥91天消融（晚期），倾向评分匹配后每组2570例。消融后随访2年，终点包括全因死亡、电复律、急诊或住院就诊、心衰加重；另以1年为时机阈值及按记录到的LVEF分层进行敏感性分析。摘要未报告LVEF分层结果及匹配具体变量。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">早期消融组平均随访549.3±253.2天，晚期组534.1±255.3天。全因死亡率两组相近（11.0% vs 10.0%；HR 1.078，95%CI 0.910–1.276；P=0.384），急诊或住院就诊率亦无差异（66.2% vs 65.6%；HR 1.006，95%CI 0.940–1.076；P=0.865）。早期消融组电复律更少（15.0% vs 18.6%；HR 0.788，95%CI 0.689–0.901；P&lt;0.001），心衰加重事件更少（39.5% vs 46.0%；HR 0.824，95%CI 0.758–0.896；P&lt;0.001）。以1年为阈值的敏感性分析显示电复律与心衰加重的结果趋势一致。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">在心衰诊断后3个月内行导管消融与更低的电复律及心衰加重风险相关，但未降低全因死亡率，提示心衰确诊后的最初数月是重新评估节律控制策略的临床相关窗口期。作为回顾性、基于数据库的匹配分析，研究存在选择偏倚、残余混杂及无法获知消融细节与心衰表型等局限，消融时机对硬终点的作用仍需前瞻性研究验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42864729/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1111/pace.70466" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42864729/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="Quant Imaging Med Surg"
+                         data-search="unipolar electrogram-guided vs. ablation index-guided high-power short-duration pulmonary vein isolation in patients with paroxysmal atrial fibrillation: a single-center randomized controlled trial. wei-wei wang si-qi li hui-zhong lin qiong jiang xu-dong sun hua chen zhao-yang chen jian-hua chen background: pulmonary vein isolation (pvi) is the cornerstone of catheter ablation for paroxysmal atrial fibrillation (paf). the ablation index (ai) provides an estimate of lesion size and depth, but does not definitively confirm transmurality. complete elimination of the negative component of the unipolar electrogram (upe) has been proposed as a marker of transmural lesion formation. high-power short-duration (hpsd) radiofrequency ablation (rfa) produces more homogeneous lesions with clearer boundaries and thus may be more suitable for pvi. this study aimed to assess the ai values achieved during pvi using upe-guided hpsd rfa and to compare the efficacy and safety of upe-guided vs. fixed ai-guided hpsd rfa in patients with paf.
+
+methods: a total of 276 patients with paf were randomly assigned to two groups: the upe group and the ai group. in the upe group (n=136), the ablation endpoint for each lesion was defined as continuation of ablation for 2 seconds after conversion of the upe morphology from rs to r. in the ai group (n=140), the ablation endpoint for each lesion was achievement of a predefined target ai value (400-450 for the anterior wall and 360-380 for the posterior wall). the pulmonary vein (pv) first-pass isolation rate, acute pv reconnection (apvr) rate, and atrial fibrillation (af) recurrence rate were compared between groups.
+
+results: the ai values were significantly lower in the upe group than in the ai group (p&lt;0.001). the inter-lesion distance (ild) was significantly greater in the upe group than in the ai group (p&lt;0.001). the left and right pv first-pass isolation rates were higher in the upe group (93.4% vs. 85.0%, p=0.03; and 95.6% vs. 89.3%, p=0.048, respectively). apvr occurred less frequently in the upe group than in the ai group (11.0% vs. 20.0%, p=0.040). at 12 months post-procedure, af recurrence was observed in 13 patients (9.6%) in the upe group and 14 patients (10.0%) in the ai group (p=0.902). three patients in the upe group and four patients in the ai group developed inguinal hematoma (2.2% vs. 2.9%, p&gt;0.99).
+
+conclusions: both upe-guided and ai-guided hpsd rfa were effective and safe in patients with paf. upe-guided ablation was associated with lower ai values, higher pv first-pass isolation rates, and a lower incidence of apvr. these findings suggest that upe-guided hpsd rfa may provide a more individualized approach to pvi than fixed ai-guided ablation alone. quant imaging med surg"
+                         id="paper-9">
+
+                    <div class="paper-top">
+                        <div class="paper-index">9</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42861152/" target="_blank" rel="noopener noreferrer">Unipolar electrogram-guided vs. ablation index-guided high-power short-duration pulmonary vein isolation in patients with paroxysmal atrial fibrillation: a single-center randomized controlled trial.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Quant Imaging Med Surg</span><span class="dot">·</span><span class="paper-date">2026-10-12</span><span class="dot">·</span><span class="paper-date">PMID 42861152</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Wei-Wei Wang、Si-Qi Li、Hui-Zhong Lin、Qiong Jiang、Xu-Dong Sun、Hua Chen、Zhao-Yang Chen、Jian-Hua Chen">
+                                Wei-Wei Wang、Si-Qi Li、Hui-Zhong Lin<span class="authors-more"> 等 8 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">BACKGROUND: Pulmonary vein isolation (PVI) is the cornerstone of catheter ablation for paroxysmal atrial fibrillation (PAF). The ablation index (AI) provides an estimate of lesion size and depth, but does not definitively confirm transmurality. Complete elimination of the negative component of the unipolar electrogram (UPE) has been proposed as a marker of transmural lesion formation. High-power short-duration (HPSD) radiofrequency ablation (RFA) produces more homogeneous lesions with clearer boundaries and thus may be more suitable for PVI. This study aimed to assess the AI values achieved during PVI using UPE-guided HPSD RFA and to compare the efficacy and safety of UPE-guided vs. fixed AI-guided HPSD RFA in patients with PAF.
+
+METHODS: A total of 276 patients with PAF were randomly assigned to two groups: the UPE group and the AI group. In the UPE group (n=136), the ablation endpoint for each lesion was defined as continuation of ablation for 2 seconds after conversion of the UPE morphology from RS to R. In the AI group (n=140), the ablation endpoint for each lesion was achievement of a predefined target AI value (400-450 for the anterior wall and 360-380 for the posterior wall). The pulmonary vein (PV) first-pass isolation rate, acute PV reconnection (APVR) rate, and atrial fibrillation (AF) recurrence rate were compared between groups.
+
+RESULTS: The AI values were significantly lower in the UPE group than in the AI group (P&lt;0.001). The inter-lesion distance (ILD) was significantly greater in the UPE group than in the AI group (P&lt;0.001). The left and right PV first-pass isolation rates were higher in the UPE group (93.4% vs. 85.0%, P=0.03; and 95.6% vs. 89.3%, P=0.048, respectively). APVR occurred less frequently in the UPE group than in the AI group (11.0% vs. 20.0%, P=0.040). At 12 months post-procedure, AF recurrence was observed in 13 patients (9.6%) in the UPE group and 14 patients (10.0%) in the AI group (P=0.902). Three patients in the UPE group and four patients in the AI group developed inguinal hematoma (2.2% vs. 2.9%, P&gt;0.99).
+
+CONCLUSIONS: Both UPE-guided and AI-guided HPSD RFA were effective and safe in patients with PAF. UPE-guided ablation was associated with lower AI values, higher PV first-pass isolation rates, and a lower incidence of APVR. These findings suggest that UPE-guided HPSD RFA may provide a more individualized approach to PVI than fixed AI-guided ablation alone.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">在阵发性房颤患者中，单极电图（UPE）引导的高功率短时程射频消融与固定 AI 引导相比，达到的 AI 值更低、单圈隔离率更高、急性肺静脉重连更少，但 12 个月房颤复发率无差异。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">肺静脉隔离是阵发性房颤（PAF）导管消融的基石。消融指数（AI）只能间接估算损伤大小与深度，无法确证透壁性；而单极电图（UPE）负向成分完全消失被认为是透壁损伤的标志。高功率短时程（HPSD）射频消融产生的损伤更均匀、边界更清晰，可能更适合以 UPE 作为消融终点，但缺乏与固定 AI 目标值引导的头对头随机对照证据。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">单中心随机对照试验，纳入 276 例 PAF 患者，随机分为 UPE 组（n=136）与 AI 组（n=140）。UPE 组每个消融点的终点为 UPE 形态由 RS 转为 R 后继续消融 2 秒；AI 组每个消融点的终点为达到预设 AI 目标值（前壁 400–450、后壁 360–380）。比较两组肺静脉（PV）单圈隔离率、急性肺静脉重连（APVR）率及房颤复发率，并记录术中 AI 值与消融点间距（ILD）。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">UPE 组的 AI 值显著低于 AI 组（P&lt;0.001），消融点间距显著大于 AI 组（P&lt;0.001）。左侧与右侧 PV 单圈隔离率 UPE 组均更高（93.4% vs. 85.0%，P=0.03；95.6% vs. 89.3%，P=0.048）。APVR 发生率 UPE 组更低（11.0% vs. 20.0%，P=0.040）。术后 12 个月房颤复发 UPE 组 13 例（9.6%）、AI 组 14 例（10.0%），差异无统计学意义（P=0.902）。腹股沟血肿 UPE 组 3 例、AI 组 4 例（2.2% vs. 2.9%，P&gt;0.99）。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">UPE 引导与 AI 引导的 HPSD 射频消融在 PAF 患者中均有效且安全。UPE 引导可减少消融能量投入（AI 值更低、消融点间距更大），提高肺静脉单圈隔离率并降低急性肺静脉重连，提示其可能提供更个体化的 PVI 策略；但 12 个月房颤复发率未获益，且为单中心研究、样本量有限，尚需多中心大样本及更长随访验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42861152/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.21037/qims-2026-0593" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42861152/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+            </div>
         </section>
-        <section class="topic-group">
+        <section class="topic-group" data-group-topic="室性心律失常">
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>室性心律失常</span>
                 <span class="topic-count">4 篇</span>
             </h2>
-            <ul class="archive-list">
-                <li>
-                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42862678/" target="_blank" rel="noopener noreferrer">Anesthetic Challenges in Interarterial Right Coronary Artery Anomaly from the Left Sinus of Valsalva: A Case Report.</a>
-                    </span>
-                    <span class="a-authors">Izabela S Coelho、Luiz F C Lopes、Marina A Delgado</span>
-                    <span class="a-journal">Ann Card Anaesth</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42862678/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.4103/aca.aca_323_25" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42862678/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42861350/" target="_blank" rel="noopener noreferrer">Clinical practice guidelines: management of non-post-operative supra-ventricular tachycardia in neonates and children less than 18 years old hospitalized in a Pediatric Intensive Care Unit.</a>
-                    </span>
-                    <span class="a-authors">Sophie Breinig、Romain Amadieu、Agathe Béranger、Yves Dulac、Isabelle Goyer、Marion Grimaud、Maiwenn Le Ny、Yael Levy、Alice Maltret、Christopher Marquis、Soizic Paranon、Morgan Recher、Louise-Marie Jandeaux、Khaldoun Kuteifan、Julie Starck、French Speaking Group for Pediatric Intensive and Emergency Care</span>
-                    <span class="a-journal">Ann Intensive Care</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42861350/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.aicoj.2026.100160" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42861350/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42861180/" target="_blank" rel="noopener noreferrer">Incremental prognostic value of hepatic tissue alterations derived from cardiac magnetic resonance imaging for arrhythmogenic right ventricular cardiomyopathy: a case-control study.</a>
-                    </span>
-                    <span class="a-authors">Xiahui Tian、Yuelong Yang、Guanyu Lu、Xinyi Luo、Yinzhu Chen、Rui Chen、Jinhai Hu、Peifeng Lu、Yanting Liang、Hui Liu、Liqi Cao</span>
-                    <span class="a-journal">Quant Imaging Med Surg</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42861180/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.21037/qims-2026-1125" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42861180/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42861536/" target="_blank" rel="noopener noreferrer">[Sudden cardiac death and hypertrophic cardiomyopathy : risk assessment and indications for implantable cardioverter-defibrillator].</a>
-                    </span>
-                    <span class="a-authors">Amaury Masson、Orianne de la Brassinne Bonardeaux、Nils de Marneffe、Vincenzo Miraglia、Caroline Piette、Patrizio Lancellotti</span>
-                    <span class="a-journal">Rev Med Liege</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42861536/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42861536/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-            </ul>
+
+            <div class="paper-list">
+                <article class="paper-card"
+                         data-topic="室性心律失常"
+                         data-journal="Ann Card Anaesth"
+                         data-search="anesthetic challenges in interarterial right coronary artery anomaly from the left sinus of valsalva: a case report. izabela s coelho luiz f c lopes marina a delgado coronary artery anomalies are rare but clinically significant malformations, particularly when involving an interarterial course, which predisposes to ischemia and sudden cardiac death. we report the case of a previously healthy 22-year-old man who suffered out-of-hospital cardiac arrest associated with recreational inhalant use. imaging revealed an anomalous right coronary artery originating from the left sinus of valsalva with interarterial trajectory. surgical reimplantation was performed under tailored anesthetic management emphasizing hemodynamic stability. the patient recovered uneventfully. this case discusses and highlights anesthetic priorities and the potential role of external triggers in vulnerable coronary anatomy. ann card anaesth"
+                         id="paper-1">
+
+                    <div class="paper-top">
+                        <div class="paper-index">1</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42862678/" target="_blank" rel="noopener noreferrer">Anesthetic Challenges in Interarterial Right Coronary Artery Anomaly from the Left Sinus of Valsalva: A Case Report.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Ann Card Anaesth</span><span class="dot">·</span><span class="paper-date">2026-10-12</span><span class="dot">·</span><span class="paper-date">PMID 42862678</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="室性心律失常">室性心律失常</span>
+                                <span class="tag tag-type">Journal Article</span>
+                                <span class="tag tag-type">Case Reports</span>
+                            </div>
+
+                            <p class="paper-authors" title="Izabela S Coelho、Luiz F C Lopes、Marina A Delgado">
+                                Izabela S Coelho、Luiz F C Lopes、Marina A Delgado                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">Coronary artery anomalies are rare but clinically significant malformations, particularly when involving an interarterial course, which predisposes to ischemia and sudden cardiac death. We report the case of a previously healthy 22-year-old man who suffered out-of-hospital cardiac arrest associated with recreational inhalant use. Imaging revealed an anomalous right coronary artery originating from the left sinus of Valsalva with interarterial trajectory. Surgical reimplantation was performed under tailored anesthetic management emphasizing hemodynamic stability. The patient recovered uneventfully. This case discusses and highlights anesthetic priorities and the potential role of external triggers in vulnerable coronary anatomy.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">22岁既往健康男性在娱乐性吸入剂使用后发生院外心脏骤停，影像发现右冠状动脉起自左Valsalva窦并呈动脉间走行，个体化麻醉下手术再植后恢复良好。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">冠状动脉异常虽罕见但具临床意义，尤其动脉间走行可致心肌缺血和心脏性猝死；该类患者围术期麻醉管理要点及外源性触发因素的作用尚缺乏充分描述。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">个案报告，样本量1例。研究对象为22岁既往健康男性，院外心脏骤停与娱乐性吸入剂使用相关；影像学诊断为右冠状动脉异常起源于左Valsalva窦并呈动脉间走行。行外科再植术，麻醉管理强调血流动力学稳定。摘要未报告正式终点定义及统计方法。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">影像学确认右冠状动脉起源于左Valsalva窦且走行于动脉间；在个体化麻醉管理下完成外科再植术，患者术后恢复顺利。摘要未报告围术期血流动力学数值、并发症发生率或随访数据。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">本例提示对存在动脉间走行冠状动脉异常的患者，围术期麻醉应以维持血流动力学稳定、避免心肌缺血为核心，并需关注娱乐性吸入剂等外源触发因素。结论受限于单例报告，不能推断因果关系，仍需更多病例和随访验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42862678/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.4103/aca.aca_323_25" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42862678/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="室性心律失常"
+                         data-journal="Ann Intensive Care"
+                         data-search="clinical practice guidelines: management of non-post-operative supra-ventricular tachycardia in neonates and children less than 18 years old hospitalized in a pediatric intensive care unit. sophie breinig romain amadieu agathe béranger yves dulac isabelle goyer marion grimaud maiwenn le ny yael levy alice maltret christopher marquis soizic paranon morgan recher louise-marie jandeaux khaldoun kuteifan julie starck french speaking group for pediatric intensive and emergency care purpose: we present guidelines in the form of pragmatic recommendations for management of neonates and children less than 18 years old presenting with non-post-operative supraventricular tachycardia (svt) and hospitalized in a paediatric intensive care unit (picu).
+
+methods: thirteen french-speaking experts, all of them members of the groupe francophone de réanimation et urgence pédiatriques (french-speaking group of paediatric intensive and emergency care; gfrup), collaborated from 2024 to 2025 through teleconferences and face-to-face meetings. the guidelines cover four areas: (1) epidemiology and criteria for admission to a picu, (2) paraclinical assessment, (3) non-specific rhythm management, and (4) specific rhythm management. the questions were formulated in the patient-intervention-comparison-outcome (pico) format. an extensive anglophone and francophone literature search indexed in the medline database via pubmed, cochrane and embase was performed using pre-established keywords. the texts were analyzed and classified according to the grading of recommendations assessment, development and evaluation (grade) methodology. when this method was not applicable, an expert opinion was given. each of the recommendations was voted on by all the experts according to the delphi methodology.
+
+results: the group proposes 21 recommendations. the grade methodology could be applied for five of them, and an expert opinion was given for the remaining 16. all of the recommendations received strong approval.
+
+conclusion: these guidelines cover different aspects in the management of non-post-operative svt in children hospitalized in picus including non-specific and specific rhythm management. ann intensive care"
+                         id="paper-2">
+
+                    <div class="paper-top">
+                        <div class="paper-index">2</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42861350/" target="_blank" rel="noopener noreferrer">Clinical practice guidelines: management of non-post-operative supra-ventricular tachycardia in neonates and children less than 18 years old hospitalized in a Pediatric Intensive Care Unit.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Ann Intensive Care</span><span class="dot">·</span><span class="paper-date">2026-10-12</span><span class="dot">·</span><span class="paper-date">PMID 42861350</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="室性心律失常">室性心律失常</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Sophie Breinig、Romain Amadieu、Agathe Béranger、Yves Dulac、Isabelle Goyer、Marion Grimaud、Maiwenn Le Ny、Yael Levy、Alice Maltret、Christopher Marquis、Soizic Paranon、Morgan Recher、Louise-Marie Jandeaux、Khaldoun Kuteifan、Julie Starck、French Speaking Group for Pediatric Intensive and Emergency Care">
+                                Sophie Breinig、Romain Amadieu、Agathe Béranger<span class="authors-more"> 等 16 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">PURPOSE: We present guidelines in the form of pragmatic recommendations for management of neonates and children less than 18 years old presenting with non-post-operative supraventricular tachycardia (SVT) and hospitalized in a Paediatric Intensive Care Unit (PICU).
+
+METHODS: Thirteen French-speaking experts, all of them members of the Groupe Francophone de Réanimation et Urgence Pédiatriques (French-speaking group of paediatric intensive and emergency care; GFRUP), collaborated from 2024 to 2025 through teleconferences and face-to-face meetings. The guidelines cover four areas: (1) epidemiology and criteria for admission to a PICU, (2) paraclinical assessment, (3) non-specific rhythm management, and (4) specific rhythm management. The questions were formulated in the Patient-Intervention-Comparison-Outcome (PICO) format. An extensive Anglophone and Francophone literature search indexed in the MEDLINE database via PubMed, Cochrane and Embase was performed using pre-established keywords. The texts were analyzed and classified according to the Grading of Recommendations Assessment, Development and Evaluation (GRADE) methodology. When this method was not applicable, an expert opinion was given. Each of the recommendations was voted on by all the experts according to the Delphi methodology.
+
+RESULTS: The group proposes 21 recommendations. The GRADE methodology could be applied for five of them, and an expert opinion was given for the remaining 16. All of the recommendations received strong approval.
+
+CONCLUSION: These guidelines cover different aspects in the management of non-post-operative SVT in children hospitalized in PICUs including non-specific and specific rhythm management.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">法国专家组针对PICU收治的非术后室上性心动过速新生儿及18岁以下儿童制定21条管理推荐，其中5条基于GRADE证据、16条为专家意见，均获强推荐。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">非术后室上性心动过速（SVT）新生儿和儿童在PICU中的管理缺乏专门、统一的规范化推荐，既往证据分散，临床决策存在差异，需要面向重症监护场景的实用指南。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">由13名法语儿科重症与急诊专家（GFRUP成员）于2024—2025年通过远程和面对面会议制定指南，覆盖流行病学与PICU收治标准、辅助检查、非特异性节律管理、特异性节律管理四大领域；问题采用PICO格式，检索MEDLINE/PubMed、Cochrane和Embase文献，按GRADE方法分级，不适用时给出专家意见，并以Delphi方法对每条推荐投票。摘要未报告患者样本量。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">共提出21条推荐；其中5条可应用GRADE方法，16条基于专家意见；所有推荐均获得强烈同意。摘要未报告具体临床结局、效应量、95%CI或P值。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">该指南系统覆盖PICU内非术后SVT患儿的非特异性与特异性节律管理，可为儿科重症电生理实践提供框架；但多数推荐基于专家意见而非高质量证据，且摘要未报告结局数据，临床应用中仍需结合个体情况。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42861350/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1016/j.aicoj.2026.100160" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42861350/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="室性心律失常"
+                         data-journal="Quant Imaging Med Surg"
+                         data-search="incremental prognostic value of hepatic tissue alterations derived from cardiac magnetic resonance imaging for arrhythmogenic right ventricular cardiomyopathy: a case-control study. xiahui tian yuelong yang guanyu lu xinyi luo yinzhu chen rui chen jinhai hu peifeng lu yanting liang hui liu liqi cao background: hepatic injury occurs in patients with cardiovascular disease and is associated with adverse clinical outcomes. the prognostic value of hepatic tissue alterations in patients with arrhythmogenic right ventricular cardiomyopathy (arvc) remains unclear. we aimed to evaluate the incremental prognostic value of hepatic native t1 in predicting sustained ventricular arrhythmia (va) in patients with arvc.
+
+methods: this retrospective study included patients with definite arvc who underwent cardiac magnetic resonance (cmr) examinations between august 2014 and october 2024. hepatic native t1 values were derived from standard cardiac t1 maps. the clinical outcome was the first occurrence of sustained va. cox regression analysis was used to determine the association of variables with sustained va. incremental prognostic value was evaluated according to the concordance statistic (c-statistic), likelihood ratio test, and the continuous net reclassification index.
+
+results: a total of 94 patients with definite arvc (mean age 37.3±14.2 years; 67% male) were included. at a median follow-up of 39 months, sustained va occurred in 34 (36%) patients. in multivariable cox analysis, hepatic native t1 was an independent predictor of sustained va [hazard ratio (hr) =1.02, 95% confidence interval (ci): 1.00-1.03; p=0.025]. a model combining hepatic native t1 with the arvc risk score and cmr-derived right ventricular global longitudinal strain (rv gls) showed improved discrimination and calibration for sustained va (c-statistic =0.760; likelihood ratio =20.14) compared with models composed of arvc risk score alone (c-statistic =0.680; likelihood ratio =9.20; p&lt;0.001) or the arvc risk score and rv gls (c-statistic =0.735; likelihood ratio =15.30; p=0.028).
+
+conclusions: hepatic native t1 derived from cardiac t1 maps was an independent predictor of sustained va in patients with arvc, providing incremental prognostic value when incorporated into a model with arvc risk score and rv gls. quant imaging med surg"
+                         id="paper-3">
+
+                    <div class="paper-top">
+                        <div class="paper-index">3</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42861180/" target="_blank" rel="noopener noreferrer">Incremental prognostic value of hepatic tissue alterations derived from cardiac magnetic resonance imaging for arrhythmogenic right ventricular cardiomyopathy: a case-control study.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Quant Imaging Med Surg</span><span class="dot">·</span><span class="paper-date">2026-10-12</span><span class="dot">·</span><span class="paper-date">PMID 42861180</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="室性心律失常">室性心律失常</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Xiahui Tian、Yuelong Yang、Guanyu Lu、Xinyi Luo、Yinzhu Chen、Rui Chen、Jinhai Hu、Peifeng Lu、Yanting Liang、Hui Liu、Liqi Cao">
+                                Xiahui Tian、Yuelong Yang、Guanyu Lu<span class="authors-more"> 等 11 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">BACKGROUND: Hepatic injury occurs in patients with cardiovascular disease and is associated with adverse clinical outcomes. The prognostic value of hepatic tissue alterations in patients with arrhythmogenic right ventricular cardiomyopathy (ARVC) remains unclear. We aimed to evaluate the incremental prognostic value of hepatic native T1 in predicting sustained ventricular arrhythmia (VA) in patients with ARVC.
+
+METHODS: This retrospective study included patients with definite ARVC who underwent cardiac magnetic resonance (CMR) examinations between August 2014 and October 2024. Hepatic native T1 values were derived from standard cardiac T1 maps. The clinical outcome was the first occurrence of sustained VA. Cox regression analysis was used to determine the association of variables with sustained VA. Incremental prognostic value was evaluated according to the concordance statistic (C-statistic), likelihood ratio test, and the continuous net reclassification index.
+
+RESULTS: A total of 94 patients with definite ARVC (mean age 37.3±14.2 years; 67% male) were included. At a median follow-up of 39 months, sustained VA occurred in 34 (36%) patients. In multivariable Cox analysis, hepatic native T1 was an independent predictor of sustained VA [hazard ratio (HR) =1.02, 95% confidence interval (CI): 1.00-1.03; P=0.025]. A model combining hepatic native T1 with the ARVC risk score and CMR-derived right ventricular global longitudinal strain (RV GLS) showed improved discrimination and calibration for sustained VA (C-statistic =0.760; likelihood ratio =20.14) compared with models composed of ARVC risk score alone (C-statistic =0.680; likelihood ratio =9.20; P&lt;0.001) or the ARVC risk score and RV GLS (C-statistic =0.735; likelihood ratio =15.30; P=0.028).
+
+CONCLUSIONS: Hepatic native T1 derived from cardiac T1 maps was an independent predictor of sustained VA in patients with ARVC, providing incremental prognostic value when incorporated into a model with ARVC risk score and RV GLS.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">在94例确诊ARVC患者中，心脏磁共振T1 mapping测得的肝脏native T1是持续性室性心律失常的独立预测因子，将其加入ARVC风险评分与右室GLS模型可进一步提升风险分层的判别力。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">心血管疾病患者常合并肝脏损伤，且与不良预后相关；但肝脏组织学改变（以CMR来源的肝脏native T1反映）在致心律失常性右室心肌病（ARVC）中的预后价值尚不明确。本研究旨在评估肝脏native T1对ARVC患者持续性室性心律失常（VA）的增量预后价值，弥补现有ARVC风险评分（仅基于临床与常规CMR指标）在个体化风险分层上的不足。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">单中心回顾性病例对照研究，纳入2014年8月至2024年10月接受心脏磁共振检查的确诊ARVC患者94例（平均年龄37.3±14.2岁，男性67%）。暴露指标为从标准心脏T1 mapping图像上测得的肝脏native T1值。主要终点为首次发生持续性VA。采用Cox回归分析变量与持续性VA的关联；通过C统计量（C-statistic）、似然比检验和连续净重分类指数（NRI）评价增量预后价值。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">中位随访39个月，34例（36%）发生持续性VA。多变量Cox分析显示肝脏native T1为持续性VA的独立预测因子（HR=1.02，95%CI：1.00-1.03，P=0.025）。将肝脏native T1加入ARVC风险评分与CMR来源右室整体纵向应变（RV GLS）组成的模型后，对持续性VA的判别力和校准度均改善（C统计量=0.760，似然比=20.14），优于仅用ARVC风险评分（C统计量=0.680，似然比=9.20，P&lt;0.001）及ARVC风险评分联合RV GLS的模型（C统计量=0.735，似然比=15.30，P=0.028）。摘要未报告连续NRI的具体数值及校准度指标。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">由心脏T1 mapping获得的肝脏native T1是ARVC患者持续性VA的独立预测因子，在ARVC风险评分与RV GLS基础上提供增量预后价值，提示可将肝脏影像学指标纳入ARVC风险分层。临床意义在于为ICD一级预防决策提供额外参考信息；但本研究为单中心回顾性设计、样本量仅94例、事件数有限，结果需前瞻性多中心队列验证，且肝脏T1测量的标准化与可重复性尚待确立。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42861180/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.21037/qims-2026-1125" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42861180/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="室性心律失常"
+                         data-journal="Rev Med Liege"
+                         data-search="[sudden cardiac death and hypertrophic cardiomyopathy : risk assessment and indications for implantable cardioverter-defibrillator]. amaury masson orianne de la brassinne bonardeaux nils de marneffe vincenzo miraglia caroline piette patrizio lancellotti hypertrophic cardiomyopathy (hcm) is a myocardial disease characterized by left ventricular hypertrophy without abnormal loading conditions. despite significant advances in management, hcm remains a major cause of sudden cardiac death, particularly in young individuals. prevention relies on accurate arrhythmic risk stratification and the selective implantation of implantable cardioverter-defibrillators (icds). this article reviews current indications for primary prevention icd implantation in sarcomeric hcm based on the european society of cardiology (esc) guidelines and compares them with the more integrative approach proposed by the american college of cardiology/american heart association (acc/aha). rev med liege"
+                         id="paper-4">
+
+                    <div class="paper-top">
+                        <div class="paper-index">4</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42861536/" target="_blank" rel="noopener noreferrer">[Sudden cardiac death and hypertrophic cardiomyopathy : risk assessment and indications for implantable cardioverter-defibrillator].</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Rev Med Liege</span><span class="dot">·</span><span class="paper-date">2026-10-12</span><span class="dot">·</span><span class="paper-date">PMID 42861536</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="室性心律失常">室性心律失常</span>
+                                <span class="tag tag-type">Journal Article</span>
+                                <span class="tag tag-type">Review</span>
+                                <span class="tag tag-type">English Abstract</span>
+                            </div>
+
+                            <p class="paper-authors" title="Amaury Masson、Orianne de la Brassinne Bonardeaux、Nils de Marneffe、Vincenzo Miraglia、Caroline Piette、Patrizio Lancellotti">
+                                Amaury Masson、Orianne de la Brassinne Bonardeaux、Nils de Marneffe<span class="authors-more"> 等 6 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">Hypertrophic cardiomyopathy (HCM) is a myocardial disease characterized by left ventricular hypertrophy without abnormal loading conditions. Despite significant advances in management, HCM remains a major cause of sudden cardiac death, particularly in young individuals. Prevention relies on accurate arrhythmic risk stratification and the selective implantation of implantable cardioverter-defibrillators (ICDs). This article reviews current indications for primary prevention ICD implantation in sarcomeric HCM based on the European Society of Cardiology (ESC) guidelines and compares them with the more integrative approach proposed by the American College of Cardiology/American Heart Association (ACC/AHA).</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">本综述比较ESC与ACC/AHA关于肌节蛋白性肥厚型心肌病一级预防ICD植入指征的差异，强调精准心律失常风险分层是预防猝死的核心。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">肥厚型心肌病（HCM）指无异常负荷条件下出现左心室肥厚的心肌疾病。尽管治疗手段已有明显进步，HCM仍是心源性猝死的重要原因，在年轻人群中尤为突出。猝死预防依赖准确的心律失常风险分层和有选择地植入ICD，但不同指南对一级预防指征的把握并不一致，临床需要明确ESC与美国ACC/AHA路径之间的差异，这正是本文的切入点。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">本文为叙述性综述，非系统评价或Meta分析；研究对象为肌节蛋白（sarcomeric）突变相关HCM患者。摘要未报告样本量、干预对照、终点定义及统计方法。作者梳理ESC指南中现行的一级预防ICD植入指征，并将其与ACC/AHA提出的更趋整合（integrative）的评估路径进行对比。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">摘要未报告任何定量结果，包括效应量、95%CI及P值。定性层面的核心信息是：ESC指南以明确列出的指征作为ICD植入依据，ACC/AHA则采用整合多个维度的综合评估策略，两者在风险判定与植入阈值上存在路径差异。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">对电生理实践而言，该综述提示HCM患者的一级预防ICD决策不能机械套用单一指南，应在两套体系间权衡，并结合个体风险与患者意愿共同决策。局限性在于本文为叙述性综述，无原始数据、无结局验证，摘要亦未报告各指南策略对猝死或恰当放电等硬终点的比较证据，故不能据此推断哪种路径更优。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42861536/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42861536/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+            </div>
         </section>
-        <section class="topic-group">
+        <section class="topic-group" data-group-topic="器械治疗">
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>器械治疗</span>
                 <span class="topic-count">2 篇</span>
             </h2>
-            <ul class="archive-list">
-                <li>
-                    <span class="topic-pill" data-topic="器械治疗">器械治疗</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42861333/" target="_blank" rel="noopener noreferrer">Pacemaker Dependency in Patients Undergoing Implantation of Dual-chamber Devices After Alcohol Septum Ablation: A Retrospective Analysis.</a>
-                    </span>
-                    <span class="a-authors">Sophia Schulze Lammers、Dennis Lawin、Annika Hoyer、Christoph Stellbrink、Thorsten Lawrenz</span>
-                    <span class="a-journal">CJC Open</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42861333/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.cjco.2026.06.021" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42861333/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="器械治疗">器械治疗</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42861534/" target="_blank" rel="noopener noreferrer">[Leadless pacemakers : current evidence and future perspectives].</a>
-                    </span>
-                    <span class="a-authors">Hugo Dassy、Riad Tajildin、Sébastien Piron、Caroline Piette、Vincenzo Miraglia、Patrizio Lancellotti</span>
-                    <span class="a-journal">Rev Med Liege</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42861534/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42861534/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-            </ul>
+
+            <div class="paper-list">
+                <article class="paper-card"
+                         data-topic="器械治疗"
+                         data-journal="CJC Open"
+                         data-search="pacemaker dependency in patients undergoing implantation of dual-chamber devices after alcohol septum ablation: a retrospective analysis. sophia schulze lammers dennis lawin annika hoyer christoph stellbrink thorsten lawrenz background: patients with hypertrophic obstructive cardiomyopathy (hocm) undergoing alcohol septal ablation (asa) are at risk for high-degree atrioventricular (av) block, often requiring permanent pacemaker (ppm) implantation. however, long-term pacemaker dependency in this population remains unclear.
+
+methods: we retrospectively analyzed hocm patients who underwent asa and subsequent implantation of a cardiac implantable electronic device (cied) due to procedure-related av block between 2016 and 2023. cied interrogation at ≥ 6 weeks postimplantation was used to assess ventricular pacing (vp). pacemaker dependency was defined as &gt; 1% vp. associations with baseline characteristics were examined using logistic regression.
+
+results: of 464 patients undergoing asa, 95 (20.5%) received a cied, and 67 were available for follow-up. only 30 patients (44.8%) showed &gt; 1% vp; 9 (13.4%) were completely dependent (100% vp). in contrast, 31 patients (46.3%) had ≤ 0.1% vp. persistent av block was more common in patients with preinterventional left bundle branch block. intraprocedural av block showed a trend toward persistent pacemaker dependency.
+
+conclusions: in this cohort, long-term pacemaker dependency after asa was unexpectedly low. these findings suggest that av conduction may recover in a significant proportion of patients, raising the question of whether some may safely avoid ppm implantation. larger prospective studies are needed to guide device therapy decisions in this population. our findings challenge the assumption of permanent av block after asa and suggest reconsidering routine early device implantation in selected patients. cjc open"
+                         id="paper-1">
+
+                    <div class="paper-top">
+                        <div class="paper-index">1</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42861333/" target="_blank" rel="noopener noreferrer">Pacemaker Dependency in Patients Undergoing Implantation of Dual-chamber Devices After Alcohol Septum Ablation: A Retrospective Analysis.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">CJC Open</span><span class="dot">·</span><span class="paper-date">2026-10-12</span><span class="dot">·</span><span class="paper-date">PMID 42861333</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="器械治疗">器械治疗</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Sophia Schulze Lammers、Dennis Lawin、Annika Hoyer、Christoph Stellbrink、Thorsten Lawrenz">
+                                Sophia Schulze Lammers、Dennis Lawin、Annika Hoyer<span class="authors-more"> 等 5 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">BACKGROUND: Patients with hypertrophic obstructive cardiomyopathy (HOCM) undergoing alcohol septal ablation (ASA) are at risk for high-degree atrioventricular (AV) block, often requiring permanent pacemaker (PPM) implantation. However, long-term pacemaker dependency in this population remains unclear.
+
+METHODS: We retrospectively analyzed HOCM patients who underwent ASA and subsequent implantation of a cardiac implantable electronic device (CIED) due to procedure-related AV block between 2016 and 2023. CIED interrogation at ≥ 6 weeks postimplantation was used to assess ventricular pacing (VP). Pacemaker dependency was defined as &gt; 1% VP. Associations with baseline characteristics were examined using logistic regression.
+
+RESULTS: Of 464 patients undergoing ASA, 95 (20.5%) received a CIED, and 67 were available for follow-up. Only 30 patients (44.8%) showed &gt; 1% VP; 9 (13.4%) were completely dependent (100% VP). In contrast, 31 patients (46.3%) had ≤ 0.1% VP. Persistent AV block was more common in patients with preinterventional left bundle branch block. Intraprocedural AV block showed a trend toward persistent pacemaker dependency.
+
+CONCLUSIONS: In this cohort, long-term pacemaker dependency after ASA was unexpectedly low. These findings suggest that AV conduction may recover in a significant proportion of patients, raising the question of whether some may safely avoid PPM implantation. Larger prospective studies are needed to guide device therapy decisions in this population. Our findings challenge the assumption of permanent AV block after ASA and suggest reconsidering routine early device implantation in selected patients.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">在464例接受酒精室间隔消融的HOCM患者中，20.5%因术后高度房室阻滞植入双腔起搏器，但长期随访仅44.8%存在&gt;1%心室起搏，完全起搏依赖者仅13.4%，提示多数患者房室传导可恢复。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">肥厚型梗阻性心肌病（HOCM）患者接受酒精室间隔消融（ASA）后可出现高度房室阻滞，常需植入永久起搏器（PPM）；然而该人群中长期起搏依赖的真实比例尚不明确，既往临床常默认这一阻滞为不可逆，可能导致起搏器植入过度。本研究旨在明确ASA术后因手术相关房室阻滞植入器械患者的长期心室起搏比例及其与基线特征的关系。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">单中心回顾性分析，纳入2016—2023年间接受ASA、并因手术相关房室阻滞植入心脏植入式电子器械（CIED，据题名为双腔起搏装置）的HOCM患者。共464例接受ASA，其中95例（20.5%）植入CIED，67例有随访资料。以植入后≥6周的器械程控记录评估心室起搏（VP）比例，起搏依赖定义为VP&gt;1%；采用logistic回归分析基线特征与起搏依赖的关联。摘要未报告具体的回归效应量与置信区间。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">67例可评估患者中，仅30例（44.8%）VP&gt;1%，9例（13.4%）为完全起搏依赖（VP 100%）；相反，31例（46.3%）VP≤0.1%。术前存在左束支传导阻滞者持续性房室阻滞更为常见；术中即刻出现房室阻滞者呈持续起搏依赖的趋势。摘要未报告各关联的比值比、95%置信区间及P值。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">本队列中ASA术后长期起搏依赖比例意外偏低，提示相当比例患者房室传导可恢复，对“ASA后房室阻滞不可逆”的既有假设提出质疑，并提示对部分选择性患者或可重新考虑常规早期植入起搏器的策略。但本研究为单中心、小样本回顾性分析，仅67例完成器械随访，存在选择偏倚与随访缺失，且缺乏起搏依赖的预测指标量化结果，尚不足以改变临床决策，需更大样本前瞻性研究验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42861333/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1016/j.cjco.2026.06.021" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42861333/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="器械治疗"
+                         data-journal="Rev Med Liege"
+                         data-search="[leadless pacemakers : current evidence and future perspectives]. hugo dassy riad tajildin sébastien piron caroline piette vincenzo miraglia patrizio lancellotti leadless pacemakers represent a major advance in cardiac pacing. unlike conventional systems, they are entirely implanted within the heart, without transvenous leads or a subcutaneous generator, thereby substantially reducing the risks of infection, lead fracture, and device displacement. first introduced in 2012 with the nanostim™ (st. jude medical®), this technology subsequently evolved with the market introduction of the micra™ (medtronic®), which is easy to implant and has a safety profile comparable to that of conventional pacemakers. more recently, the aveir™ system (abbott&#39;s®) has marked a further milestone by enabling leadless dual-chamber pacing with direct «implant-to-implant» communication between the atrial and ventricular modules. this evolution paves the way for more complex leadless pacing strategies comparable to conventional systems. in addition, this latest model allows device retrieval and repositioning, overcoming some of the limitations of earlier generations. rev med liege"
+                         id="paper-2">
+
+                    <div class="paper-top">
+                        <div class="paper-index">2</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42861534/" target="_blank" rel="noopener noreferrer">[Leadless pacemakers : current evidence and future perspectives].</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Rev Med Liege</span><span class="dot">·</span><span class="paper-date">2026-10-12</span><span class="dot">·</span><span class="paper-date">PMID 42861534</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="器械治疗">器械治疗</span>
+                                <span class="tag tag-type">English Abstract</span>
+                                <span class="tag tag-type">Historical Article</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Hugo Dassy、Riad Tajildin、Sébastien Piron、Caroline Piette、Vincenzo Miraglia、Patrizio Lancellotti">
+                                Hugo Dassy、Riad Tajildin、Sébastien Piron<span class="authors-more"> 等 6 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">Leadless pacemakers represent a major advance in cardiac pacing. Unlike conventional systems, they are entirely implanted within the heart, without transvenous leads or a subcutaneous generator, thereby substantially reducing the risks of infection, lead fracture, and device displacement. First introduced in 2012 with the Nanostim™ (St. Jude Medical®), this technology subsequently evolved with the market introduction of the Micra™ (Medtronic®), which is easy to implant and has a safety profile comparable to that of conventional pacemakers. More recently, the AVEIR™ system (Abbott&#39;s®) has marked a further milestone by enabling leadless dual-chamber pacing with direct «implant-to-implant» communication between the atrial and ventricular modules. This evolution paves the way for more complex leadless pacing strategies comparable to conventional systems. In addition, this latest model allows device retrieval and repositioning, overcoming some of the limitations of earlier generations.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">无导线起搏器已从单腔的Nanostim、Micra发展至可实现心房-心室模块直接通讯的双腔AVEIR系统，并支持取出与再定位，为更复杂的无导线起搏策略铺路。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">传统经静脉起搏系统需留置静脉导线及皮下囊袋，存在感染、导线断裂、脱位及囊袋相关并发症的风险。无导线起搏器将整个装置植入心腔内，理论上可规避上述风险，但早期系统在植入操作性、双腔起搏能力与装置取出方面的证据仍存在缺口，本文即围绕这些问题的现有证据与未来方向进行梳理。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">本文为综述性文章（期刊栏目为器械治疗），系统总结无导线起搏器的现有证据与未来展望。研究对象为需要心脏起搏的患者人群；本文非原始临床研究，摘要未报告样本量、入选与排除标准、终点定义及统计方法。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">摘要以技术演进为主线：2012年Nanostim™（St. Jude Medical®）首次将无导线起搏引入临床；随后Micra™（Medtronic®）上市，植入操作简便，安全性特征与传统起搏器相当；更新的AVEIR™系统（Abbott®）实现无导线双腔起搏，心房与心室模块之间通过直接的“植入体对植入体”通讯协同工作。AVEIR还可对装置进行取出与再定位，从而克服早期产品的部分局限。摘要未报告各代系统的样本量、成功率、并发症率、效应量、95%CI 或 P 值等定量数据。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">无导线起搏技术已由单腔向双腔、可回收方向演进，使无导线方案有望覆盖更接近传统系统的复杂起搏策略，对减少导线与囊袋相关并发症具有潜在临床价值。但本文为综述，摘要未提供对照研究数据，长期安全性、双腔同步性能、装置取出可行性及成本效益等仍需前瞻性证据验证；对起搏适应证的选择与植入中心的技术要求亦需进一步明确。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42861534/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42861534/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+            </div>
         </section>
-        <section class="topic-group">
+        <section class="topic-group" data-group-topic="遗传与基础">
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>遗传与基础</span>
                 <span class="topic-count">3 篇</span>
             </h2>
-            <ul class="archive-list">
-                <li>
-                    <span class="topic-pill" data-topic="遗传与基础">遗传与基础</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42861500/" target="_blank" rel="noopener noreferrer">Multichannel Dysfunction Associated With a Dominant-Negative KCNH2 Missense Variant, p.G604S, Results in Action Potential Duration Prolongation and Early Afterdepolarizations in a Patient-Specific, Reengineered Cardiomyocyte Model of Type 2 Long-QT Syndrome.</a>
-                    </span>
-                    <span class="a-authors">Trung Huynh、Dan Ye、Wei Zhou、David J Tester、Ramin Garmany、John R Giudicessi、Michael J Ackerman</span>
-                    <span class="a-journal">Circ Arrhythm Electrophysiol</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42861500/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1161/CIRCEP.126.014919" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42861500/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="遗传与基础">遗传与基础</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42861404/" target="_blank" rel="noopener noreferrer">Clustered Regularly Interspaced Short Palindromic Repeats (CRISPR)-Based Genome Editing in Inherited Cardiovascular Diseases: Therapeutic Advances, Emerging Editing Platforms, and Translational Challenges.</a>
-                    </span>
-                    <span class="a-authors">Tosin Fakiyesi、Mmaduabuchi Ozioko、Oluwapelumi D Ogunseye、Olaoluwa Adeyemi、Ibukunoluwa Adedoyin、Adeolu A Badejo、Olorungbami Anifalaje、Abiodun Adegbesan、Oluwakemi Olalude、Rachael Tiamiyu、Almustapha Hassan</span>
-                    <span class="a-journal">Cureus</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42861404/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.7759/cureus.116111" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42861404/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="遗传与基础">遗传与基础</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42863786/" target="_blank" rel="noopener noreferrer">Network toxicology, machine learning, single-cell analysis, and molecular docking reveal 6PPD/6PPD-Q-associated atrial fibrillation signatures</a>
-                    </span>
-                    <span class="a-authors">Zhan W、Zhao J、Li Y、Ran S、Lai L、Wu J、Zhou S、Li R、Cui J、Xia J</span>
-                    <span class="a-journal">J Adv Res</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42863786/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.jare.2026.10.032" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42863786/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-            </ul>
+
+            <div class="paper-list">
+                <article class="paper-card"
+                         data-topic="遗传与基础"
+                         data-journal="Circ Arrhythm Electrophysiol"
+                         data-search="multichannel dysfunction associated with a dominant-negative kcnh2 missense variant, p.g604s, results in action potential duration prolongation and early afterdepolarizations in a patient-specific, reengineered cardiomyocyte model of type 2 long-qt syndrome. trung huynh dan ye wei zhou david j tester ramin garmany john r giudicessi michael j ackerman background: type 2 long-qt syndrome results from kcnh2-encoded kv11.1 loss-of-function, but whether secondary inward-current dysfunction amplifies dysfunction remains unclear.
+
+methods: we characterized sodium (scn5a, ina) and l-type calcium channel (cacna1c, ica) function in kcnh2-g604s and variant-corrected isogenic control induced pluripotent stem cell-derived cardiomyocytes (ipsc-cms). whole-cell patch-clamp measured action potential duration at 90% repolarization (apd90), and potassium (ikr), sodium (ina), and calcium (ica, l) currents. fluo-4 imaging quantified calcium transients. a modified kernik-clancy ipsc-cm model incorporated experimentally measured persistent ina,l and ica,l fractions and simulated isolated and combined current defects.
+
+results: kcnh2-g604s caused severe ikr loss-of-function (72.5% reduction). apd90 was prolonged in g604s-ipsc-cms (765±58 ms) compared with isogenic controls (368±37 ms; p&lt;0.005), with early afterdepolarizations in 50% of g604s cells. nifedipine, verapamil, and mexiletine successfully shortened apd90 and abolished early afterdepolarizations. compared with isogenic control, ina,l (0.60±0.1% versus 0.26±0.06%; p&lt;0.01), persistent ica,l (2.88±0.55% versus 1.26±0.35%; p&lt;0.05), and calcium transient decay times (p&lt;0.0001) were greater in g604s ipsc-cms. increased persistent ica,l was phenocopied by e-4031 in isogenic controls and reduced by nifedipine in g604s ipsc-cms. in silico modeling revealed that the ikr defect alone prolonged apd90 to only 620 ms. the addition of the observed ina,l defect had a small additive effect (+20 ms); however, incorporating persistent ica,l synergistically extended apd90 to 758 ms, replicating the experimental phenotype. flux dynamics analysis indicated that this persistent ca2+ entry suppresses the forward-mode sodium-calcium exchanger, forcing a compensatory reliance on sarcoplasmic-endoplasmic reticulum ca-atpase that primes for calcium instability.
+
+conclusions: the kcnh2-g604s variant drives a severe multihit phenotype via primary ikr loss-of-function and secondary state-dependent gain-of-function in persistent ica,l. these comprehensive validations demonstrate that the remodeled persistent ica,l acts as the essential amplifier driving extreme action potential duration prolongation and ca2+ mishandling. circ arrhythm electrophysiol"
+                         id="paper-1">
+
+                    <div class="paper-top">
+                        <div class="paper-index">1</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42861500/" target="_blank" rel="noopener noreferrer">Multichannel Dysfunction Associated With a Dominant-Negative KCNH2 Missense Variant, p.G604S, Results in Action Potential Duration Prolongation and Early Afterdepolarizations in a Patient-Specific, Reengineered Cardiomyocyte Model of Type 2 Long-QT Syndrome.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Circ Arrhythm Electrophysiol</span><span class="dot">·</span><span class="paper-date">2026-10-12</span><span class="dot">·</span><span class="paper-date">PMID 42861500</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="遗传与基础">遗传与基础</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Trung Huynh、Dan Ye、Wei Zhou、David J Tester、Ramin Garmany、John R Giudicessi、Michael J Ackerman">
+                                Trung Huynh、Dan Ye、Wei Zhou<span class="authors-more"> 等 7 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">BACKGROUND: Type 2 long-QT syndrome results from KCNH2-encoded Kv11.1 loss-of-function, but whether secondary inward-current dysfunction amplifies dysfunction remains unclear.
+
+METHODS: We characterized sodium (SCN5A, INa) and L-type calcium channel (CACNA1C, ICa) function in KCNH2-G604S and variant-corrected isogenic control induced pluripotent stem cell-derived cardiomyocytes (iPSC-CMs). Whole-cell patch-clamp measured action potential duration at 90% repolarization (APD90), and potassium (IKr), sodium (INa), and calcium (ICa, L) currents. Fluo-4 imaging quantified calcium transients. A modified Kernik-Clancy iPSC-CM model incorporated experimentally measured persistent INa,L and ICa,L fractions and simulated isolated and combined current defects.
+
+RESULTS: KCNH2-G604S caused severe IKr loss-of-function (72.5% reduction). APD90 was prolonged in G604S-iPSC-CMs (765±58 ms) compared with isogenic controls (368±37 ms; P&lt;0.005), with early afterdepolarizations in 50% of G604S cells. Nifedipine, verapamil, and mexiletine successfully shortened APD90 and abolished early afterdepolarizations. Compared with isogenic control, INa,L (0.60±0.1% versus 0.26±0.06%; P&lt;0.01), persistent ICa,L (2.88±0.55% versus 1.26±0.35%; P&lt;0.05), and calcium transient decay times (P&lt;0.0001) were greater in G604S iPSC-CMs. Increased persistent ICa,L was phenocopied by E-4031 in isogenic controls and reduced by nifedipine in G604S iPSC-CMs. In silico modeling revealed that the IKr defect alone prolonged APD90 to only 620 ms. The addition of the observed INa,L defect had a small additive effect (+20 ms); however, incorporating persistent ICa,L synergistically extended APD90 to 758 ms, replicating the experimental phenotype. Flux dynamics analysis indicated that this persistent Ca2+ entry suppresses the forward-mode sodium-calcium exchanger, forcing a compensatory reliance on sarcoplasmic-endoplasmic reticulum Ca-ATPase that primes for calcium instability.
+
+CONCLUSIONS: The KCNH2-G604S variant drives a severe multihit phenotype via primary IKr loss-of-function and secondary state-dependent gain-of-function in persistent ICa,L. These comprehensive validations demonstrate that the remodeled persistent ICa,L acts as the essential amplifier driving extreme action potential duration prolongation and Ca2+ mishandling.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">在携带 KCNH2-G604S 变异的 2 型长 QT 综合征患者来源 iPSC-CM 中，IKr 功能丧失 72.5% 与持续性 L 型钙电流增益协同作用，使 APD90 延长至 765 ms，并在 50% 的细胞中诱发早期后除极。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">2 型长 QT 综合征由 KCNH2 编码的 Kv11.1 功能丧失所致，但次级内向电流（晚钠电流 INa,L、持续性 L 型钙电流 ICa,L）的功能异常是否参与并放大复极障碍尚不明确。既往研究多聚焦单一离子通道，缺乏患者特异性人源模型结合定量的在体电流证据，也缺乏对不同电流缺陷之间相加或协同作用的机制解析。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">基础机制研究。研究对象为携带 KCNH2-G604S 显性负性错义变异的患者来源诱导多能干细胞分化的心肌细胞（iPSC-CM）及经变异校正的同基因对照细胞；样本量摘要未报告。采用全细胞膜片钳记录 APD90 及 IKr、INa、ICa(L) 电流，Fluo-4 成像定量钙瞬变，并测试硝苯地平、维拉帕米、美西律及 E-4031 的药物反应。此外，用改良 Kernik-Clancy iPSC-CM 模型纳入实验测得的持续性 INa,L 与 ICa,L 比例，模拟单一及联合电流缺陷，并进行钙通量动力学分析。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">G604S 导致 IKr 严重功能丧失（下降 72.5%）。G604S 细胞的 APD90 为 765±58 ms，同基因对照为 368±37 ms（P&lt;0.005），50% 的 G604S 细胞出现早期后除极；硝苯地平、维拉帕米和美西律均可缩短 APD90 并消除早期后除极。与同基因对照相比，G604S 细胞的晚钠电流比例（0.60±0.1% 对 0.26±0.06%，P&lt;0.01）、持续性 ICa,L 比例（2.88±0.55% 对 1.26±0.35%，P&lt;0.05）及钙瞬变衰减时间（P&lt;0.0001）均显著增大；E-4031 可在同基因对照细胞中复制，而硝苯地平可在 G604S 细胞中削弱上述持续性 ICa,L 增大。计算机建模显示，仅 IKr 缺陷使 APD90 延长至 620 ms，叠加 INa,L 缺陷仅有小幅相加效应（+20 ms），而纳入持续性 ICa,L 后 APD90 协同延长至 758 ms，复现实验表型；通量动力学分析提示持续性钙内流抑制钠钙交换体前向模式，迫使细胞代偿性依赖肌浆网 Ca-ATPase，从而诱发钙不稳定。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">KCNH2-G604S 变异通过原发性 IKr 功能丧失与继发性持续性 ICa,L 状态依赖性增益，形成“多打击”电生理表型，重塑的持续性 ICa,L 是驱动 APD 极度延长与钙处理异常的关键放大环节，提示钙通道阻滞剂及晚钠电流抑制剂具有潜在的药理干预价值。局限性包括单一变异、体外 iPSC-CM 模型缺乏组织与神经体液环境、样本量摘要未报告，且尚缺乏与患者临床表型（心律失常事件、QT 间期）的对应验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42861500/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1161/CIRCEP.126.014919" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42861500/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="遗传与基础"
+                         data-journal="Cureus"
+                         data-search="clustered regularly interspaced short palindromic repeats (crispr)-based genome editing in inherited cardiovascular diseases: therapeutic advances, emerging editing platforms, and translational challenges. tosin fakiyesi mmaduabuchi ozioko oluwapelumi d ogunseye olaoluwa adeyemi ibukunoluwa adedoyin adeolu a badejo olorungbami anifalaje abiodun adegbesan oluwakemi olalude rachael tiamiyu almustapha hassan inherited cardiovascular diseases (icvds) are a broad category of hereditary disorders resulting from pathogenic mutations that alter cardiac anatomy, electrical conduction, and metabolic pathways. the main types include hypertrophic cardiomyopathy (hcm), dilated cardiomyopathy (dcm), cardiac channelopathies, and familial hypercholesterolemia (fh) and are associated with heart failure, malignant arrhythmias, and sudden cardiac death, particularly in young people. current treatments, such as pharmacological therapies, implantable cardioverter-defibrillators, and heart transplantation, have significantly improved outcomes; however, these treatments are mainly targeted toward symptom control and the prevention of complications without correcting the underlying genetic defects. recent advancements in genome editing have transformed precision cardiovascular care, with clustered regularly interspaced short palindromic repeats (crispr)-based technologies emerging as potential methods for targeting and modifying disease-causing variants. emerging platforms, such as base editing, prime editing, and epigenome editing, have widened the therapeutic potential of genome engineering by enhancing editing precision and reducing some of the constraints of the traditional crispr-cas9 strategy. in the setting of inherited cardiovascular disorders, promising early results have been obtained in preclinical studies using human induced pluripotent stem cell and animal models, including correction of mybpc3 and myh7 mutations in hcm; targeting of ttn-, rbm20-, and lmna-associated mechanisms in dcm; restoration of ion channel function in inherited arrhythmia syndromes; and modulation of lipid-related genes such as pcsk9, ldlr, and angptl3 in fh. however, major challenges remain, including off-target effects, effective delivery to cardiac tissues, immunological responses, interpretation of genetic variants, and ethical concerns. this review provides a translational, integrated view of the evolution of crispr-based genome editing technologies, their application to icvds, current preclinical and clinical advances, and the challenges that need to be addressed to achieve safe and effective translation into cardiovascular therapeutics. cureus"
+                         id="paper-2">
+
+                    <div class="paper-top">
+                        <div class="paper-index">2</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42861404/" target="_blank" rel="noopener noreferrer">Clustered Regularly Interspaced Short Palindromic Repeats (CRISPR)-Based Genome Editing in Inherited Cardiovascular Diseases: Therapeutic Advances, Emerging Editing Platforms, and Translational Challenges.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Cureus</span><span class="dot">·</span><span class="paper-date">2026-10-12</span><span class="dot">·</span><span class="paper-date">PMID 42861404</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="遗传与基础">遗传与基础</span>
+                                <span class="tag tag-type">Journal Article</span>
+                                <span class="tag tag-type">Review</span>
+                            </div>
+
+                            <p class="paper-authors" title="Tosin Fakiyesi、Mmaduabuchi Ozioko、Oluwapelumi D Ogunseye、Olaoluwa Adeyemi、Ibukunoluwa Adedoyin、Adeolu A Badejo、Olorungbami Anifalaje、Abiodun Adegbesan、Oluwakemi Olalude、Rachael Tiamiyu、Almustapha Hassan">
+                                Tosin Fakiyesi、Mmaduabuchi Ozioko、Oluwapelumi D Ogunseye<span class="authors-more"> 等 11 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">Inherited cardiovascular diseases (ICVDs) are a broad category of hereditary disorders resulting from pathogenic mutations that alter cardiac anatomy, electrical conduction, and metabolic pathways. The main types include hypertrophic cardiomyopathy (HCM), dilated cardiomyopathy (DCM), cardiac channelopathies, and familial hypercholesterolemia (FH) and are associated with heart failure, malignant arrhythmias, and sudden cardiac death, particularly in young people. Current treatments, such as pharmacological therapies, implantable cardioverter-defibrillators, and heart transplantation, have significantly improved outcomes; however, these treatments are mainly targeted toward symptom control and the prevention of complications without correcting the underlying genetic defects. Recent advancements in genome editing have transformed precision cardiovascular care, with clustered regularly interspaced short palindromic repeats (CRISPR)-based technologies emerging as potential methods for targeting and modifying disease-causing variants. Emerging platforms, such as base editing, prime editing, and epigenome editing, have widened the therapeutic potential of genome engineering by enhancing editing precision and reducing some of the constraints of the traditional CRISPR-Cas9 strategy. In the setting of inherited cardiovascular disorders, promising early results have been obtained in preclinical studies using human induced pluripotent stem cell and animal models, including correction of MYBPC3 and MYH7 mutations in HCM; targeting of TTN-, RBM20-, and LMNA-associated mechanisms in DCM; restoration of ion channel function in inherited arrhythmia syndromes; and modulation of lipid-related genes such as PCSK9, LDLR, and ANGPTL3 in FH. However, major challenges remain, including off-target effects, effective delivery to cardiac tissues, immunological responses, interpretation of genetic variants, and ethical concerns. This review provides a translational, integrated view of the evolution of CRISPR-based genome editing technologies, their application to ICVDs, current preclinical and clinical advances, and the challenges that need to be addressed to achieve safe and effective translation into cardiovascular therapeutics.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">本综述系统梳理 CRISPR-Cas9 及碱基编辑、先导编辑、表观基因组编辑在遗传性心血管病中的临床前进展：HCM、DCM、遗传性心律失常与家族性高胆固醇血症（FH）的致病突变都已经在 hiPSC 和动物模型中获得纠正，但心脏递送、脱靶效应与免疫原性仍是临床转化的主要瓶颈。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">遗传性心血管病（ICVD）涵盖肥厚型心肌病（HCM）、扩张型心肌病（DCM）、心脏离子通道病和家族性高胆固醇血症（FH），这些疾病由致病突变改变心肌解剖结构、电传导和代谢通路，可导致心力衰竭、恶性心律失常和年轻人心脏性猝死。现有药物、植入式心律转复除颤器（ICD）和心脏移植虽改善预后，但主要作用是控制症状和预防并发症，无法纠正潜在遗传缺陷，因此亟需能从基因层面干预的手段；同时，快速演进的编辑工具缺乏面向心血管临床的整合性评估。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">本文为叙述性综述（Cureus，亚专业：遗传与基础），整合 CRISPR 基因组编辑技术的发展脉络及其在 ICVD 中的应用。内容覆盖传统 CRISPR-Cas9 与新型碱基编辑（base editing）、先导编辑（prime editing）、表观基因组编辑（epigenome editing）平台，证据来源为人诱导多能干细胞（hiPSC）模型和动物模型的临床前研究，以及现有临床进展。摘要未报告系统检索策略、纳入文献数量、研究对象样本量、预设终点定义及统计方法。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">临床前研究显示：HCM 模型中可纠正 MYBPC3 与 MYH7 突变；DCM 中靶向 TTN、RBM20 和 LMNA 相关机制；遗传性心律失常综合征中可恢复离子通道功能；FH 中可调控 PCSK9、LDLR、ANGPTL3 等脂质相关基因。新型平台相较传统 CRISPR-Cas9 提高了编辑精度并减少部分限制。摘要未报告任何定量效应量、95% 置信区间或 P 值。主要挑战包括脱靶效应、向心脏组织的高效递送、免疫反应、基因变异解读的准确性以及伦理问题。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">CRISPR 及其衍生编辑平台为 ICVD 提供了从“对症”转向“纠因”的潜在路径，碱基编辑与先导编辑在不产生双链断裂的前提下拓展了治疗窗口。但现有证据仍局限于 hiPSC 与动物模型，缺乏人体研究的有效性与安全性终点数据，递送载体、脱靶监测、免疫管理和变异致病性判读是进入临床前必须解决的关键环节。对电生理实践而言，短期内 ICD、心脏再同步治疗（CRT）等器械与药物治疗仍是症状管理与猝死预防的基石，基因编辑尚不构成替代方案；本综述属叙述性总结，未提供原始数据，结论的外推需谨慎。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42861404/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.7759/cureus.116111" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42861404/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="遗传与基础"
+                         data-journal="J Adv Res"
+                         data-search="network toxicology, machine learning, single-cell analysis, and molecular docking reveal 6ppd/6ppd-q-associated atrial fibrillation signatures zhan w zhao j li y ran s lai l wu j zhou s li r cui j xia j introduction atrial fibrillation (af) is the most prevalent sustained arrhythmia worldwide, and environmental factors are increasingly recognized as contributors to its complex pathogenesis. the tire antioxidant n-(1,3-dimethylbutyl)-n&#39;-phenyl-p-phenylenediamine (6ppd) and its oxidation product 6ppd-quinone (6ppd-q) are emerging environmental contaminants with reported cardiotoxicity; however, their molecular relationship with af remains unclear.objectives this study aimed to identify potential molecular targets and pathways that link 6ppd/6ppd-q exposure to af using an integrated network toxicology and machine learning strategy.methods multicohort atrial microarray datasets from patients with af were integrated to identify af-related genes using differential expression analysis, weighted gene coexpression network analysis, and genecards database screening. putative targets of 6ppd/6ppd-q were predicted using multiple in silico databases and intersected with af-related genes. network toxicology, enrichment analysis, machine learning with shap interpretation, single-cell rna sequencing, and molecular docking were utilized to identify and characterize hub genes. key targets were validated using qrt-pcr and western blotting in human cardiac fibroblasts. a mouse exposure model was further used to assess af inducibility, duration, and cardiac gene expression in vivo.results sixteen putative af-associated target genes of 6ppd/6ppd-q were identified. machine learning analysis highlighted four hub genes as key candidate hubs. single-cell rna analysis revealed cell type-specific expression, with enrichment in cardiomyocytes and vascular structural cells. molecular docking predicted favorable binding interactions between 6ppd/6ppd-q and the key target proteins. in vitro exposure to 6ppd or 6ppd-q at the tested concentrations upregulated the mrna and protein levels of all four candidate genes. in vivo exposure significantly increased pacing-induced af inducibility, prolonged af duration, and upregulated the expression of all these genes in cardiac tissues.conclusion these findings suggest that 6ppd and 6ppd-q may contribute to af by targeting specific genes and signaling pathways, with ddr1, bche, htr2b, and kcnj3 identified as core exposure-related hubs. j adv res"
+                         id="paper-3">
+
+                    <div class="paper-top">
+                        <div class="paper-index">3</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42863786/" target="_blank" rel="noopener noreferrer">Network toxicology, machine learning, single-cell analysis, and molecular docking reveal 6PPD/6PPD-Q-associated atrial fibrillation signatures</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">J Adv Res</span><span class="dot">·</span><span class="paper-date">2026-10-12</span><span class="dot">·</span><span class="paper-date">PMID 42863786</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="遗传与基础">遗传与基础</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Zhan W、Zhao J、Li Y、Ran S、Lai L、Wu J、Zhou S、Li R、Cui J、Xia J">
+                                Zhan W、Zhao J、Li Y<span class="authors-more"> 等 10 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">Introduction Atrial fibrillation (AF) is the most prevalent sustained arrhythmia worldwide, and environmental factors are increasingly recognized as contributors to its complex pathogenesis. The tire antioxidant N-(1,3-dimethylbutyl)-N&#39;-phenyl-p-phenylenediamine (6PPD) and its oxidation product 6PPD-quinone (6PPD-Q) are emerging environmental contaminants with reported cardiotoxicity; however, their molecular relationship with AF remains unclear.Objectives This study aimed to identify potential molecular targets and pathways that link 6PPD/6PPD-Q exposure to AF using an integrated network toxicology and machine learning strategy.Methods Multicohort atrial microarray datasets from patients with AF were integrated to identify AF-related genes using differential expression analysis, weighted gene coexpression network analysis, and GeneCards database screening. Putative targets of 6PPD/6PPD-Q were predicted using multiple in silico databases and intersected with AF-related genes. Network toxicology, enrichment analysis, machine learning with SHAP interpretation, single-cell RNA sequencing, and molecular docking were utilized to identify and characterize hub genes. Key targets were validated using qRT-PCR and western blotting in human cardiac fibroblasts. A mouse exposure model was further used to assess AF inducibility, duration, and cardiac gene expression in vivo.Results Sixteen putative AF-associated target genes of 6PPD/6PPD-Q were identified. Machine learning analysis highlighted four hub genes as key candidate hubs. Single-cell RNA analysis revealed cell type-specific expression, with enrichment in cardiomyocytes and vascular structural cells. Molecular docking predicted favorable binding interactions between 6PPD/6PPD-Q and the key target proteins. In vitro exposure to 6PPD or 6PPD-Q at the tested concentrations upregulated the mRNA and protein levels of all four candidate genes. In vivo exposure significantly increased pacing-induced AF inducibility, prolonged AF duration, and upregulated the expression of all these genes in cardiac tissues.Conclusion These findings suggest that 6PPD and 6PPD-Q may contribute to AF by targeting specific genes and signaling pathways, with DDR1, BCHE, HTR2B, and KCNJ3 identified as core exposure-related hubs.</p>
+                            </details>
+
+                            <div class="ai-panel">
+                                <p class="ai-panel-title">AI 中文解读</p>
+                                <div class="ai-section tldr">
+                                    <span class="ai-label tldr">一句话结论</span>
+                                    <p class="ai-text">整合网络毒理学与机器学习等多组学方法，提示轮胎抗氧化剂 6PPD 及其氧化产物 6PPD-Q 可能通过 DDR1、BCHE、HTR2B、KCNJ3 四个核心靶点促进 AF 发生。</p>
+                                </div>
+                                <div class="ai-section motivation">
+                                    <span class="ai-label motivation">研究动机</span>
+                                    <p class="ai-text">AF 是全球最常见的持续性心律失常，环境因素在其复杂发病机制中的作用日益受到重视。6PPD 及其氧化产物 6PPD-Q 是新兴环境污染物，已有报道显示其具有心脏毒性，但其与 AF 的分子关联尚不明确，缺乏系统的靶点与通路证据。</p>
+                                </div>
+                                <div class="ai-section method">
+                                    <span class="ai-label method">方法</span>
+                                    <p class="ai-text">研究为整合性计算与实验验证研究。整合多个 AF 患者心房芯片队列数据集，通过差异表达分析、加权基因共表达网络分析（WGCNA）及 GeneCards 数据库筛选 AF 相关基因；用多个计算机数据库预测 6PPD/6PPD-Q 潜在靶点并与 AF 相关基因取交集；再以网络毒理学、富集分析、机器学习（含 SHAP 解释）、单细胞 RNA 测序和分子对接识别核心基因。在人心肌成纤维细胞中以 qRT-PCR 和 western blotting 验证关键靶点；并用小鼠暴露模型评估起搏诱发的 AF 可诱发性、持续时间及心脏基因表达。摘要未报告样本量与具体统计方法。</p>
+                                </div>
+                                <div class="ai-section result">
+                                    <span class="ai-label result">结果</span>
+                                    <p class="ai-text">共识别 16 个 6PPD/6PPD-Q 潜在 AF 相关靶基因，机器学习筛选出 4 个核心枢纽基因。单细胞 RNA 分析显示细胞类型特异性表达，主要富集于心肌细胞和血管结构细胞；分子对接预测 6PPD/6PPD-Q 与关键靶蛋白具有良好结合。体外暴露于所试浓度的 6PPD 或 6PPD-Q 后，4 个候选基因的 mRNA 与蛋白水平均上调；体内暴露显著提高起搏诱发的 AF 可诱发性、延长 AF 持续时间，并上调心脏组织中上述基因表达。摘要未报告具体效应量、95%CI 与 P 值。</p>
+                                </div>
+                                <div class="ai-section conclusion">
+                                    <span class="ai-label conclusion">结论与意义</span>
+                                    <p class="ai-text">结果提示 6PPD 与 6PPD-Q 可能通过作用于特定基因与信号通路参与 AF 发生，DDR1、BCHE、HTR2B、KCNJ3 被确定为暴露相关的核心枢纽。该发现为环境污染物相关 AF 的机制研究提供了候选靶点，但研究以计算预测与动物/细胞模型为主，缺乏人群流行病学剂量-反应证据，靶点因果关系及临床可干预性仍需进一步验证。</p>
+                                </div>
+                            </div>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42863786/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1016/j.jare.2026.10.032" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42863786/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+            </div>
         </section>
+
+        <div class="filter-empty" id="filterEmpty">
+            <p>没有符合当前筛选条件的论文。</p>
+            <p class="hint">试试点「全部」或清空关键词。</p>
+        </div>
 
 
     </div>
@@ -1164,10 +2387,170 @@ main { padding: 26px 0 60px; }
 
 <footer class="site-footer">
     <div class="wrap">
-        <p>心脏电生理每日论文检索 · 归档视图</p>
-        <p>页面离线自包含，无外部依赖 · 生成于 2026-10-20 09:31</p>
+        <p>心脏电生理每日论文检索 · 数据来源 PubMed / Europe PMC 等公开数据库</p>
+        <p>页面离线自包含，无外部依赖 · 生成于 2026-10-20 09:57</p>
     </div>
 </footer>
+
+<script>
+(function () {
+    "use strict";
+
+    var topicBar = document.getElementById("topicFilters");
+    var journalBar = document.getElementById("journalFilters");
+    var searchBox = document.getElementById("textSearch");
+    var emptyTip = document.getElementById("filterEmpty");
+    var cards = Array.prototype.slice.call(document.querySelectorAll(".paper-card"));
+    var groups = Array.prototype.slice.call(document.querySelectorAll(".topic-group"));
+
+    if (!cards.length) { return; }
+
+    var state = { topic: "all", journal: "all", text: "" };
+
+    function apply() {
+        var needle = state.text.trim().toLowerCase();
+        var visible = 0;
+
+        cards.forEach(function (card) {
+            var okTopic = state.topic === "all" || card.getAttribute("data-topic") === state.topic;
+            var okJournal = state.journal === "all" || card.getAttribute("data-journal") === state.journal;
+            var hay = card.getAttribute("data-search") || "";
+            var okText = !needle || hay.indexOf(needle) !== -1;
+            var show = okTopic && okJournal && okText;
+            card.classList.toggle("hidden", !show);
+            if (show) { visible += 1; }
+        });
+
+        // 组内没有可见卡片时隐藏整组，避免留下空标题
+        groups.forEach(function (group) {
+            var any = group.querySelector(".paper-card:not(.hidden)");
+            group.style.display = any ? "" : "none";
+        });
+
+        if (emptyTip) { emptyTip.classList.toggle("show", visible === 0); }
+    }
+
+    function bind(bar, key, attr) {
+        if (!bar) { return; }
+        bar.addEventListener("click", function (event) {
+            var btn = event.target.closest(".filter-btn");
+            if (!btn || !bar.contains(btn)) { return; }
+            Array.prototype.forEach.call(bar.querySelectorAll(".filter-btn"), function (b) {
+                b.classList.toggle("active", b === btn);
+            });
+            state[key] = btn.getAttribute(attr);
+            apply();
+        });
+    }
+
+    bind(topicBar, "topic", "data-filter-topic");
+    bind(journalBar, "journal", "data-filter-journal");
+
+    if (searchBox) {
+        searchBox.addEventListener("input", function () {
+            state.text = searchBox.value || "";
+            apply();
+        });
+    }
+
+    // 期刊过多时默认折叠，只显示前 8 个 + 一个展开按钮
+    var moreBtn = document.getElementById("moreJournals");
+    if (moreBtn) {
+        var extras = document.querySelectorAll(".extra-journal");
+        Array.prototype.forEach.call(extras, function (b) { b.style.display = "none"; });
+        moreBtn.addEventListener("click", function () {
+            var open = moreBtn.getAttribute("data-open") === "1";
+            Array.prototype.forEach.call(extras, function (b) {
+                b.style.display = open ? "none" : "";
+            });
+            moreBtn.setAttribute("data-open", open ? "0" : "1");
+            moreBtn.textContent = open
+                ? "展开全部 " + extras.length + " 个期刊 ▾"
+                : "收起期刊列表 ▴";
+        });
+    }
+
+    // 键盘 /：直接聚焦搜索框
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "/" && document.activeElement !== searchBox) {
+            event.preventDefault();
+            if (searchBox) { searchBox.focus(); }
+        }
+    });
+})();
+
+/* 主题切换：跟随系统 → 手动选择 → 再点回到跟随系统。
+   三态循环，按钮 title 显示当前状态，localStorage 记忆手动选择。 */
+(function () {
+    var btn = document.getElementById("themeToggle");
+    if (!btn) { return; }
+    var root = document.documentElement;
+    var mql = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+
+    function current() {
+        var manual = root.getAttribute("data-theme");
+        if (manual === "dark" || manual === "light") { return manual; }
+        return (mql && mql.matches) ? "dark" : "light";
+    }
+    function label() {
+        var manual = root.getAttribute("data-theme");
+        var suffix = manual ? "" : "（跟随系统）";
+        btn.textContent = (current() === "dark" ? "☀️ 浅色" : "🌙 深色") + suffix;
+        btn.title = "当前：" + (current() === "dark" ? "深色" : "浅色") + suffix + "，点击切换";
+    }
+    btn.addEventListener("click", function () {
+        var next = current() === "dark" ? "light" : "dark";
+        root.setAttribute("data-theme", next);
+        try { localStorage.setItem("ep-digest-theme", next); } catch (e) {}
+        label();
+    });
+    if (mql && mql.addEventListener) {
+        mql.addEventListener("change", function () {
+            if (!root.getAttribute("data-theme")) { label(); }
+        });
+    }
+    label();
+})();
+
+/* 日期选择器：点开显示按月份分组的日期网格，点外部/Esc 关闭。
+   纯前端、不联网；每个日期都是指向 archive/<date>.html 的普通链接，
+   所以即使 JS 失效也仍然可用（只是不会弹出面板）。 */
+(function () {
+    var toggle = document.getElementById("dateToggle");
+    var panel = document.getElementById("datePanel");
+    if (!toggle || !panel) { return; }
+
+    function open() {
+        panel.hidden = false;
+        toggle.setAttribute("aria-expanded", "true");
+        var cur = panel.querySelector(".date-cell.current");
+        if (cur && cur.scrollIntoView) {
+            cur.scrollIntoView({ block: "nearest" });
+        }
+    }
+    function close() {
+        panel.hidden = true;
+        toggle.setAttribute("aria-expanded", "false");
+    }
+    function isOpen() { return !panel.hidden; }
+
+    toggle.addEventListener("click", function (event) {
+        event.stopPropagation();
+        if (isOpen()) { close(); } else { open(); }
+    });
+
+    panel.addEventListener("click", function (event) { event.stopPropagation(); });
+
+    document.addEventListener("click", function () { if (isOpen()) { close(); } });
+
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && isOpen()) {
+            close();
+            toggle.focus();
+        }
+    });
+})();
+</script>
 
 </body>
 </html>
