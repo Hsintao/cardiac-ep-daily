@@ -417,7 +417,25 @@ def build_config(env: Optional[dict] = None) -> Dict:
     return runtime.resolve_config(env)
 
 
+def _load_dotenv_if_present() -> None:
+    """加载项目根的 ``.env``（若存在）。
+
+    本地开发时把 Key 放 .env 就不用每次 export；该文件已被 .gitignore 忽略，
+    不会进仓库。云端用 GitHub Secrets，环境变量已就绪，这里读不到文件也无害。
+    ``override=False``：环境变量优先于 .env，避免覆盖 CI 注入的凭据。
+    """
+    try:
+        from dotenv import load_dotenv
+    except ImportError:  # python-dotenv 是可选依赖
+        return
+    for candidate in (Path.cwd() / ".env", Path(__file__).resolve().parent.parent / ".env"):
+        if candidate.exists():
+            load_dotenv(candidate, override=False)
+            return
+
+
 def main(argv: Optional[List[str]] = None) -> int:
+    _load_dotenv_if_present()
     args = parse_args(argv)
     data_path = Path(args.data)
 
