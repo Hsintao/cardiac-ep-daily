@@ -1,7 +1,9 @@
 {#
-  主页面模板：每日心脏电生理论文日报
+  日报模板：**主页面与归档页共用**（历史日期与当天界面完全一致）
   - 自包含：样式内联，脚本内联，无任何外链/CDN
   - 所有文本走 Jinja2 autoescape（环境已开启），URL 走 safe_url 过滤
+  - ``depth``：页面所在层级相对站点根的深度。主页面 0，archive/ 下的页为 1，
+    用于拼出正确的相对链接前缀（``prefix``）。
 #}<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -27,6 +29,7 @@
 </style>
 </head>
 <body>
+{% set prefix = "../" * (depth | default(0)) %}
 
 <header class="site-header">
     <div class="wrap">
@@ -40,33 +43,49 @@
             {% if no_abstract_count %}<span class="chip">📝 无摘要 <strong>{{ no_abstract_count }}</strong></span>{% endif %}
         </div>
         <nav class="header-nav">
-            {% if archive_name %}<a href="archive/{{ archive_name }}">本篇归档页</a>{% endif %}
+            {% if archive_name %}<a href="{{ prefix }}archive/{{ archive_name }}">本篇归档页</a>{% endif %}
+            {% if depth %}<a href="{{ prefix }}index.html">最新一期</a>{% endif %}
             <a href="#top">回到顶部</a>
             <button type="button" class="theme-toggle" id="themeToggle"
                     aria-label="切换深色/浅色模式" title="切换深色/浅色模式">🌗 主题</button>
         </nav>
 
-        {# 往期导航：页面是纯静态的，历史内容靠这里进入。
-           没有这一块，用户只能看到当天，找不到之前任何一天的日报。 #}
+        {# 日期选择：页面是纯静态的，历史内容靠这里进入。
+           31 天平铺会占掉两行、越积越多，所以做成下拉选择器：
+           点开是一个按月份分组的日期列表，当前日期高亮。 #}
         {% if archives %}
-        <nav class="archive-nav" aria-label="往期日报">
-            <span class="archive-nav-label">往期（{{ archives | length }} 天）</span>
-            <div class="archive-nav-days">
-                {% for day in archives[:7] %}
-                <a href="archive/{{ day }}.html"{% if day == date %} class="current" aria-current="page"{% endif %}>{{ day }}</a>
-                {% endfor %}
+        <div class="date-bar">
+            <label class="date-bar-label" for="dateToggle">日期</label>
+            <div class="date-select" id="dateSelect">
+                <button type="button" class="date-toggle" id="dateToggle"
+                        aria-haspopup="listbox" aria-expanded="false"
+                        aria-controls="datePanel">
+                    <span class="date-toggle-text">{% if date %}{{ date }}{% else %}最新{% endif %}</span>
+                    <span class="date-toggle-caret" aria-hidden="true">▾</span>
+                </button>
+                <div class="date-panel" id="datePanel" role="listbox" hidden>
+                    <div class="date-panel-head">
+                        <span>共 {{ archives | length }} 天</span>
+                        {% if depth %}<a class="date-panel-latest" href="{{ prefix }}index.html">跳到最新一期 →</a>{% endif %}
+                    </div>
+                    <div class="date-panel-body">
+                        {% for group in date_groups %}
+                        <div class="date-month">
+                            <div class="date-month-label">{{ group.label }}</div>
+                            <div class="date-month-days">
+                                {% for day in group.days %}
+                                <a href="{{ prefix }}archive/{{ day }}.html"
+                                   class="date-cell{% if day == date %} current{% endif %}"
+                                   role="option" aria-selected="{{ 'true' if day == date else 'false' }}">{{ day[8:10] }}</a>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
-            {% if archives | length > 7 %}
-            <button type="button" class="archive-more" id="archiveMore" aria-expanded="false">全部 {{ archives | length }} 天 ▾</button>
-            {% endif %}
-            {% if archives | length > 7 %}
-            <div class="archive-nav-all" id="archiveAll" hidden>
-                {% for day in archives %}
-                <a href="archive/{{ day }}.html"{% if day == date %} class="current"{% endif %}>{{ day }}</a>
-                {% endfor %}
-            </div>
-            {% endif %}
-        </nav>
+            <span class="date-bar-hint">共 {{ archives | length }} 天归档</span>
+        </div>
         {% endif %}
     </div>
 </header>
@@ -109,11 +128,20 @@
     {% if total == 0 %}
         <div class="empty-state">
             <div class="icon">🗂️</div>
+            {# 归档页复用本模板，措辞要区分「今天」与「该日期」，否则历史页会说成今天 #}
+            {% if depth %}
+            <h2>该日期没有论文</h2>
+            <p>
+                {{ date }} 这一天没有匹配到论文。可能当天 PubMed 入库（edat）中确实没有命中
+                白名单期刊与主题词的文章 —— 周末与节假日尤其常见。
+            </p>
+            {% else %}
             <h2>今天没有匹配到论文</h2>
             <p>
                 检索可能还没有运行，或者当日 PubMed 入库（edat）中确实没有命中白名单期刊与主题词的文章。
                 这属于正常情况 —— 周末与节假日尤其常见，明天会自动重试。
             </p>
+            {% endif %}
             <p class="hint">
                 手动重跑：<code>python -m daily_ep.pipeline</code> &nbsp;·&nbsp;
                 如果期望有数据，请检查 <code>config.yaml</code> 的期刊白名单与主题词。
@@ -351,19 +379,42 @@
     label();
 })();
 
-/* 往期导航：默认只显示最近 7 天，点「全部 N 天」展开完整列表。
-   用容器 class 控制显隐 —— 直接设 element.hidden 会被 display:flex 覆盖。 */
+/* 日期选择器：点开显示按月份分组的日期网格，点外部/Esc 关闭。
+   纯前端、不联网；每个日期都是指向 archive/<date>.html 的普通链接，
+   所以即使 JS 失效也仍然可用（只是不会弹出面板）。 */
 (function () {
-    var btn = document.getElementById("archiveMore");
-    var all = document.getElementById("archiveAll");
-    var nav = btn && btn.closest(".archive-nav");
-    if (!btn || !all || !nav) { return; }
-    btn.addEventListener("click", function () {
-        var expanded = nav.classList.toggle("expanded");
-        all.hidden = !expanded;
-        btn.setAttribute("aria-expanded", expanded ? "true" : "false");
-        var n = all.querySelectorAll("a").length;
-        btn.textContent = expanded ? "收起 ▴" : ("全部 " + n + " 天 ▾");
+    var toggle = document.getElementById("dateToggle");
+    var panel = document.getElementById("datePanel");
+    if (!toggle || !panel) { return; }
+
+    function open() {
+        panel.hidden = false;
+        toggle.setAttribute("aria-expanded", "true");
+        var cur = panel.querySelector(".date-cell.current");
+        if (cur && cur.scrollIntoView) {
+            cur.scrollIntoView({ block: "nearest" });
+        }
+    }
+    function close() {
+        panel.hidden = true;
+        toggle.setAttribute("aria-expanded", "false");
+    }
+    function isOpen() { return !panel.hidden; }
+
+    toggle.addEventListener("click", function (event) {
+        event.stopPropagation();
+        if (isOpen()) { close(); } else { open(); }
+    });
+
+    panel.addEventListener("click", function (event) { event.stopPropagation(); });
+
+    document.addEventListener("click", function () { if (isOpen()) { close(); } });
+
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && isOpen()) {
+            close();
+            toggle.focus();
+        }
     });
 })();
 </script>

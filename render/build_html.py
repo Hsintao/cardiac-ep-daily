@@ -235,6 +235,30 @@ def discover_archives(archive_dir: os.PathLike | str, *, exclude: str = "") -> L
     return sorted(set(days), reverse=True)
 
 
+_MONTH_LABELS = {m: f"{m} 月" for m in range(1, 13)}
+
+
+def group_archives_by_month(days: Sequence[str]) -> List[Dict[str, Any]]:
+    """把日期列表按月份分组，供日期选择器渲染。
+
+    输入需已按时间倒序排列；输出保持该顺序（最新的月份在前），
+    月份内的日期也保持倒序。形如::
+
+        [{"label": "2026 年 10 月", "days": ["2026-10-20", ...]}, ...]
+    """
+    groups: List[Dict[str, Any]] = []
+    for day in days:
+        if len(day) < 7:
+            continue
+        year, month = day[:4], day[5:7]
+        label = f"{year} 年 {int(month)} 月"
+        if groups and groups[-1]["label"] == label:
+            groups[-1]["days"].append(day)
+        else:
+            groups.append({"label": label, "days": [day]})
+    return groups
+
+
 def build_context(
     raw_items: Iterable[Dict[str, Any]],
     *,
@@ -254,6 +278,7 @@ def build_context(
         "date": day,
         "archive_name": f"{day}.html" if day else "",
         "archives": list(archives or []),
+        "date_groups": group_archives_by_month(list(archives or [])),
         "generated_at": generated_at.strftime(_TIME_FMT),
         "year": generated_at.year,
         "total": len(papers),
@@ -340,15 +365,25 @@ def read_style() -> str:
 def render_index(context: Dict[str, Any], *, style: Optional[str] = None) -> str:
     """渲染主页面 HTML 字符串。"""
     template = _env().get_template("index.html.j2")
-    return template.render(style=style if style is not None else read_style(), **context)
+    return template.render(
+        style=style if style is not None else read_style(),
+        depth=0,  # 主页面在站点根目录
+        **context,
+    )
 
 
 def render_archive(context: Dict[str, Any], *, style: Optional[str] = None) -> str:
-    """渲染归档页 HTML 字符串。"""
-    template = _env().get_template("archive.html.j2")
+    """渲染归档页 HTML 字符串。
+
+    **刻意复用 index.html.j2 而不是单独一套模板**：历史日期必须与当天
+    界面完全一致（分组、筛选、检索、AI 解读面板、深浅色切换）。早期版本
+    用独立的紧凑列表模板，导致点「往期」后界面骤变成另一种样子 ——
+    读者会以为进了另一个站点。
+    """
+    template = _env().get_template("index.html.j2")
     return template.render(
         style=style if style is not None else read_style(),
-        depth=1,  # 归档页在 archive/ 下一级，回主页要 ../
+        depth=1,  # 归档页在 archive/ 下一级，所有站内链接需要 ../ 前缀
         **context,
     )
 
