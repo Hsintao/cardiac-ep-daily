@@ -841,6 +841,71 @@ main { padding: 26px 0 60px; }
 /* 作者折叠提示：弱化处理，避免与正文争视觉权重 */
 .authors-more { color: var(--text-tertiary); }
 
+/* ---------------------------------------------------------------- 往期导航 */
+
+.archive-nav {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--header-border);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    font-size: 13px;
+}
+
+.archive-nav-label {
+    color: var(--text-tertiary);
+    white-space: nowrap;
+}
+
+.archive-nav-days,
+.archive-nav-all {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.archive-nav a {
+    color: var(--header-accent);
+    background: var(--surface);
+    border: 1px solid var(--header-border);
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-variant-numeric: tabular-nums;
+    transition: background .15s, border-color .15s;
+}
+.archive-nav a:hover { background: var(--brand-soft); text-decoration: none; }
+.archive-nav a.current {
+    background: var(--brand);
+    border-color: var(--brand);
+    color: var(--surface);
+    font-weight: 600;
+}
+
+.archive-more {
+    font: inherit;
+    font-size: 13px;
+    color: var(--header-accent);
+    background: transparent;
+    border: 1px dashed var(--header-border);
+    border-radius: 999px;
+    padding: 2px 10px;
+    cursor: pointer;
+}
+.archive-more:hover { background: var(--brand-soft); }
+
+.archive-nav-all {
+    flex-basis: 100%;
+    margin-top: 4px;
+}
+
+/* hidden 必须显式压到 display:none —— 作者样式里的 display:flex 会覆盖
+   [hidden] 自带的 display:none，导致「收起」状态其实没藏住。 */
+.archive-nav-all[hidden] { display: none; }
+/* 展开时用 class 切换，比 hidden 属性更稳（display:flex 会覆盖 [hidden]） */
+.archive-nav.expanded .archive-nav-days { display: none; }
+
 /* 归档页专属微调 */
 .archive-list .a-authors {
     flex: 0 0 auto;
@@ -861,9 +926,9 @@ main { padding: 26px 0 60px; }
         <h1>心脏电生理日报 · 归档</h1>
         <p class="subtitle">2026-10-15 全部论文清单</p>
         <div class="header-meta">
-<span class="chip">📅 <strong>2026-10-15</strong></span>            <span class="chip">🕒 生成时间 <strong>2026-10-20 01:03</strong></span>
+<span class="chip">📅 <strong>2026-10-15</strong></span>            <span class="chip">🕒 生成时间 <strong>2026-10-20 09:31</strong></span>
             <span class="chip">📄 论文总数 <strong>28</strong></span>
-            <span class="chip">🤖 含 AI 解读 <strong>0</strong></span>
+            <span class="chip">🤖 含 AI 解读 <strong>25</strong></span>
         </div>
         <nav class="header-nav">
             <a href="../index.html">← 返回主页</a>
@@ -1209,7 +1274,7 @@ main { padding: 26px 0 60px; }
 <footer class="site-footer">
     <div class="wrap">
         <p>心脏电生理每日论文检索 · 归档视图</p>
-        <p>页面离线自包含，无外部依赖 · 生成于 2026-10-20 01:03</p>
+        <p>页面离线自包含，无外部依赖 · 生成于 2026-10-20 09:31</p>
     </div>
 </footer>
 

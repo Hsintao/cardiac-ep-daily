@@ -841,6 +841,71 @@ main { padding: 26px 0 60px; }
 /* 作者折叠提示：弱化处理，避免与正文争视觉权重 */
 .authors-more { color: var(--text-tertiary); }
 
+/* ---------------------------------------------------------------- 往期导航 */
+
+.archive-nav {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--header-border);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    font-size: 13px;
+}
+
+.archive-nav-label {
+    color: var(--text-tertiary);
+    white-space: nowrap;
+}
+
+.archive-nav-days,
+.archive-nav-all {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.archive-nav a {
+    color: var(--header-accent);
+    background: var(--surface);
+    border: 1px solid var(--header-border);
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-variant-numeric: tabular-nums;
+    transition: background .15s, border-color .15s;
+}
+.archive-nav a:hover { background: var(--brand-soft); text-decoration: none; }
+.archive-nav a.current {
+    background: var(--brand);
+    border-color: var(--brand);
+    color: var(--surface);
+    font-weight: 600;
+}
+
+.archive-more {
+    font: inherit;
+    font-size: 13px;
+    color: var(--header-accent);
+    background: transparent;
+    border: 1px dashed var(--header-border);
+    border-radius: 999px;
+    padding: 2px 10px;
+    cursor: pointer;
+}
+.archive-more:hover { background: var(--brand-soft); }
+
+.archive-nav-all {
+    flex-basis: 100%;
+    margin-top: 4px;
+}
+
+/* hidden 必须显式压到 display:none —— 作者样式里的 display:flex 会覆盖
+   [hidden] 自带的 display:none，导致「收起」状态其实没藏住。 */
+.archive-nav-all[hidden] { display: none; }
+/* 展开时用 class 切换，比 hidden 属性更稳（display:flex 会覆盖 [hidden]） */
+.archive-nav.expanded .archive-nav-days { display: none; }
+
 /* 归档页专属微调 */
 .archive-list .a-authors {
     flex: 0 0 auto;
@@ -861,9 +926,9 @@ main { padding: 26px 0 60px; }
         <h1>心脏电生理日报 · 归档</h1>
         <p class="subtitle">2026-10-19 全部论文清单</p>
         <div class="header-meta">
-<span class="chip">📅 <strong>2026-10-19</strong></span>            <span class="chip">🕒 生成时间 <strong>2026-10-20 01:03</strong></span>
-            <span class="chip">📄 论文总数 <strong>20</strong></span>
-            <span class="chip">🤖 含 AI 解读 <strong>0</strong></span>
+<span class="chip">📅 <strong>2026-10-19</strong></span>            <span class="chip">🕒 生成时间 <strong>2026-10-20 09:31</strong></span>
+            <span class="chip">📄 论文总数 <strong>8</strong></span>
+            <span class="chip">🤖 含 AI 解读 <strong>6</strong></span>
         </div>
         <nav class="header-nav">
             <a href="../index.html">← 返回主页</a>
@@ -880,7 +945,7 @@ main { padding: 26px 0 60px; }
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>房颤与消融</span>
-                <span class="topic-count">7 篇</span>
+                <span class="topic-count">4 篇</span>
             </h2>
             <ul class="archive-list">
                 <li>
@@ -923,43 +988,13 @@ main { padding: 26px 0 60px; }
                     <span class="a-actions">
                         <a href="https://pubmed.ncbi.nlm.nih.gov/42894221/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1186/s13019-026-04550-7" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42894221/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
                 </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42895371/" target="_blank" rel="noopener noreferrer">Collapse and Thrombosis of an Iliac Branch Endovascular Device Following Blunt Force Trauma.</a>
-                    </span>
-                    <span class="a-authors">Autumn Stevens、Peter Henke、Frank Davis、Jeri Stevens、Nicholas Osborne</span>
-                    <span class="a-journal">Vasc Endovascular Surg</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42895371/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1177/15385744261501094" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42895371/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42893186/" target="_blank" rel="noopener noreferrer">Heart failure and atrial fibrillation prediction from non-gated chest CT scans using AI-based cardiac chamber volumetry: an AI-CVD study within the multi-ethnic study of atherosclerosis (MESA).</a>
-                    </span>
-                    <span class="a-authors">Seyed Reza Mirjalili、Kyle Atlas、Anthony P Reeves、Chenyu Zhang、Jakob Wasserthal、Amir Azimi、Ali Hashemi、Mohammadhossein Mozafarybazargany、Amir Ghaffari Jolfayi、Thomas Atlas、Claudia I Henschke、David F Yankelevitz、Javier J Zulueta、Wenjun Fan、Jeffrey I Mechanick、Andrea D Branch、Khurram Nasir、Zahi Fayad、Michael V McConnell、Jamal S Rana、Rozemarijn Vliegenthart、David J Maron、Jagat Narula、Matthew J Budoff、Roxana Mehran、Kim A Williams、Prediman K Shah、Oren Mechanic、Arthur S Agatston、Robert A Kloner、Nathan D Wong、Morteza Naghavi</span>
-                    <span class="a-journal">Am J Prev Cardiol</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42893186/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.ajpc.2026.101732" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42893186/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="房颤与消融">房颤与消融</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42892471/" target="_blank" rel="noopener noreferrer">GLP-1 receptor agonist therapy and incident atrial fibrillation in non-diabetic adults with obesity and chronic kidney disease: a propensity matched cohort study.</a>
-                    </span>
-                    <span class="a-authors">Abdulraheem Hassan、Efeturi Okorigba、Chilaka Grace、Emmanuel Otabor、Busayo Osineye、Olalekan Olayiwola、Tutuola Oyeleye、Parthiv Amin</span>
-                    <span class="a-journal">Int J Cardiol</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42892471/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.ijcard.2026.135000" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42892471/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
             </ul>
         </section>
         <section class="topic-group">
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>室性心律失常</span>
-                <span class="topic-count">5 篇</span>
+                <span class="topic-count">2 篇</span>
             </h2>
             <ul class="archive-list">
                 <li>
@@ -982,72 +1017,13 @@ main { padding: 26px 0 60px; }
                     <span class="a-actions">
                         <a href="https://pubmed.ncbi.nlm.nih.gov/42894649/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.phro.2026.101096" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42894649/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
                 </li>
-                <li>
-                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42892855/" target="_blank" rel="noopener noreferrer">Recurrent Supraventricular Tachycardia Triggered by Tea Consumption in a Postoperative Adolescent Female: A Case Report.</a>
-                    </span>
-                    <span class="a-authors">Mukti Nath Sankhi、Raj Kumar Thapa、Pramila Dhakal、Nirmal Shrestha、Nabin Adhikari、Rajiv Sitaula、Santosh Kumar Singh</span>
-                    <span class="a-journal">Clin Case Rep</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42892855/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1002/ccr3.73741" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42892855/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42893002/" target="_blank" rel="noopener noreferrer">Stellate ganglion block for ventricular arrhythmia disease states: Emerging treatment options.</a>
-                    </span>
-                    <span class="a-authors">Ahmed I Anwar、Fatima Iqbal、Walid K Mohammed、Alexander S Harris、Emily A Francis、Aishwarya Reddy、Henry Liu、Alan D Kaye</span>
-                    <span class="a-journal">J Anesth Transl Med</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42893002/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.jatmed.2026.09.001" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42893002/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="室性心律失常">室性心律失常</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42892593/" target="_blank" rel="noopener noreferrer">Rapid Progression of Cardiac Allograft Vasculopathy With Sudden Cardiac Death Within the First Year of Heart Transplantation: A Case Report.</a>
-                    </span>
-                    <span class="a-authors">Malcom Dix、Jean-Pierre Iskandar、Lefan He、Mohaned S Serdah、Aditya A Joshi、Anuradha Godishala、Abhishek Chaturvedi、Katherine Kaproth-Joslin、David A Dombroski、YeeAnn Chen、Wendy A Cheruiyot、Ronald Chong-Yik、Ronald G Schwartz、Jeffrey Alexis、Igor Gosev、Katherine L Wood、Sabu Thomas</span>
-                    <span class="a-journal">Transplant Proc</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42892593/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.transproceed.2026.09.019" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42892593/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-            </ul>
-        </section>
-        <section class="topic-group">
-            <h2 class="topic-heading">
-                <span class="bar"></span>
-                <span>影像与标测</span>
-                <span class="topic-count">2 篇</span>
-            </h2>
-            <ul class="archive-list">
-                <li>
-                    <span class="topic-pill" data-topic="影像与标测">影像与标测</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42893154/" target="_blank" rel="noopener noreferrer">External validation of artificial intelligence-guided electrocardiogram (AI-ECG) in detecting asymptomatic left ventricular dysfunction: A systematic review and meta-analysis.</a>
-                    </span>
-                    <span class="a-authors">Jacky Chen、Thomas H Marwick、Cheng Hwee Soh</span>
-                    <span class="a-journal">Am J Prev Cardiol</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42893154/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.ajpc.2026.101691" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42893154/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="影像与标测">影像与标测</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42892953/" target="_blank" rel="noopener noreferrer">Comparison of AI-enabled cardiac chambers volumetry based on non-gated chest CT scans with echocardiography: An AI-CVD study within the Multi-Ethnic Study of Atherosclerosis (MESA).</a>
-                    </span>
-                    <span class="a-authors">Seyed Reza Mirjalili、Kyle Atlas、Anthony P Reeves、Chenyu Zhang、Jakob Wasserthal、Amir Azimi、Ali Hashemi、Mohammadhossein Mozafarybazargany、Amir Ghaffari Jolfayi、Thomas Atlas、Claudia I Henschke、David F Yankelevitz、Javier J Zulueta、Wenjun Fan、Jeffrey I Mechanick、Andrea D Branch、Khurram Nasir、Zahi Fayad、Michael V McConnell、Jamal S Rana、Rozemarijn Vliegenthart、David J Maron、Jagat Narula、Matthew J Budoff、Roxana Mehran、Kim A Williams、Prediman K Shah、Oren Mechanic、Arthur S Agatston、Robert A Kloner、Nathan D Wong、Morteza Naghavi</span>
-                    <span class="a-journal">Am J Prev Cardiol</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42892953/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.ajpc.2026.101731" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42892953/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
             </ul>
         </section>
         <section class="topic-group">
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>遗传与基础</span>
-                <span class="topic-count">5 篇</span>
+                <span class="topic-count">1 篇</span>
             </h2>
             <ul class="archive-list">
                 <li>
@@ -1059,46 +1035,6 @@ main { padding: 26px 0 60px; }
                     <span class="a-journal">Cureus</span>
                     <span class="a-actions">
                         <a href="https://pubmed.ncbi.nlm.nih.gov/42894783/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.7759/cureus.116494" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42894783/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="遗传与基础">遗传与基础</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42891777/" target="_blank" rel="noopener noreferrer">Structured postmortem genetic counselling and testing in sudden unexplained death among young adults in the Netherlands: results and implications regarding hereditary risk.</a>
-                    </span>
-                    <span class="a-authors">Tess M Wemeijer、Leonie A Verbaan、Wilma L J M Duijst、Yvonne M Hoedemaekers、Imke Christiaans</span>
-                    <span class="a-journal">J Community Genet</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42891777/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1007/s12687-026-00946-z" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42891777/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="遗传与基础">遗传与基础</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42893480/" target="_blank" rel="noopener noreferrer">Optogenetic cardioversion: To depolarize or to hyperpolarize?</a>
-                    </span>
-                    <span class="a-authors">Emilia Entcheva、Matthew W Kay</span>
-                    <span class="a-journal">J Physiol</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42893480/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1113/JP292377" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42893480/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="遗传与基础">遗传与基础</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42892728/" target="_blank" rel="noopener noreferrer">Channelrhodopsin ion selectivity determines mechanisms and efficacy of optogenetic defibrillation in human atria and ventricles.</a>
-                    </span>
-                    <span class="a-authors">Sophia Ohnemus、Albert Dasí、Ahmed F Ramadan、Joachim Greiner、Eike M Wülfers、Matthew R Stoyek、Linda Tillert、Johannes Vierock、T Alexander Quinn、Peter Kohl、Patrick M Boyle、Viviane Timmermann、Franziska Schneider-Warme</span>
-                    <span class="a-journal">J Physiol</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42892728/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1113/JP291707" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42892728/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
-                </li>
-                <li>
-                    <span class="topic-pill" data-topic="遗传与基础">遗传与基础</span>
-                    <span class="a-title">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42891680/" target="_blank" rel="noopener noreferrer">Pathogenic Variants in NKX2-5 Associated With Familial Atrial Septal Defect and Conduction System Disease.</a>
-                    </span>
-                    <span class="a-authors">Varun Srivatsav、Andrea Guerin、Hoshiar Abdollah、Stephen L Archer</span>
-                    <span class="a-journal">JACC Case Rep</span>
-                    <span class="a-actions">
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/42891680/" target="_blank" rel="noopener noreferrer">PubMed</a> ·                         <a href="https://doi.org/10.1016/j.jaccas.2026.110619" target="_blank" rel="noopener noreferrer">DOI</a> ·                         <a href="https://pubmed.ncbi.nlm.nih.gov/42891680/" target="_blank" rel="noopener noreferrer">原文</a>                    </span>
                 </li>
             </ul>
         </section>
@@ -1129,7 +1065,7 @@ main { padding: 26px 0 60px; }
 <footer class="site-footer">
     <div class="wrap">
         <p>心脏电生理每日论文检索 · 归档视图</p>
-        <p>页面离线自包含，无外部依赖 · 生成于 2026-10-20 01:03</p>
+        <p>页面离线自包含，无外部依赖 · 生成于 2026-10-20 09:31</p>
     </div>
 </footer>
 
