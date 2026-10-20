@@ -189,6 +189,94 @@ class TestFrontendEscaping:
 
 
 # ---------------------------------------------------------------------------
+# 摘要折叠块：英文摘要 + 中文摘要（AI 翻译）
+# ---------------------------------------------------------------------------
+
+@_jscore
+class TestFrontendAbstracts:
+    """用 node 执行 app.js 里的 renderAbstracts，验证折叠/转义行为。
+
+    摘要区被注释标记切成独立小节，可以直接在 node 里执行；
+    这样测的是真实前端代码，而不是在 Python 里重复一份渲染逻辑。
+    """
+
+    @staticmethod
+    def _render(paper: dict) -> str:
+        src = (BASE_DIR / "assets" / "app.js").read_text(encoding="utf-8")
+        tools = src.split(
+            "/* ---------------------------------------------------------------- 工具 */"
+        )[1]
+        tools = tools.split(
+            "/* ---------------------------------------------------------- 数据加载 */"
+        )[0]
+        abstracts = src.split(
+            "/* ---------------------------------------------------------- 摘要区 */"
+        )[1]
+        abstracts = abstracts.split(
+            "/* ---------------------------------------------------------- AI 解读 */"
+        )[0]
+        code = tools + abstracts + (
+            "\nprocess.stdout.write(renderAbstracts("
+            + json.dumps(paper, ensure_ascii=False)
+            + "));"
+        )
+        result = subprocess.run(
+            [NODE, "-e", code], capture_output=True, text=True, timeout=30
+        )
+        assert result.returncode == 0, result.stderr
+        return result.stdout
+
+    def test_english_and_chinese_abstracts_both_collapsed(self):
+        html = self._render(
+            {
+                "title": "T",
+                "summary": "Background: PFA is novel.",
+                "summary_zh": "背景：脉冲场消融是新技术。",
+            }
+        )
+        assert html.count("<details") == 2
+        assert "英文摘要" in html
+        assert "中文摘要" in html
+        # 两个折叠块默认都必须是收起的
+        assert "<details open" not in html
+        assert "Background: PFA is novel." in html
+        assert "背景：脉冲场消融是新技术。" in html
+
+    def test_chinese_abstract_is_escaped(self):
+        html = self._render(
+            {
+                "summary": "English abstract.",
+                "summary_zh": '<img src=x onerror=alert(1)>中文摘要内容。',
+            }
+        )
+        assert "<img" not in html
+        assert "&lt;img" in html
+
+    def test_chinese_block_omitted_without_translation(self):
+        """老数据 / 翻译失败时不能渲染空的中文摘要块。"""
+        html = self._render({"summary": "English abstract."})
+        assert html.count("<details") == 1
+        assert "中文摘要" not in html
+
+    def test_no_abstract_renders_message_only(self):
+        html = self._render({"no_abstract": True, "summary": ""})
+        assert "暂无摘要" in html
+        assert "<details" not in html
+
+
+class TestNormalizePaper:
+    def test_summary_zh_passthrough(self):
+        normalized = build_html.normalize_paper(
+            make_paper(summary_zh="  背景：……。  ")
+        )
+        assert normalized["summary_zh"] == "背景：……。"
+        assert normalized["summary"]  # 英文摘要不受影响
+
+    def test_missing_summary_zh_is_empty_string(self):
+        assert build_html.normalize_paper(make_paper())["summary_zh"] == ""
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 

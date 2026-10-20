@@ -140,6 +140,30 @@
         el.journalFilters.innerHTML = html;
     }
 
+    /* ---------------------------------------------------------- 摘要区 */
+
+    /* 英文摘要与中文摘要（AI 翻译）都是 <details>，默认折叠。
+       中文摘要只在数据里有 summary_zh 时渲染 —— 老数据或翻译失败的条目
+       自然少一个折叠块，不会出现空壳。它排在英文摘要下面，位置固定，
+       不与 AI 解读区抢视觉权重。 */
+    function renderAbstracts(paper) {
+        if (paper.no_abstract || !(paper.summary || "").trim()) {
+            return '<p class="abstract-none">暂无摘要（该文献可能为社论、评论或通信类文章）</p>';
+        }
+        var html = '<details class="abstract-block"><summary>英文摘要</summary><p>' +
+            escapeHtml(paper.summary) + "</p></details>";
+        var summaryZh = (paper.summary_zh || "").trim();
+        if (summaryZh) {
+            html += '<details class="abstract-block abstract-zh">' +
+                '<summary>中文摘要</summary>' +
+                '<p class="abstract-zh-note">AI 翻译，仅供参考；准确内容以英文原文为准。</p>' +
+                "<p>" + escapeHtml(summaryZh) + "</p></details>";
+        }
+        return html;
+    }
+
+    /* ---------------------------------------------------------- AI 解读 */
+
     function renderAI(ai) {
         if (!ai || !ai.tldr) { return ""; }
         var sections = [
@@ -201,13 +225,7 @@
             ? '<a href="' + absUrl + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(paper.title) + "</a>"
             : escapeHtml(paper.title);
 
-        var abstractHtml;
-        if (paper.no_abstract || !(paper.summary || "").trim()) {
-            abstractHtml = '<p class="abstract-none">暂无摘要（该文献可能为社论、评论或通信类文章）</p>';
-        } else {
-            abstractHtml = '<details class="abstract-block"><summary>英文摘要</summary><p>' +
-                escapeHtml(paper.summary) + "</p></details>";
-        }
+        var abstractHtml = renderAbstracts(paper);
 
         var links = "";
         if (absUrl) { links += '<a class="btn-link pubmed" href="' + absUrl + '" target="_blank" rel="noopener noreferrer">原文</a>'; }
@@ -220,7 +238,7 @@
             if (pdfUrl) { links += '<a class="btn-link pdf" href="' + pdfUrl + '" target="_blank" rel="noopener noreferrer">PDF</a>'; }
         }
 
-        var searchBlob = [paper.title, authorText, paper.summary, paper.journal]
+        var searchBlob = [paper.title, authorText, paper.summary, paper.summary_zh, paper.journal]
             .join(" ").toLowerCase();
 
         /* 卡片结构对齐参考项目 daily-arXiv-ai-enhanced：

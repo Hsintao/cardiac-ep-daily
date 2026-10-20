@@ -2,7 +2,7 @@
 #
 # 心脏电生理每日论文检索 —— 本地一键运行
 #
-# 流程：采集（daily_ep.collect）→ AI 中文解读（ai/enhance.py）→ 渲染（render.build_html）
+# 流程：采集（daily_ep.collect）→ AI 中文解读 + 摘要翻译（ai/enhance.py）→ 渲染（render.build_html）
 # 完全不依赖 GitHub，产出可直接双击打开的 index.html。
 #
 # 用法：
@@ -193,7 +193,7 @@ fi
 # 2. AI 增强
 # ---------------------------------------------------------------------------
 echo ""
-echo "▶ [2/3] AI 中文解读"
+echo "▶ [2/3] AI 中文解读 + 摘要翻译"
 
 # 上一次运行留下的 AI 产物先删掉：不删的话 enhance 可能复用过期的解读，
 # 与刚重新采集的元数据对不上。

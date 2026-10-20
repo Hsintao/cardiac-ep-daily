@@ -171,6 +171,7 @@ def normalize_paper(raw: Dict[str, Any]) -> Dict[str, Any]:
         "title": _text(raw.get("title")) or "（无标题）",
         "authors": _string_list(raw.get("authors")),
         "summary": summary,
+        "summary_zh": _text(raw.get("summary_zh")),
         "no_abstract": no_abstract,
         "abstract_url": abs_url,
         "date": _text(raw.get("date")),

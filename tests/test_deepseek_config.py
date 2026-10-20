@@ -576,7 +576,12 @@ def test_normalized_ai_dict_fills_missing_with_empty_not_placeholder():
 
 
 class _FakeClient:
-    """最小的假客户端：按脚本依次返回 content，不发任何网络请求。"""
+    """最小的假客户端：按脚本依次返回 content，不发任何网络请求。
+
+    ``contents`` 的每一项可以是字符串，也可以是
+    ``{"content": ..., "finish_reason": "length"}`` 字典 —— 后者用来模拟
+    被 max_tokens 截断的响应（翻译路径必须据此重试）。
+    """
 
     def __init__(self, contents):
         self.contents = list(contents)
@@ -589,10 +594,19 @@ class _FakeClient:
             def create(self, **kwargs):
                 self._outer.last_kwargs = kwargs
                 index = min(self._outer.calls, len(self._outer.contents) - 1)
-                content = self._outer.contents[index]
+                item = self._outer.contents[index]
+                if isinstance(item, dict):
+                    content = item.get("content", "")
+                    finish_reason = item.get("finish_reason", "stop")
+                else:
+                    content = item
+                    finish_reason = "stop"
                 self._outer.calls += 1
                 message = type("M", (), {"content": content})()
-                return type("R", (), {"choices": [type("C", (), {"message": message})()]})()
+                choice = type(
+                    "C", (), {"message": message, "finish_reason": finish_reason}
+                )()
+                return type("R", (), {"choices": [choice]})()
 
         self.chat = type("Chat", (), {"completions": _Completions(self)})()
 
@@ -607,6 +621,15 @@ GOOD_JSON = json.dumps(
     },
     ensure_ascii=False,
 )
+
+# 合法的中文摘要译文：足够长、以中文为主、以句末标点结尾
+GOOD_TRANSLATION = (
+    "背景：脉冲场消融是房颤消融的新方法，既往证据不足。"
+    "方法：多中心随机对照试验纳入 200 例患者。"
+    "结果：12 个月无复发率 78% 对 71%，P=0.04。"
+    "结论：脉冲场消融不劣于射频消融，支持其作为一线选择。"
+)
+GOOD_TRANSLATE_JSON = json.dumps({"summary_zh": GOOD_TRANSLATION}, ensure_ascii=False)
 
 
 def _config():
@@ -631,15 +654,18 @@ def test_empty_summary_is_treated_as_no_abstract():
     assert client.calls == 0
 
 
-def test_successful_enhancement_writes_five_fields():
-    client = _FakeClient([GOOD_JSON])
+def test_successful_enhancement_writes_five_fields_and_translation():
+    client = _FakeClient([GOOD_JSON, GOOD_TRANSLATE_JSON])
     result, error = enhance.enhance_item(
         client, _config(), {"id": "pmid:2", "title": "T", "summary": "Abstract text."}
     )
     assert error is None
     assert set(result["AI"]) == set(AI_FIELDS)
     assert all(result["AI"][f] for f in AI_FIELDS)
-    assert client.calls == 1
+    # 中文摘要存在顶层字段，不进 AI 字典（五段式契约不变）
+    assert result["summary_zh"] == GOOD_TRANSLATION
+    assert "summary_zh" not in result["AI"]
+    assert client.calls == 2  # 一次解读 + 一次翻译
     # 请求确实开了 JSON 模式
     assert client.last_kwargs["response_format"] == {"type": "json_object"}
     assert client.last_kwargs["model"] == "deepseek-flash"
@@ -648,7 +674,7 @@ def test_successful_enhancement_writes_five_fields():
 def test_empty_content_then_success_is_retried():
     """文档明确警告可能返回空 content —— 必须重试并救回。"""
     client = _FakeClient(["", GOOD_JSON])
-    result, error = enhance.enhance_item(client, _config(), {"id": "p", "title": "T", "summary": "S"})
+    result, error = enhance.enhance_item(client, _config(), {"id": "p", "title": "T", "summary": "S"}, translate=False)
     assert error is None
     assert result["AI"]["tldr"].startswith("脉冲场消融")
     assert client.calls == 2
@@ -659,7 +685,7 @@ def test_persistent_empty_content_fails_without_placeholder(monkeypatch):
     monkeypatch.setenv("AI_MAX_RETRIES", "1")
     monkeypatch.setenv("AI_RETRY_BASE_DELAY", "0")
     client = _FakeClient(["", ""])
-    result, error = enhance.enhance_item(client, _config(), {"id": "pmid:3", "title": "T", "summary": "S"})
+    result, error = enhance.enhance_item(client, _config(), {"id": "pmid:3", "title": "T", "summary": "S"}, translate=False)
     assert result is None
     assert error is not None
     assert "pmid:3" in error
@@ -668,7 +694,7 @@ def test_persistent_empty_content_fails_without_placeholder(monkeypatch):
 
 def test_unparseable_response_is_retried_then_recovers():
     client = _FakeClient(["这不是 json", GOOD_JSON])
-    result, error = enhance.enhance_item(client, _config(), {"id": "p", "title": "T", "summary": "S"})
+    result, error = enhance.enhance_item(client, _config(), {"id": "p", "title": "T", "summary": "S"}, translate=False)
     assert error is None
     assert result["AI"]["method"]
     assert client.calls == 2
@@ -681,7 +707,7 @@ def test_latex_response_is_repaired_not_retried():
         r'"result": "HR 0.62", "conclusion": "支持"}'
     )
     client = _FakeClient([content])
-    result, error = enhance.enhance_item(client, _config(), {"id": "p", "title": "T", "summary": "S"})
+    result, error = enhance.enhance_item(client, _config(), {"id": "p", "title": "T", "summary": "S"}, translate=False)
     assert error is None
     assert r"\mathcal{AF}" in result["AI"]["method"]
     assert client.calls == 1
@@ -690,7 +716,7 @@ def test_latex_response_is_repaired_not_retried():
 def test_all_empty_fields_response_is_rejected():
     client = _FakeClient([json.dumps({"tldr": "", "motivation": "", "method": "", "result": "", "conclusion": ""})])
     result, error = enhance.enhance_item(
-        client, _config(), {"id": "pmid:4", "title": "T", "summary": "S"}
+        client, _config(), {"id": "pmid:4", "title": "T", "summary": "S"}, translate=False
     )
     assert result is None
     assert error is not None
@@ -699,7 +725,7 @@ def test_all_empty_fields_response_is_rejected():
 def test_extra_fields_from_model_are_ignored():
     content = json.dumps({**json.loads(GOOD_JSON), "code_url": "https://github.com/x/y", "unexpected": 1})
     client = _FakeClient([content])
-    result, error = enhance.enhance_item(client, _config(), {"id": "p", "title": "T", "summary": "S"})
+    result, error = enhance.enhance_item(client, _config(), {"id": "p", "title": "T", "summary": "S"}, translate=False)
     assert error is None
     assert set(result["AI"]) == set(AI_FIELDS)
 
@@ -708,7 +734,7 @@ def test_partial_response_keeps_available_fields():
     """截断响应只拿到部分字段时，也要保留已有内容而不是整条丢弃。"""
     content = '{"tldr": "房颤消融", "motivation": "背景", "method": "RCT 纳入 120 例'
     client = _FakeClient([content])
-    result, error = enhance.enhance_item(client, _config(), {"id": "p", "title": "T", "summary": "S"})
+    result, error = enhance.enhance_item(client, _config(), {"id": "p", "title": "T", "summary": "S"}, translate=False)
     assert error is None
     assert result["AI"]["tldr"] == "房颤消融"
     assert result["AI"]["conclusion"] == ""  # 缺失字段是空串，不是占位符
@@ -737,7 +763,8 @@ def test_process_items_drops_failures_but_keeps_successes(monkeypatch):
         {"id": "b", "title": "T2", "summary": "S2"},
     ]
     processed, errors = enhance.process_items(
-        client, _config(), items, max_workers=1, system_text="json {}", user_text="{abstract}"
+        client, _config(), items, max_workers=1, system_text="json {}", user_text="{abstract}",
+        translate=False,
     )
     assert [entry["id"] for entry in processed] == ["a"]
     assert len(errors) == 1
@@ -752,7 +779,8 @@ def test_process_items_raises_when_everything_fails(monkeypatch):
     items = [{"id": "a", "title": "T", "summary": "S"}, {"id": "b", "title": "T", "summary": "S"}]
     with pytest.raises(RuntimeError) as excinfo:
         enhance.process_items(
-            client, _config(), items, max_workers=1, system_text="json {}", user_text="{abstract}"
+            client, _config(), items, max_workers=1, system_text="json {}", user_text="{abstract}",
+        translate=False,
         )
     assert "全部" in str(excinfo.value)
 
@@ -762,7 +790,8 @@ def test_process_items_parallel_path_uses_threads(monkeypatch):
     client = _FakeClient([GOOD_JSON])
     items = [{"id": f"p{i}", "title": "T", "summary": "S"} for i in range(5)]
     processed, errors = enhance.process_items(
-        client, _config(), items, max_workers=4, system_text="json {}", user_text="{abstract}"
+        client, _config(), items, max_workers=4, system_text="json {}", user_text="{abstract}",
+        translate=False,
     )
     assert errors == []
     assert len(processed) == 5
@@ -773,3 +802,206 @@ def test_mark_metadata_only_does_not_add_ai_content():
     out = enhance.mark_metadata_only([{"id": "a", "title": "T"}])
     assert out[0]["AI"] is None
     assert out[0]["title"] == "T"
+
+
+# ==========================================================================
+# 七、英文摘要 → 中文摘要（AI 翻译）
+# ==========================================================================
+
+
+def test_translate_prompts_obey_json_mode_contract():
+    """翻译 prompt 同样走 JSON 模式，必须满足官方的 json 字样 + 样例要求。"""
+    system = enhance.load_prompt("translate_system.txt")
+    user = enhance.load_prompt("translate_user.txt")
+    enhance.ensure_json_mode_contract(system, user)
+    assert "summary_zh" in system
+    assert "json" in system.lower()
+
+
+def test_build_translate_messages_renders_placeholders():
+    messages = enhance.build_translate_messages(
+        {"title": "T", "summary": "Background: X.", "journal": "Heart Rhythm"},
+        system_text="json {...}",
+        user_text="json 期刊:{journal} 标题:{title} 摘要:{abstract}",
+    )
+    assert messages[0]["role"] == "system"
+    content = messages[1]["content"]
+    assert "{abstract}" not in content
+    assert "Background: X." in content
+    assert "Heart Rhythm" in content
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        (GOOD_TRANSLATION, True),
+        # 占位 / 空值
+        ("N/A", False),
+        ("无法翻译", False),
+        ("", False),
+        (None, False),
+        (["列表"], False),
+        # 模型把英文原文原样抄回：中文占比不达标
+        ("Background: Pulsed field ablation is novel. Results: freedom from AF was 78%.", False),
+        # 被截断在一句话中间：没有句末标点
+        ("背景：脉冲场消融是房颤消融的新方法，本研究报告了 200 例患者的随访结果", False),
+    ],
+)
+def test_validate_summary_zh(value, expected):
+    assert (enhance.validate_summary_zh(value) is not None) is expected
+
+
+def test_parse_translation_response_rejects_non_summary_json():
+    assert enhance.parse_translation_response(GOOD_TRANSLATE_JSON) == GOOD_TRANSLATION
+    assert enhance.parse_translation_response(json.dumps({"tldr": "解读"})) is None
+    assert enhance.parse_translation_response("") is None
+    assert enhance.parse_translation_response("这不是 json") is None
+
+
+def test_translate_item_skips_abstract_less_items():
+    client = _FakeClient([GOOD_TRANSLATE_JSON])
+    text, error = enhance.translate_item(client, _config(), {"id": "x", "summary": ""})
+    assert text is None and error is None
+    assert client.calls == 0
+
+
+def test_translation_truncated_by_finish_reason_is_retried(monkeypatch):
+    """翻译被 max_tokens 截断时（finish_reason=length）必须重试，不能半句入库。"""
+    monkeypatch.setenv("AI_RETRY_BASE_DELAY", "0")
+    monkeypatch.setenv("AI_RETRY_JITTER", "0")
+    client = _FakeClient(
+        [
+            {"content": GOOD_TRANSLATE_JSON, "finish_reason": "length"},
+            GOOD_TRANSLATE_JSON,
+        ]
+    )
+    text, error = enhance.translate_item(
+        client, _config(), {"id": "p", "title": "T", "summary": "S"}
+    )
+    assert error is None
+    assert text == GOOD_TRANSLATION
+    assert client.calls == 2
+    # 截断后预算翻倍，重试请求用更大的 max_tokens
+    assert client.last_kwargs["max_tokens"] > runtime.max_tokens()
+
+
+def test_interpretation_truncation_retries_with_bigger_budget(monkeypatch):
+    """五段式解读被 finish_reason=length 截断时也要重试，并放大 max_tokens。"""
+    monkeypatch.setenv("AI_RETRY_BASE_DELAY", "0")
+    monkeypatch.setenv("AI_RETRY_JITTER", "0")
+    base = runtime.max_tokens()
+    client = _FakeClient(
+        [
+            {"content": GOOD_JSON, "finish_reason": "length"},
+            GOOD_JSON,
+        ]
+    )
+    result, error = enhance.enhance_item(
+        client, _config(), {"id": "p", "title": "T", "summary": "S"}, translate=False
+    )
+    assert error is None
+    assert result["AI"]["tldr"]
+    assert client.calls == 2
+    assert client.last_kwargs["max_tokens"] == min(base * 2, enhance.MAX_OUTPUT_TOKENS)
+
+
+def test_translation_failure_keeps_interpretation(monkeypatch):
+    """翻译挂掉不能拖垮整篇：五段式解读仍要保留。"""
+    monkeypatch.setenv("AI_MAX_RETRIES", "0")
+    client = _FakeClient([GOOD_JSON, ""])
+    result, error = enhance.enhance_item(
+        client, _config(), {"id": "p", "title": "T", "summary": "S"}
+    )
+    assert error is None
+    assert result["AI"]["tldr"]
+    assert "summary_zh" not in result
+
+
+def test_enhance_item_can_skip_translation():
+    client = _FakeClient([GOOD_JSON])
+    result, error = enhance.enhance_item(
+        client, _config(), {"id": "p", "title": "T", "summary": "S"}, translate=False
+    )
+    assert error is None
+    assert "summary_zh" not in result
+    assert client.calls == 1
+
+
+def test_fill_translations_only_fills_missing():
+    client = _FakeClient([GOOD_TRANSLATE_JSON])
+    items = [
+        {"id": "a", "title": "T", "summary": "Abstract A."},
+        {"id": "b", "title": "T", "summary": "Abstract B.", "summary_zh": "已有译文，不应被覆盖。"},
+        {"id": "c", "title": "Editorial", "summary": "", "no_abstract": True},
+    ]
+    filled, errors = enhance.fill_translations(
+        client, _config(), items, max_workers=1,
+        system_text="json {}", user_text="{abstract}",
+    )
+    assert errors == []
+    assert filled[0]["summary_zh"] == GOOD_TRANSLATION
+    assert filled[1]["summary_zh"] == "已有译文，不应被覆盖。"
+    assert "summary_zh" not in filled[2]
+    assert client.calls == 1
+    # 不原地修改输入（调用方可能还要用旧数据）
+    assert "summary_zh" not in items[0]
+
+
+def test_fill_translations_is_idempotent():
+    client = _FakeClient([GOOD_TRANSLATE_JSON])
+    items = [{"id": "a", "title": "T", "summary": "S", "summary_zh": GOOD_TRANSLATION}]
+    filled, errors = enhance.fill_translations(client, _config(), items, max_workers=1)
+    assert errors == []
+    assert client.calls == 0
+    assert filled[0]["summary_zh"] == GOOD_TRANSLATION
+
+
+def test_fill_translations_force_retranslates():
+    client = _FakeClient([GOOD_TRANSLATE_JSON])
+    items = [{"id": "a", "title": "T", "summary": "S", "summary_zh": "旧译文。"}]
+    filled, errors = enhance.fill_translations(
+        client, _config(), items, max_workers=1, force=True,
+        system_text="json {}", user_text="{abstract}",
+    )
+    assert errors == []
+    assert filled[0]["summary_zh"] == GOOD_TRANSLATION
+    assert client.calls == 1
+
+
+def test_fill_translations_raises_when_everything_fails(monkeypatch):
+    monkeypatch.setenv("AI_MAX_RETRIES", "0")
+    client = _FakeClient([""])
+    with pytest.raises(RuntimeError):
+        enhance.fill_translations(
+            client, _config(),
+            [{"id": "a", "title": "T", "summary": "S"}], max_workers=1,
+        )
+
+
+def test_write_jsonl_atomic_replaces_file(tmp_path):
+    path = tmp_path / "d.jsonl"
+    path.write_text('{"id": "old"}\n', encoding="utf-8")
+    enhance.write_jsonl_atomic(path, [{"id": "new", "summary_zh": GOOD_TRANSLATION}])
+    lines = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+    assert lines[0]["id"] == "new"
+    assert not (tmp_path / "d.jsonl.tmp").exists()
+
+
+def test_translate_only_cli_requires_api_key(tmp_path, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    data = tmp_path / "2026-10-19_AI_enhanced_Chinese.jsonl"
+    data.write_text(
+        json.dumps({"id": "a", "title": "T", "summary": "S", "AI": {"tldr": "x"}}, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    assert enhance.main(["--data", str(data), "--translate-only"]) == 2
+
+
+def test_parse_args_translate_only_flags():
+    args = enhance.parse_args(
+        ["--data", "x.jsonl", "--translate-only", "--force", "--out", "y.jsonl"]
+    )
+    assert args.translate_only is True
+    assert args.force is True
+    assert args.out == "y.jsonl"
+    assert enhance.parse_args(["--data", "x.jsonl"]).translate_only is False

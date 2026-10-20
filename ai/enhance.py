@@ -1,8 +1,20 @@
 """AI 增强主逻辑 + CLI。
 
-读入采集层产出的 ``data/YYYY-MM-DD.jsonl``，为每篇论文生成中文五段式解读，
-写出 ``data/YYYY-MM-DD_AI_enhanced_Chinese.jsonl``（与参考项目 daily-arXiv
-的产物命名一致，渲染层可以直接吃）。
+读入采集层产出的 ``data/YYYY-MM-DD.jsonl``，为每篇论文生成中文五段式解读
+**和英文摘要的中文翻译**，写出 ``data/YYYY-MM-DD_AI_enhanced_Chinese.jsonl``
+（与参考项目 daily-arXiv 的产物命名一致，渲染层可以直接吃）。
+
+两个 AI 产物分开存：
+
+  - ``AI`` 字典：五段式中文解读（tldr / motivation / method / result /
+    conclusion），用于「AI 中文解读」面板；
+  - 顶层 ``summary_zh``：英文摘要的**完整中文翻译**，页面在「英文摘要」
+    折叠块下面用它渲染「中文摘要」折叠块。
+
+分成两个请求而不是塞进同一个 JSON，是因为两件事的目标不同：
+翻译要求逐句完整、不增删；解读要求提炼和取舍。混在一个 prompt 里
+模型很容易把翻译写成概括，或者把解读写成逐句直译。翻译失败**不拖垮**
+整篇（解读仍是主体），只是这一篇没有中文摘要。
 
 三层保障（对应任务里最容易出错的地方）：
 
@@ -17,8 +29,14 @@
 
 CLI::
 
+    # 生成五段式解读 + 中文摘要
     python3 -m ai.enhance --data data/2026-10-19.jsonl
+
+    # 只抓元数据（无 Key / 省 token）
     python3 -m ai.enhance --data data/2026-10-19.jsonl --no-ai
+
+    # 给**已有**的 AI 产物补中文摘要（不动五段式解读，默认就地更新）
+    python3 -m ai.enhance --data data/2026-10-19_AI_enhanced_Chinese.jsonl --translate-only
 """
 
 from __future__ import annotations
@@ -48,6 +66,21 @@ from ai.structure import (  # noqa: E402
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 DEFAULT_LANGUAGE = "Chinese"
 OUTPUT_SUFFIX = f"_AI_enhanced_{DEFAULT_LANGUAGE}.jsonl"
+
+# 中文摘要（英文摘要的 AI 翻译）在 JSONL 里的字段名。
+# 刻意放在**顶层**而不是塞进 AI 字典：它与 summary（英文摘要）是一对，
+# 前端「英文摘要」折叠块下面直接渲染它；同时回填历史数据时只补这一个字段，
+# 不必重新生成五段式解读，也就不会改动已经核对过的内容。
+TRANSLATE_FIELD = "summary_zh"
+
+# 翻译结果的最低质检线：
+#   - 太短（< 20 字）基本是 "无法翻译" / "N/A" 之类的占位回答；
+#   - 中文字符占比过低说明模型把英文原文原样抄回来了，不是翻译。
+TRANSLATE_MIN_CHARS = 20
+TRANSLATE_MIN_CJK_RATIO = 0.20
+
+# CJK 统一表意文字（含扩展 A、兼容区）。用来算上面那个中文占比。
+_CJK_RE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
 
 
 # --------------------------------------------------------------------------
@@ -105,21 +138,48 @@ def build_messages(
     system_text: Optional[str] = None,
     user_text: Optional[str] = None,
 ) -> List[Dict[str, str]]:
-    """按论文条目构造 messages。"""
+    """按论文条目构造五段式解读的 messages。"""
     system_text = system_text if system_text is not None else load_prompt("system.txt")
     user_text = user_text if user_text is not None else load_prompt("user.txt")
+    return [
+        {"role": "system", "content": system_text},
+        {"role": "user", "content": render_prompt_template(user_text, item)},
+    ]
 
+
+def render_prompt_template(template: str, item: Dict) -> str:
+    """把 user 提示词里的 ``{journal}`` / ``{topic}`` / ``{title}`` /
+    ``{abstract}`` 占位符替换成论文信息。
+
+    解读与翻译两套 prompt 共用同一套占位符，避免两处替换逻辑漂移。
+    """
     # 摘要字段名在不同来源里不一致：采集层写 summary，部分数据源写 abstract
     abstract = (item.get("summary") or item.get("abstract") or "").strip()
-    rendered_user = (
-        user_text.replace("{journal}", str(item.get("journal") or "未提供"))
+    return (
+        template.replace("{journal}", str(item.get("journal") or "未提供"))
         .replace("{topic}", str(item.get("topic") or item.get("category") or "未标注"))
         .replace("{title}", str(item.get("title") or ""))
         .replace("{abstract}", abstract)
     )
+
+
+def build_translate_messages(
+    item: Dict,
+    system_text: Optional[str] = None,
+    user_text: Optional[str] = None,
+) -> List[Dict[str, str]]:
+    """按论文条目构造「英文摘要 → 中文摘要」翻译的 messages。"""
+    system_text = (
+        system_text
+        if system_text is not None
+        else load_prompt("translate_system.txt")
+    )
+    user_text = (
+        user_text if user_text is not None else load_prompt("translate_user.txt")
+    )
     return [
         {"role": "system", "content": system_text},
-        {"role": "user", "content": rendered_user},
+        {"role": "user", "content": render_prompt_template(user_text, item)},
     ]
 
 
@@ -143,6 +203,23 @@ def extract_content(response) -> str:
             return ""
         content = getattr(message, "content", None)
         return content if isinstance(content, str) else ""
+    except Exception:
+        return ""
+
+
+def extract_finish_reason(response) -> str:
+    """从响应里取 ``finish_reason``；取不到时返回空串。
+
+    翻译是长输出，被 max_tokens 截断的风险比五段式解读高。截断的 JSON
+    往往还能被 ``json_repair`` 补成「合法但缺后半句」的对象 —— 这种残缺
+    译文比没有更糟，所以用服务端给出的 finish_reason 显式判定截断并重试。
+    """
+    try:
+        choices = getattr(response, "choices", None)
+        if not choices:
+            return ""
+        reason = getattr(choices[0], "finish_reason", None)
+        return reason if isinstance(reason, str) else ""
     except Exception:
         return ""
 
@@ -185,6 +262,53 @@ def coerce_ai_fields(parsed: Dict) -> Optional[Dict[str, str]]:
     return normalized_ai_dict(values)
 
 
+# 单次请求输出上限的硬上限（与 runtime.max_tokens() 的夹紧上限一致）
+MAX_OUTPUT_TOKENS = 32768
+
+
+class _TokenBudget:
+    """逐次翻倍的 max_tokens 预算，用来应对被截断的长输出。
+
+    模型的内部 token 消耗会让同样的输出在不同论文上占用不同预算：
+    实测 max_tokens=4096 时，个别长摘要的翻译直接 ``finish_reason=length``。
+    这里只在**确认被截断**后把预算翻倍（上限 :data:`MAX_OUTPUT_TOKENS`），
+    正常论文仍按默认预算跑，不会为了极少数长文多花额度。
+    """
+
+    def __init__(self) -> None:
+        self.value = runtime.max_tokens()
+
+    def escalate(self) -> None:
+        self.value = min(self.value * 2, MAX_OUTPUT_TOKENS)
+
+
+def request_completion(client, config: Dict, messages: List[Dict[str, str]], max_tokens: int):
+    """发一次 chat.completions 请求，允许覆盖本次的 max_tokens。"""
+    kwargs = runtime.build_request_kwargs(config["model_name"], messages)
+    kwargs["max_tokens"] = int(max_tokens)
+    return client.chat.completions.create(**kwargs)
+
+
+def _is_truncated_error(error: BaseException) -> bool:
+    text = str(error)
+    return "finish_reason=length" in text or "max_tokens 截断" in text
+
+
+def _retry_printer(prefix: str, budget: _TokenBudget):
+    """构造重试日志回调：截断错误时先翻倍预算，再打印日志。"""
+
+    def _on_retry(attempt: int, delay: float, error: BaseException) -> None:
+        if _is_truncated_error(error):
+            budget.escalate()
+        print(
+            f"  {prefix}重试第 {attempt} 次，{delay:.1f}s 后"
+            f"（max_tokens={budget.value}，{type(error).__name__}: {error}）",
+            file=sys.stderr,
+        )
+
+    return _on_retry
+
+
 def call_model(client, config: Dict, messages: List[Dict[str, str]]) -> Dict[str, str]:
     """请求一次模型并解析；不可用时抛 :class:`runtime.EmptyResponseError`。
 
@@ -192,9 +316,11 @@ def call_model(client, config: Dict, messages: List[Dict[str, str]]) -> Dict[str
     """
 
     def _once():
-        response = client.chat.completions.create(
-            **runtime.build_request_kwargs(config["model_name"], messages)
-        )
+        response = request_completion(client, config, messages, budget.value)
+        if extract_finish_reason(response) == "length":
+            raise runtime.EmptyResponseError(
+                "解读响应被 max_tokens 截断（finish_reason=length），将重试"
+            )
         content = extract_content(response)
         parsed = parse_response_text(content)
         if parsed is None:
@@ -207,6 +333,8 @@ def call_model(client, config: Dict, messages: List[Dict[str, str]]) -> Dict[str
                 f"响应无法解析为 JSON（前 200 字符：{content[:200]!r}）"
             )
         return content, parsed
+
+    budget = _TokenBudget()
 
     def _attempt():
         content, parsed = _once()
@@ -238,11 +366,100 @@ def call_model(client, config: Dict, messages: List[Dict[str, str]]) -> Dict[str
 
     return runtime.invoke_with_retry(
         _attempt,
-        on_retry=lambda attempt, delay, error: print(
-            f"  重试第 {attempt} 次，{delay:.1f}s 后（{type(error).__name__}: {error}）",
-            file=sys.stderr,
-        ),
+        on_retry=_retry_printer("", budget),
     )
+
+
+def validate_summary_zh(value) -> Optional[str]:
+    """校验模型给出的中文摘要；不合格返回 ``None``（调用方据此重试）。
+
+    这是「翻译不能是占位符 / 不能是英文原文 / 不能被截断」的执行点：
+      - 类型必须是字符串，去空白后不能太短（"无法翻译"、"N/A" 这类）；
+      - 中文字符占比必须达标 —— 模型偶尔会原样抄回英文摘要；
+      - 结尾必须是句末标点。被 max_tokens 截断的中文往往停在一句话中间，
+        且 ``json_repair`` 会把 JSON 补成合法对象，只看长度分不出来。
+
+    纯函数，不读网络/磁盘，便于单测。
+    """
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if len(text) < TRANSLATE_MIN_CHARS:
+        return None
+    compact = re.sub(r"\s+", "", text)
+    if not compact:
+        return None
+    cjk_count = len(_CJK_RE.findall(compact))
+    if cjk_count / len(compact) < TRANSLATE_MIN_CJK_RATIO:
+        return None
+    if compact[-1] not in "。！？!?：:）)】」”’\"'…":
+        return None
+    return text
+
+
+def parse_translation_response(text: str) -> Optional[str]:
+    """从模型响应里解析 ``summary_zh``；空 content / 无有效译文返回 ``None``。"""
+    if json_repair.looks_like_empty_content(text):
+        return None
+    parsed = json_repair.parse_json_object(text)
+    if not isinstance(parsed, dict):
+        return None
+    return validate_summary_zh(parsed.get(TRANSLATE_FIELD))
+
+
+def call_translation(client, config: Dict, messages: List[Dict[str, str]]) -> str:
+    """请求一次翻译并校验；不可用时抛可重试的运行时异常。
+
+    与 :func:`call_model` 一样，重试与降级统一在上层决策。
+    """
+    budget = _TokenBudget()
+
+    def _attempt():
+        response = request_completion(client, config, messages, budget.value)
+        if extract_finish_reason(response) == "length":
+            raise runtime.EmptyResponseError(
+                "中文摘要被 max_tokens 截断（finish_reason=length），将重试"
+            )
+        content = extract_content(response)
+        summary_zh = parse_translation_response(content)
+        if summary_zh is None:
+            if json_repair.looks_like_empty_content(content):
+                raise runtime.EmptyResponseError(
+                    "翻译返回空 content（DeepSeek JSON 模式已知行为，将重试）"
+                )
+            raise runtime.UnparseableResponseError(
+                f"翻译响应无有效 {TRANSLATE_FIELD}（前 200 字符：{content[:200]!r}）"
+            )
+        return summary_zh
+
+    return runtime.invoke_with_retry(
+        _attempt,
+        on_retry=_retry_printer("翻译", budget),
+    )
+
+
+def translate_item(
+    client,
+    config: Dict,
+    item: Dict,
+    system_text: Optional[str] = None,
+    user_text: Optional[str] = None,
+) -> Tuple[Optional[str], Optional[str]]:
+    """翻译一篇论文的英文摘要。
+
+    返回 ``(中文摘要, 失败原因)``：
+      - 成功：``("……译文……", None)``
+      - 无摘要（社论/评论）：``(None, None)``，不需要调用模型
+      - 失败：``(None, 原因)`` —— 调用方**不要**写占位文本
+    """
+    abstract = (item.get("summary") or item.get("abstract") or "").strip()
+    if not abstract:
+        return None, None
+    messages = build_translate_messages(item, system_text, user_text)
+    try:
+        return call_translation(client, config, messages), None
+    except Exception as error:  # noqa: BLE001 - 这里就是降级决策点
+        return None, runtime.describe_failure(str(item.get("id", "unknown")), error)
 
 
 def enhance_item(
@@ -251,13 +468,19 @@ def enhance_item(
     item: Dict,
     system_text: Optional[str] = None,
     user_text: Optional[str] = None,
+    translate: bool = True,
+    translate_system_text: Optional[str] = None,
+    translate_user_text: Optional[str] = None,
 ) -> Tuple[Optional[Dict], Optional[str]]:
-    """处理一篇论文。
+    """处理一篇论文（五段式解读 + 中文摘要翻译）。
 
     返回 ``(item, error)``：
       - 成功：``(带 AI 字段的 item, None)``
-      - 该跳过（如无摘要）：``(item, None)`` 且 item 上带 ``ai_skipped`` 标记
+      - 该跳过（如无摘要）：``(item, None)`` 且 item 上带 ``no_abstract`` 标记
       - 失败：``(None, 失败原因)`` —— 调用方**不要**把占位符写进去
+
+    翻译失败**不算**整篇失败：解读已经成功，页面只是少一个中文摘要折叠块。
+    吞掉失败会影响可观测性，所以这里打印一行警告（含首条原因）。
 
     纯逻辑（除了 ``client`` 的调用），不读文件系统，便于单测。
     """
@@ -281,6 +504,19 @@ def enhance_item(
 
     result = dict(item)
     result["AI"] = values
+
+    if translate:
+        summary_zh, translation_error = translate_item(
+            client, config, item, translate_system_text, translate_user_text
+        )
+        if summary_zh:
+            result[TRANSLATE_FIELD] = summary_zh
+        elif translation_error:
+            print(
+                f"  ⚠️ {str(item.get('id', 'unknown'))} 中文摘要翻译失败（保留 AI 解读）："
+                f"{translation_error}",
+                file=sys.stderr,
+            )
     return result, None
 
 
@@ -327,6 +563,17 @@ def write_jsonl(path: Path, items: List[Dict]) -> None:
             handle.write(json.dumps(item, ensure_ascii=False) + "\n")
 
 
+def write_jsonl_atomic(path: Path, items: List[Dict]) -> None:
+    """先写临时文件再 ``os.replace``，避免中途失败把整天的数据截断。
+
+    ``--translate-only`` 默认**就地更新**历史数据，写坏一次就丢一整天；
+    原子替换保证要么是旧内容、要么是完整的新内容。
+    """
+    tmp = path.with_name(path.name + ".tmp")
+    write_jsonl(tmp, items)
+    os.replace(tmp, path)
+
+
 def process_items(
     client,
     config: Dict,
@@ -334,6 +581,9 @@ def process_items(
     max_workers: int = runtime.DEFAULT_MAX_WORKERS,
     system_text: Optional[str] = None,
     user_text: Optional[str] = None,
+    translate: bool = True,
+    translate_system_text: Optional[str] = None,
+    translate_user_text: Optional[str] = None,
 ) -> Tuple[List[Dict], List[str]]:
     """并行处理所有条目，返回 ``(成功列表, 失败原因列表)``。
 
@@ -349,7 +599,12 @@ def process_items(
     workers = max(1, int(max_workers))
     if workers == 1:
         for index, item in enumerate(items):
-            processed, error = enhance_item(client, config, item, system_text, user_text)
+            processed, error = enhance_item(
+                client, config, item, system_text, user_text,
+                translate=translate,
+                translate_system_text=translate_system_text,
+                translate_user_text=translate_user_text,
+            )
             results[index] = processed
             if error:
                 errors.append(error)
@@ -358,7 +613,10 @@ def process_items(
         with ThreadPoolExecutor(max_workers=workers) as executor:
             futures = {
                 executor.submit(
-                    enhance_item, client, config, item, system_text, user_text
+                    enhance_item, client, config, item, system_text, user_text,
+                    translate=translate,
+                    translate_system_text=translate_system_text,
+                    translate_user_text=translate_user_text,
                 ): index
                 for index, item in enumerate(items)
             }
@@ -380,6 +638,75 @@ def process_items(
         )
 
     return [result for result in results if result is not None], errors
+
+
+def fill_translations(
+    client,
+    config: Dict,
+    items: List[Dict],
+    max_workers: int = runtime.DEFAULT_MAX_WORKERS,
+    system_text: Optional[str] = None,
+    user_text: Optional[str] = None,
+    force: bool = False,
+) -> Tuple[List[Dict], List[str]]:
+    """给**已有**记录补中文摘要，不重新生成五段式解读。
+
+    用于回填历史数据：老文件里的 ``AI`` 字段已经核对过，重新生成会无谓地
+    改动内容和花费 token；这里只补缺失的 ``summary_zh``。
+
+    - 已有 ``summary_zh`` 且 ``force=False``：跳过（幂等，可重复跑）；
+    - 无英文摘要（社论/评论）：跳过；
+    - 单篇失败：保留原记录、收集原因，不影响其它篇。
+
+    返回 ``(补好译文的记录列表, 失败原因列表)``；``items`` 不会被原地修改。
+    """
+    results = [dict(item) for item in items]
+    todo = [
+        index
+        for index, item in enumerate(results)
+        if (force or not item.get(TRANSLATE_FIELD))
+        and (item.get("summary") or item.get("abstract") or "").strip()
+    ]
+    errors: List[str] = []
+    succeeded = 0
+    if not todo:
+        return results, errors
+
+    workers = max(1, int(max_workers))
+
+    def _one(index: int) -> Tuple[int, Optional[str], Optional[str]]:
+        text, error = translate_item(
+            client, config, results[index], system_text, user_text
+        )
+        return index, text, error
+
+    def _apply(index: int, text: Optional[str], error: Optional[str]) -> None:
+        nonlocal succeeded
+        if text:
+            results[index][TRANSLATE_FIELD] = text
+            succeeded += 1
+        elif error:
+            errors.append(error)
+            print(f"  ✗ {error}", file=sys.stderr)
+
+    if workers == 1:
+        for index in todo:
+            _apply(*_one(index))
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = {executor.submit(_one, index): index for index in todo}
+            for future in as_completed(futures):
+                try:
+                    _apply(*future.result())
+                except Exception as failure:  # noqa: BLE001 - 线程内异常兜底
+                    errors.append(f"第 {futures[future]} 条翻译时线程内异常：{failure}")
+
+    if errors and succeeded == 0:
+        raise RuntimeError(
+            f"{len(todo)} 篇论文全部翻译失败，疑似系统性问题"
+            f"（Key/余额/服务中断）；首条原因：{errors[0]}"
+        )
+    return results, errors
 
 
 def mark_metadata_only(items: List[Dict]) -> List[Dict]:
@@ -412,7 +739,7 @@ def output_path_for(data_path: Path, language: str = DEFAULT_LANGUAGE) -> Path:
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="为心脏电生理论文生成中文五段式 AI 解读"
+        description="为心脏电生理论文生成中文五段式 AI 解读，并翻译英文摘要"
     )
     parser.add_argument("--data", type=str, required=True, help="输入的 jsonl 文件")
     parser.add_argument(
@@ -426,6 +753,30 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         dest="no_ai",
         action="store_true",
         help="跳过 AI，只输出元数据（无 API Key 时自动启用）",
+    )
+    parser.add_argument(
+        "--no-translate",
+        dest="no_translate",
+        action="store_true",
+        help="生成五段式解读，但不翻译英文摘要（省 token）",
+    )
+    parser.add_argument(
+        "--translate-only",
+        dest="translate_only",
+        action="store_true",
+        help="只补中文摘要（summary_zh），不重新生成五段式解读；"
+        "输入可以是已有的 AI 产物，默认就地更新",
+    )
+    parser.add_argument(
+        "--out",
+        type=str,
+        default="",
+        help="--translate-only 的输出路径（默认就地更新输入文件）",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="--translate-only 时重新翻译已有 summary_zh 的条目",
     )
     parser.add_argument(
         "--language",
@@ -463,6 +814,64 @@ def _load_dotenv_if_present() -> None:
             return
 
 
+def _run_translate_only(
+    args: argparse.Namespace,
+    data_path: Path,
+    config: Dict,
+    workers: int,
+) -> int:
+    """``--translate-only``：只补中文摘要，保持五段式解读原样。"""
+    if not config["is_ready"]:
+        print(
+            f"--translate-only 需要 {runtime.API_KEY_ENV}（翻译必须调用模型），"
+            "未检测到；如需只输出元数据请用 --no-ai",
+            file=sys.stderr,
+        )
+        return 2
+
+    items = load_jsonl(data_path)
+    if not items:
+        print(f"输入文件没有可用数据：{data_path}", file=sys.stderr)
+        return 1
+    print(f"读入 {len(items)} 篇（只补中文摘要，不重新生成五段式解读）", file=sys.stderr)
+
+    system_text = load_prompt("translate_system.txt")
+    user_text = load_prompt("translate_user.txt")
+    ensure_json_mode_contract(system_text, user_text)
+
+    client = runtime.create_client(config)
+    if client is None:
+        print("无法创建客户端，请检查 API Key", file=sys.stderr)
+        return 2
+
+    filled, errors = fill_translations(
+        client,
+        config,
+        items,
+        max_workers=workers,
+        system_text=system_text,
+        user_text=user_text,
+        force=args.force,
+    )
+
+    target = Path(args.out) if args.out else data_path
+    write_jsonl_atomic(target, filled)
+
+    translated = sum(1 for item in filled if item.get(TRANSLATE_FIELD))
+    no_abstract = sum(
+        1
+        for item in filled
+        if not (item.get("summary") or item.get("abstract") or "").strip()
+    )
+    missing = len(filled) - translated - no_abstract
+    print(
+        f"完成：中文摘要 {translated}/{len(filled)} 篇（无摘要 {no_abstract} 篇，"
+        f"仍缺 {missing} 篇，失败 {len(errors)} 篇）→ {target}",
+        file=sys.stderr,
+    )
+    return 0
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     _load_dotenv_if_present()
     args = parse_args(argv)
@@ -478,6 +887,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         f"model={config['model_name']} key={'已设置' if config['is_ready'] else '未设置'}",
         file=sys.stderr,
     )
+
+    workers = args.max_workers if args.max_workers is not None else runtime.max_workers()
+    workers = max(runtime.MIN_MAX_WORKERS, min(workers, runtime.MAX_MAX_WORKERS))
+
+    # 回填模式：输入是已有产物，不能重写 AI（会改动已核对内容、也浪费 token）
+    if args.translate_only:
+        return _run_translate_only(args, data_path, config, workers)
 
     # 无 Key 自动降级：这是「无 API Key 也能跑通」契约的落点
     no_ai = args.no_ai
@@ -502,13 +918,18 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(f"已写出 {len(output)} 条元数据（未调用 AI）：{target}", file=sys.stderr)
         return 0
 
-    workers = args.max_workers if args.max_workers is not None else runtime.max_workers()
-    workers = max(runtime.MIN_MAX_WORKERS, min(workers, runtime.MAX_MAX_WORKERS))
-
     system_text = load_prompt("system.txt")
     user_text = load_prompt("user.txt")
     # 启动自检：JSON 模式要求 prompt 含 "json" 且有格式样例
     ensure_json_mode_contract(system_text, user_text)
+
+    translate_system_text: Optional[str] = None
+    translate_user_text: Optional[str] = None
+    translate = not args.no_translate
+    if translate:
+        translate_system_text = load_prompt("translate_system.txt")
+        translate_user_text = load_prompt("translate_user.txt")
+        ensure_json_mode_contract(translate_system_text, translate_user_text)
 
     client = runtime.create_client(config)
     if client is None:
@@ -520,13 +941,23 @@ def main(argv: Optional[List[str]] = None) -> int:
     processed, errors = process_items(
         client, config, items, max_workers=workers,
         system_text=system_text, user_text=user_text,
+        translate=translate,
+        translate_system_text=translate_system_text,
+        translate_user_text=translate_user_text,
     )
     write_jsonl(target, processed)
 
     skipped = sum(1 for item in items if item.get("no_abstract"))
+    translated = sum(1 for item in processed if item.get(TRANSLATE_FIELD))
+    translatable = sum(
+        1
+        for item in processed
+        if (item.get("summary") or item.get("abstract") or "").strip()
+    )
     print(
         f"完成：{len(processed)}/{len(items)} 篇写出到 {target}"
-        f"（跳过无摘要 {skipped} 篇，失败 {len(errors)} 篇）",
+        f"（跳过无摘要 {skipped} 篇，失败 {len(errors)} 篇；"
+        f"中文摘要 {translated}/{translatable} 篇）",
         file=sys.stderr,
     )
     return 0

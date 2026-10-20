@@ -1,6 +1,6 @@
 # 🫀 心脏电生理每日论文检索
 
-每天自动从 PubMed / Europe PMC 抓取**心脏电生理（EP）**领域的最新文献，用 DeepSeek 生成中文五段式解读，渲染成一个可以直接打开的静态日报页面。
+每天自动从 PubMed / Europe PMC 抓取**心脏电生理（EP）**领域的最新文献，用 DeepSeek 生成中文五段式解读、并把英文摘要翻译成中文，渲染成一个可以直接打开的静态日报页面。
 
 **零服务器**：全部跑在 GitHub Actions 上，页面托管在 GitHub Pages，数据放在独立的 `data` 分支，前端通过 `raw.githubusercontent.com` 直读 —— 不需要买服务器，也不需要域名。
 
@@ -29,7 +29,7 @@ PubMed / Europe PMC
         │     ↳ 排序 → max_papers 截断
         ▼
    data/YYYY-MM-DD.jsonl          原始元数据（标题、作者、期刊、摘要、DOI…）
-        │  ② AI 中文解读（ai/enhance.py，DeepSeek）
+        │  ② AI 中文解读 + 摘要翻译（ai/enhance.py，DeepSeek）
         ▼
    data/YYYY-MM-DD_AI_enhanced_Chinese.jsonl
         │  ③ 渲染（render/build_html.py）
@@ -48,7 +48,8 @@ PubMed / Europe PMC
 - 标题、期刊、日期、作者、亚专业标签
 - **AI 中文解读五段**：一句话结论（tldr）、研究动机、方法、结果、结论
 - PubMed / DOI / PDF 链接（存在才显示）
-- 摘要可折叠；没有摘要的社论会显示「暂无摘要」而不是空白
+- 摘要可折叠（默认收起）；**英文摘要下面是 AI 翻译的中文摘要**，同样是折叠块，
+  逐句忠实翻译、保留原文分段与统计量；没有摘要的社论会显示「暂无摘要」而不是空白
 
 ---
 
@@ -290,12 +291,15 @@ open index.html        # macOS
 # ① 采集
 python -m daily_ep.collect --days 2 --out data/2026-10-19.jsonl
 
-# ② AI 增强
+# ② AI 增强（中文五段式解读 + 英文摘要的中文翻译）
 python ai/enhance.py --data data/2026-10-19.jsonl
+
+# 只补中文摘要，不重新生成五段式解读（回填历史数据用；默认就地更新）
+python ai/enhance.py --data data/2026-10-19_AI_enhanced_Chinese.jsonl --translate-only
 
 # ③ 渲染
 python -m render.build_html \
-  --data data/2026-10-19_AI_enhanced_Chinese.jsonl \
+  --data-dir data \
   --out index.html
 ```
 
@@ -428,6 +432,10 @@ https://raw.githubusercontent.com/<你的用户名>/<仓库名>/data/assets/file
 
 默认一次只补一天，避免一次失败丢掉一整批工作。
 
+> 只想给**已有的** AI 产物补中文摘要（不重新生成五段式解读）时，不用走 workflow，
+> 本地跑 `python ai/enhance.py --data data/<日期>_AI_enhanced_Chinese.jsonl --translate-only`
+> 即可：只补缺失的 `summary_zh` 字段，已有译文默认跳过（`--force` 可强制重译）。
+
 ---
 
 ## 仓库结构
@@ -448,11 +456,11 @@ https://raw.githubusercontent.com/<你的用户名>/<仓库名>/data/assets/file
 │   ├── collect.py             #   CLI 入口
 │   └── sources/               #   pubmed.py / europepmc.py
 ├── ai/
-│   ├── enhance.py             # AI 中文解读 CLI（DeepSeek，五段式输出）
+│   ├── enhance.py             # AI 中文解读 + 摘要翻译 CLI（DeepSeek）
 │   ├── structure.py           #   输出结构校验
 │   ├── json_repair.py         #   LLM 返回 JSON 的容错修复
 │   ├── runtime.py             #   DeepSeek 客户端构造与重试
-│   └── prompts/               #   system.txt / user.txt
+│   └── prompts/               #   system/user.txt（解读）+ translate_system/user.txt（翻译）
 ├── render/
 │   ├── build_html.py          # 渲染 CLI
 │   └── templates/             # Jinja2 模板（自包含样式，无 CDN）
@@ -620,7 +628,9 @@ first run 或 `days` 太小时，当天可能确实没有新文献。
 <details>
 <summary><b>12. 每天大概花多少钱？</b></summary>
 
-取决于当天文献量（通常每天十几到几十篇）和 DeepSeek 的现行定价。想完全免费就把 `no_ai` 设为 `true`，或用 `./run.sh --no-ai`，只抓元数据不调 API。
+取决于当天文献量（通常每天十几到几十篇）和 DeepSeek 的现行定价。
+
+每篇论文会调用两次模型：一次生成五段式解读，一次翻译英文摘要。不想多花摘要翻译的 token，可以加 `--no-translate`；想完全免费就把 `no_ai` 设为 `true`，或用 `./run.sh --no-ai`，只抓元数据不调 API。
 
 </details>
 

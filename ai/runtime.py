@@ -46,8 +46,11 @@ BASE_URL_ENV = "OPENAI_BASE_URL"
 MODEL_NAME_ENV = "MODEL_NAME"
 
 # 官方文档：不建议用特别大的 max_tokens；五段式中文解读 2048 足够，
-# 留出截断余量会给到 4096（可被 MAX_TOKENS 覆盖）。
-DEFAULT_MAX_TOKENS = 4096
+# 但**摘要翻译**是长输出（英文摘要最长近 5000 字符），加上模型内部的
+# token 消耗，4096 实测会触发 finish_reason=length（截断），所以默认给
+# 8192；仍被截断时 enhance.py 会按次翻倍重试（上限 32768）。
+# 可被 MAX_TOKENS 覆盖。
+DEFAULT_MAX_TOKENS = 8192
 
 # 并发上限：官方文档给的账号级并发是 2500，但这是**账号总量**；
 # 单日几十到两百篇论文用 4-8 个线程足够，再高只会更容易触发限流。
@@ -608,6 +611,11 @@ def _diagnose(error: BaseException, attempts: int, max_attempts: int) -> str:
         return "输入超过模型上下文，请降低 MAX_TOKENS 或截断摘要"
     if "model not found" in text or "does not exist" in text or _exception_status(error) == 404:
         return f"模型/端点不存在，请检查 MODEL_NAME（应为 {MODEL_NAME}）与 OPENAI_BASE_URL"
+    if "finish_reason=length" in text or "max_tokens 截断" in text:
+        return (
+            f"模型输出被 max_tokens 截断，已重试 {attempts} 次；"
+            "可提高 MAX_TOKENS（翻译路径会自动翻倍重试）"
+        )
     if isinstance(error, EmptyResponseError):
         return f"模型返回空 content（DeepSeek JSON 模式的已知行为），已重试 {attempts} 次"
     if isinstance(error, UnparseableResponseError):
