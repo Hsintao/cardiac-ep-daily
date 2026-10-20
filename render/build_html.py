@@ -24,7 +24,7 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 from urllib.parse import quote
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoescape
@@ -216,11 +216,31 @@ def journal_counts(papers: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
     ]
 
 
+def discover_archives(archive_dir: os.PathLike | str, *, exclude: str = "") -> List[str]:
+    """扫描 archive/ 目录，返回可用的历史日期（新日期在前）。
+
+    页面是纯静态的，「往期」链接必须指向真实存在的文件；直接扫目录比维护
+    一份清单更可靠 —— 清单会和实际文件不同步（例如补跑历史、手工删除）。
+    """
+    root = Path(archive_dir)
+    if not root.is_dir():
+        return []
+    days = []
+    for path in root.glob("*.html"):
+        stem = path.stem
+        # 只认真实日期，跳过 archive.html 之类的兜底文件名
+        if len(stem) == 10 and stem[4] == "-" and stem[7] == "-":
+            if stem != exclude:
+                days.append(stem)
+    return sorted(set(days), reverse=True)
+
+
 def build_context(
     raw_items: Iterable[Dict[str, Any]],
     *,
     date: str = "",
     generated_at: Optional[datetime] = None,
+    archives: Optional[Sequence[str]] = None,
 ) -> Dict[str, Any]:
     """把原始记录整理成模板上下文（主页面与归档页共用）。"""
     generated_at = generated_at or datetime.now()
@@ -233,6 +253,7 @@ def build_context(
     return {
         "date": day,
         "archive_name": f"{day}.html" if day else "",
+        "archives": list(archives or []),
         "generated_at": generated_at.strftime(_TIME_FMT),
         "year": generated_at.year,
         "total": len(papers),
@@ -346,7 +367,12 @@ def build_pages(
     """
     items = load_jsonl(data_path)
     day = _text(date) or infer_date(items) or date_from_filename(data_path)
-    context = build_context(items, date=day, generated_at=generated_at)
+
+    out_path = Path(out_path)
+    archive_dir = out_path.parent / "archive"
+    # 首页列出全部往期（含当天）；归档页列出除自己以外的往期
+    archives = discover_archives(archive_dir, exclude="" if day == "" else "")
+    context = build_context(items, date=day, generated_at=generated_at, archives=archives)
 
     style = read_style()
     out_path = Path(out_path)
@@ -359,7 +385,11 @@ def build_pages(
         archive_path = out_path.parent / "archive" / archive_name
     archive_path = Path(archive_path)
     archive_path.parent.mkdir(parents=True, exist_ok=True)
-    archive_path.write_text(render_archive(context, style=style), encoding="utf-8")
+    archive_context = {
+        **context,
+        "archives": discover_archives(archive_path.parent, exclude=day),
+    }
+    archive_path.write_text(render_archive(archive_context, style=style), encoding="utf-8")
     written["archive"] = str(archive_path)
 
     print(f"[render] {context['total']} 篇 -> {out_path}")

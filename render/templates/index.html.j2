@@ -40,11 +40,34 @@
             {% if no_abstract_count %}<span class="chip">📝 无摘要 <strong>{{ no_abstract_count }}</strong></span>{% endif %}
         </div>
         <nav class="header-nav">
-            {% if archive_name %}<a href="archive/{{ archive_name }}">归档页</a>{% endif %}
+            {% if archive_name %}<a href="archive/{{ archive_name }}">本篇归档页</a>{% endif %}
             <a href="#top">回到顶部</a>
             <button type="button" class="theme-toggle" id="themeToggle"
                     aria-label="切换深色/浅色模式" title="切换深色/浅色模式">🌗 主题</button>
         </nav>
+
+        {# 往期导航：页面是纯静态的，历史内容靠这里进入。
+           没有这一块，用户只能看到当天，找不到之前任何一天的日报。 #}
+        {% if archives %}
+        <nav class="archive-nav" aria-label="往期日报">
+            <span class="archive-nav-label">往期（{{ archives | length }} 天）</span>
+            <div class="archive-nav-days">
+                {% for day in archives[:7] %}
+                <a href="archive/{{ day }}.html"{% if day == date %} class="current" aria-current="page"{% endif %}>{{ day }}</a>
+                {% endfor %}
+            </div>
+            {% if archives | length > 7 %}
+            <button type="button" class="archive-more" id="archiveMore" aria-expanded="false">全部 {{ archives | length }} 天 ▾</button>
+            {% endif %}
+            {% if archives | length > 7 %}
+            <div class="archive-nav-all" id="archiveAll" hidden>
+                {% for day in archives %}
+                <a href="archive/{{ day }}.html"{% if day == date %} class="current"{% endif %}>{{ day }}</a>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </nav>
+        {% endif %}
     </div>
 </header>
 
@@ -326,6 +349,22 @@
         });
     }
     label();
+})();
+
+/* 往期导航：默认只显示最近 7 天，点「全部 N 天」展开完整列表。
+   用容器 class 控制显隐 —— 直接设 element.hidden 会被 display:flex 覆盖。 */
+(function () {
+    var btn = document.getElementById("archiveMore");
+    var all = document.getElementById("archiveAll");
+    var nav = btn && btn.closest(".archive-nav");
+    if (!btn || !all || !nav) { return; }
+    btn.addEventListener("click", function () {
+        var expanded = nav.classList.toggle("expanded");
+        all.hidden = !expanded;
+        btn.setAttribute("aria-expanded", expanded ? "true" : "false");
+        var n = all.querySelectorAll("a").length;
+        btn.textContent = expanded ? "收起 ▴" : ("全部 " + n + " 天 ▾");
+    });
 })();
 </script>
 
