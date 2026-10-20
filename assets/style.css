@@ -453,6 +453,8 @@ a:hover { text-decoration: underline; }
     padding: 12px 0;
 }
 
+/* 矮屏（手机横屏、小窗口）的规则统一放在文件末尾，避免被后面的基础样式覆盖。 */
+
 .filter-row {
     display: flex;
     align-items: flex-start;
@@ -514,7 +516,41 @@ a:hover { text-decoration: underline; }
 }
 .filter-btn.more-btn:hover { background: var(--primary-tint); border-color: var(--primary-color); }
 
-.filter-btn.extra-journal[hidden] { display: none; }
+/* 期刊过多时的浮层：展开后不再把筛选栏撑高，论文区不会被挤出屏幕。
+   以前是把所有期刊就地铺开，吸顶的筛选栏会越撑越高，最后连「收起」
+   按钮都被挤出屏幕，上下滑动也看不到论文。
+   浮层挂在整条筛选栏下面（而不是压在「检索」行上），左右与内容区对齐，
+   这样打开时不会挡住搜索框。 */
+.journal-more-panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: max(24px, calc((100% - 980px) / 2 + 24px));
+    right: max(24px, calc((100% - 980px) / 2 + 24px));
+    z-index: 95;
+    max-height: min(50vh, 320px);
+    overflow-y: auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    padding: 10px;
+}
+.journal-more-panel[hidden] { display: none; }
+
+.journal-more-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+/* 选中的期刊可能收在浮层里，浮层关掉后靠左侧标签提示当前筛选 */
+#journalFilterLabel {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.filter-label-active { color: var(--primary-color); font-weight: 700; }
 
 .search-box {
     flex: 1 1 auto;
@@ -1767,10 +1803,13 @@ main { padding: 26px 0 60px; }
         padding: 3px 10px;
     }
 
-    /* 手机上期刊全部可见（横向滑动）：隐藏「展开全部」，
-       否则它会把按钮藏起来、点了却展不开，成了死按钮 */
-    .filter-buttons .extra-journal { display: inline-flex !important; }
+    /* 手机上期刊不折叠：「展开全部」按钮直接隐掉，浮层摊平成一行，
+       全部期刊都在这条横向滑动列表里 */
     .filter-btn.more-btn { display: none !important; }
+    .journal-more-panel,
+    .journal-more-panel[hidden] { display: contents; }
+    .journal-more-grid { display: contents; }
+    #journalFilterLabel { max-width: 84px; }
 
     /* 检索框矮一些 */
     .search-box { font-size: 13px; padding: 6px 12px; min-width: 0; }
@@ -1793,4 +1832,33 @@ main { padding: 26px 0 60px; }
     /* AI 面板收紧 */
     .ai-panel { padding: 10px 12px; margin-top: 10px; }
     .ai-tldr p { font-size: 13.5px; line-height: 1.65; }
+}
+
+/* ==========================================================================
+   矮屏（手机横屏、小窗口：高度 <= 620px 且宽度 > 640px）
+   --------------------------------------------------------------------------
+   这种屏幕下顶栏 + 三行筛选本来就能吃掉整屏，筛选栏再吸顶更是雪上加霜。
+   这里改为随页面滚走，并把主题/期刊压成单行横向滑动（和手机端一致），
+   期刊全部平铺、不再需要「展开全部」浮层。
+   注意必须放在文件末尾：否则会被前面同名的 filter 基础样式覆盖。
+   ========================================================================== */
+
+@media (max-height: 620px) and (min-width: 641px) {
+    .filters { position: static; }
+
+    .filter-row { flex-wrap: nowrap; align-items: center; }
+    .filter-buttons {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+    }
+    .filter-buttons::-webkit-scrollbar { display: none; }
+    .filter-btn { flex: 0 0 auto; white-space: nowrap; }
+
+    /* 期刊全部平铺到横向列表里，不再需要「展开全部」浮层 */
+    .filter-btn.more-btn { display: none !important; }
+    .journal-more-panel,
+    .journal-more-panel[hidden] { display: contents; }
+    .journal-more-grid { display: contents; }
 }

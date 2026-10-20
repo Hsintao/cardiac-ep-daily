@@ -32,11 +32,13 @@
     var cache = {};    // day -> papers[]，切换回来时不重复请求
     var pendingStart = null; // 区间模式里已点下的起始日，等待点结束日
     var loadToken = 0;       // 视图切换序号：慢请求回来时若已切走就丢弃，避免旧结果覆盖新视图
+    var journalPanelGlobalBound = false; // 期刊浮层的全局事件只绑一次（重渲染会换元素）
 
     var el = {
         container: document.getElementById("paperContainer"),
         topicFilters: document.getElementById("topicFilters"),
         journalFilters: document.getElementById("journalFilters"),
+        journalFilterLabel: document.getElementById("journalFilterLabel"),
         search: document.getElementById("textSearch"),
         chipTotal: document.getElementById("chipTotal"),
         chipAI: document.getElementById("chipAI"),
@@ -318,16 +320,29 @@
         var names = Object.keys(counts).sort(function (a, b) {
             return counts[b] - counts[a] || a.localeCompare(b);
         });
-        var html = '<button type="button" class="filter-btn active" data-filter-journal="all">全部</button>';
-        names.forEach(function (name, index) {
-            var extra = index >= 8 ? " extra-journal" : "";
-            html += '<button type="button" class="filter-btn' + extra + '" data-filter-journal="' +
+        var VISIBLE = 8;   // 默认露出的期刊数，其余收进浮层
+
+        function chip(name) {
+            return '<button type="button" class="filter-btn" data-filter-journal="' +
                 escapeHtml(name) + '">' + escapeHtml(name) + ' <span class="count">' +
                 counts[name] + "</span></button>";
+        }
+
+        var html = '<button type="button" class="filter-btn active" data-filter-journal="all">全部</button>';
+        names.slice(0, VISIBLE).forEach(function (name) {
+            html += chip(name);
         });
-        if (names.length > 8) {
-            html += '<button type="button" class="filter-btn more-btn" id="moreJournals">展开全部 ' +
+        if (names.length > VISIBLE) {
+            /* 期刊很多时收进浮层（绝对定位），而不是就地铺开：
+               就地铺开会把吸顶的筛选栏越撑越高，最后整屏都是筛选栏，
+               正文、甚至「收起」按钮都会被挤出屏幕。 */
+            html += '<button type="button" class="filter-btn more-btn" id="moreJournals"' +
+                ' aria-expanded="false" aria-controls="journalMorePanel">展开全部 ' +
                 names.length + " 个期刊 ▾</button>";
+            html += '<div class="journal-more-panel" id="journalMorePanel" hidden>' +
+                '<div class="journal-more-grid">' +
+                names.slice(VISIBLE).map(chip).join("") +
+                "</div></div>";
         }
         el.journalFilters.innerHTML = html;
     }
@@ -547,22 +562,65 @@
         } else if (emptyNote) {
             emptyNote.hidden = true;
         }
+        syncJournalLabel();
+    }
+
+    /* 期刊过滤器的辅助文案：选中的期刊常被收进浮层里（浮层关掉后就看不到了），
+       所以在「期刊」标签上补一个当前筛选提示，避免用户以为筛选没生效。
+       手机端 / 矮屏是横向滑动平铺，选中的 chip 本身可见，就不占标签空间了。 */
+    function syncJournalLabel() {
+        if (!el.journalFilterLabel) { return; }
+        var compact = false;
+        if (window.matchMedia) {
+            compact = window.matchMedia("(max-width: 640px)").matches ||
+                window.matchMedia("(max-height: 620px) and (min-width: 641px)").matches;
+        }
+        var active = state.journal !== "all" && !compact;
+        el.journalFilterLabel.textContent = active ? "期刊：" + state.journal : "期刊";
+        el.journalFilterLabel.title = active ? state.journal : "";
+        el.journalFilterLabel.classList.toggle("filter-label-active", active);
+    }
+
+    /* 关掉期刊浮层并恢复按钮文案（元素可能已被重渲染，所以每次现查） */
+    function closeJournalPanel() {
+        var btn = document.getElementById("moreJournals");
+        var panel = document.getElementById("journalMorePanel");
+        if (!panel || panel.hidden) { return; }
+        panel.hidden = true;
+        if (!btn) { return; }
+        btn.setAttribute("aria-expanded", "false");
+        var total = el.journalFilters.querySelectorAll("[data-filter-journal]").length - 1;
+        btn.textContent = "展开全部 " + total + " 个期刊 ▾";
     }
 
     function bindJournalToggle() {
         var btn = document.getElementById("moreJournals");
-        if (!btn) { return; }
-        var extras = el.journalFilters.querySelectorAll(".extra-journal");
-        Array.prototype.forEach.call(extras, function (b) { b.style.display = "none"; });
-        btn.addEventListener("click", function () {
-            var open = btn.getAttribute("data-open") === "1";
-            Array.prototype.forEach.call(extras, function (b) {
-                b.style.display = open ? "none" : "";
-            });
-            btn.setAttribute("data-open", open ? "0" : "1");
-            btn.textContent = open
-                ? "展开全部 " + extras.length + " 个期刊 ▾"
-                : "收起期刊列表 ▴";
+        var panel = document.getElementById("journalMorePanel");
+        if (!btn || !panel) { return; }
+        btn.addEventListener("click", function (event) {
+            event.stopPropagation();   // 别让 document 上的「点外部关闭」立刻把它关掉
+            var open = panel.hidden;
+            panel.hidden = !open;
+            btn.setAttribute("aria-expanded", open ? "true" : "false");
+            if (open) {
+                btn.textContent = "收起期刊列表 ▴";
+            } else {
+                closeJournalPanel();
+            }
+        });
+        if (journalPanelGlobalBound) { return; }
+        journalPanelGlobalBound = true;
+        /* 点浮层以外的地方 / 按 Esc 都收起浮层 */
+        document.addEventListener("click", function (event) {
+            var currentPanel = document.getElementById("journalMorePanel");
+            if (!currentPanel || currentPanel.hidden) { return; }
+            if (el.journalFilters.contains(event.target)) { return; }
+            closeJournalPanel();
+        });
+        document.addEventListener("keydown", function (event) {
+            if (event.key !== "Escape") { return; }
+            var currentPanel = document.getElementById("journalMorePanel");
+            if (currentPanel && !currentPanel.hidden) { closeJournalPanel(); }
         });
     }
 
@@ -1028,6 +1086,7 @@
             btn.classList.add("active");
             state.journal = btn.getAttribute("data-filter-journal");
             applyFilters();
+            closeJournalPanel();   // 选完就收起浮层，正文立刻可见
         });
         el.search.addEventListener("input", function () {
             state.query = el.search.value;
