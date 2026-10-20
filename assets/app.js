@@ -207,20 +207,33 @@
         var searchBlob = [paper.title, authorText, paper.summary, paper.journal]
             .join(" ").toLowerCase();
 
+        /* 卡片结构对齐参考项目 daily-arXiv-ai-enhanced：
+              paper-card
+                ├── paper-card-header   ← 标题 / 期刊·日期 / 标签
+                ├── paper-card-content  ← 作者 / 摘要 / AI 解读
+                └── paper-card-footer   ← 链接按钮（对应参考项目的 card-footer）
+           类名 paper-title / paper-meta / tag-row / paper-authors / abstract-block /
+           ai-panel / paper-links 全部保留，供 assets/style.css 匹配。 */
         return '<article class="paper-card"' +
             ' data-topic="' + escapeHtml(paper.topic || "其他") + '"' +
             ' data-journal="' + escapeHtml(paper.journal || "未知期刊") + '"' +
             ' data-search="' + escapeHtml(searchBlob) + '">' +
-            '<div class="paper-top"><div class="paper-index">' + index + '</div>' +
-            '<div class="paper-main">' +
+            '<div class="paper-card-header">' +
+            '<div class="paper-head-row">' +
+            '<span class="paper-index">' + index + "</span>" +
             '<h3 class="paper-title">' + titleHtml + "</h3>" +
+            "</div>" +
             '<div class="paper-meta">' + meta.join('<span class="dot">·</span>') + "</div>" +
             '<div class="tag-row">' + tags + "</div>" +
+            "</div>" +
+            '<div class="paper-card-content">' +
             (authorText ? '<p class="paper-authors">' + authorText + "</p>" : "") +
             abstractHtml +
             renderAI(paper.AI) +
-            (links ? '<div class="paper-links">' + links + "</div>" : "") +
-            "</div></div></article>";
+            "</div>" +
+            (links ? '<div class="paper-card-footer"><div class="paper-links">' +
+                links + "</div></div>" : "") +
+            "</article>";
     }
 
     function renderPapers() {
@@ -245,7 +258,7 @@
             html += '<section class="topic-group" data-group-topic="' + escapeHtml(topic) + '">' +
                 '<h2 class="topic-heading"><span class="bar"></span><span>' + escapeHtml(topic) +
                 '</span><span class="topic-count">' + list.length + " 篇</span></h2>" +
-                '<div class="paper-list">';
+                '<div class="paper-list paper-container">';
             list.forEach(function (p) {
                 index += 1;
                 html += renderPaper(p, index);

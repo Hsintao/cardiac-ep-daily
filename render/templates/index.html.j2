@@ -1,11 +1,26 @@
 {#
-  日报页面模板（单页应用式）—— 对齐参考项目 daily-arXiv-ai-enhanced 的架构：
-    - 页面只是一个壳，不含论文数据；
+  日报页面模板（单页应用式）—— 布局对齐参考项目 daily-arXiv-ai-enhanced：
+    - 页面只是壳，不含论文数据；
     - 日期列表在构建时写入（来自 data/ 目录扫描）；
     - 用户选日期后，前端 fetch 对应 JSONL 就地渲染，不跳转。
 
-  为什么这样做：此前的「每天一个归档页」需要两套模板，风格容易漂移
-  （实际就出过历史页与首页完全不同的 bug）。单页方案只剩一套渲染逻辑。
+  布局结构（对齐参考项目）：
+    ┌─────────────────────────────────────────────┐
+    │ [logo+标题]                  [日期] [主题]   │ ← sticky 毛玻璃顶栏
+    ├─────────────────────────────────────────────┤
+    │ 主题: [全部][房颤与消融] ...                │ ← 分类导航条
+    │ 期刊: [全部][期刊...]        [搜索框]        │
+    ├─────────────────────────────────────────────┤
+    │  ┌──────────┐  ┌──────────┐                 │
+    │  │ 论文卡片  │  │ 论文卡片  │                │ ← 卡片式
+    │  └──────────┘  └──────────┘                 │
+    └─────────────────────────────────────────────┘
+
+  ⚠️ 类名契约：样式由 assets/style.css 提供，下列类名必须保留，否则样式失配：
+     site-header / date-toggle / date-cell / filter-btn / topic-group /
+     paper-card / paper-title / paper-meta / tag-row / paper-authors /
+     abstract-block / ai-panel / paper-links
+  新增的类名只用于布局辅助（header-top / header-left / header-right 等）。
 
   所有论文文本一律经 JS 的 escapeHtml 转义后再插入 DOM —— 见 app 脚本。
 #}<!DOCTYPE html>
@@ -34,24 +49,23 @@
 <body>
 
 <header class="site-header">
-    <div class="wrap">
-        <h1>心脏电生理每日论文检索</h1>
-        <p class="subtitle">Cardiac Electrophysiology Daily Digest · 按亚专业分组的文献速览</p>
+    <div class="wrap header-top">
 
-        {# 统计与主题切换合并为一行，避免多占一条空白行 #}
-        <div class="header-meta">
-            <span class="chip">📄 论文总数 <strong id="chipTotal">—</strong></span>
-            <span class="chip">🤖 含 AI 解读 <strong id="chipAI">—</strong></span>
-            <span class="chip" id="chipNoAbsWrap" hidden>📝 无摘要 <strong id="chipNoAbs">—</strong></span>
-            <button type="button" class="theme-toggle" id="themeToggle"
-                    aria-label="切换深色/浅色模式" title="切换深色/浅色模式">🌗 主题</button>
+        {# 左：站点标识 = 标题 + 副标题（参考项目的 header-left） #}
+        <div class="header-left">
+            <a class="site-logo" href="#" aria-label="心脏电生理每日论文检索">
+                <span class="logo-mark" aria-hidden="true">♥</span>
+                <span class="site-title">心脏电生理每日论文检索</span>
+            </a>
+            <p class="subtitle">Cardiac Electrophysiology Daily · 按亚专业分组的文献速览</p>
         </div>
 
-        <div class="date-bar">
-            <label class="date-bar-label" for="dateToggle">日期</label>
+        {# 右：日期选择器 + 主题切换，紧凑排布（参考项目的 header-controls） #}
+        <div class="header-right">
             <div class="date-select" id="dateSelect">
                 <button type="button" class="date-toggle" id="dateToggle"
                         aria-haspopup="listbox" aria-expanded="false" aria-controls="datePanel">
+                    <span class="date-toggle-icon" aria-hidden="true">📅</span>
                     <span class="date-toggle-text" id="dateToggleText">{{ default_date }}</span>
                     <span class="date-toggle-caret" aria-hidden="true">▾</span>
                 </button>
@@ -75,11 +89,22 @@
                     </div>
                 </div>
             </div>
+
+            <button type="button" class="theme-toggle" id="themeToggle"
+                    aria-label="切换深色/浅色模式" title="切换深色/浅色模式">🌗 主题</button>
         </div>
+    </div>
+
+    {# 统计信息：贴在顶栏下沿，一行 chip，不额外占独立区块 #}
+    <div class="wrap header-stats">
+        <span class="chip">📄 论文 <strong id="chipTotal">—</strong></span>
+        <span class="chip">🤖 AI 解读 <strong id="chipAI">—</strong></span>
+        <span class="chip" id="chipNoAbsWrap" hidden>📝 无摘要 <strong id="chipNoAbs">—</strong></span>
     </div>
 </header>
 
-<div class="filters" id="top">
+{# 筛选区：主题 / 期刊两行 + 检索框（参考项目的 category-nav） #}
+<nav class="filters" id="top" aria-label="论文筛选">
     <div class="wrap">
         <div class="filter-row">
             <span class="filter-label">主题</span>
@@ -89,13 +114,13 @@
             <span class="filter-label">期刊</span>
             <div class="filter-buttons" id="journalFilters"></div>
         </div>
-        <div class="filter-row">
+        <div class="filter-row filter-row-search">
             <span class="filter-label">检索</span>
             <input type="search" id="textSearch" class="search-box"
                    placeholder="输入关键词过滤标题 / 作者 / 摘要（本地匹配，不联网）" aria-label="关键词过滤">
         </div>
     </div>
-</div>
+</nav>
 
 <main>
     <div class="wrap" id="paperContainer">
