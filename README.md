@@ -34,7 +34,7 @@ PubMed / Europe PMC
    data/YYYY-MM-DD_AI_enhanced_Chinese.jsonl
         │  ③ 渲染（render/build_html.py）
         ▼
-   index.html + 归档页            按亚专业分组的日报
+   index.html                     单页站点（前端按日期 fetch 数据）
 ```
 
 抓取范围由 `config.yaml` 控制：**9 本 EP 核心期刊的期刊白名单 + 22 个临床主题词**，覆盖房颤与消融、室性心律失常、器械治疗、影像与标测、遗传与基础五个亚专业。
@@ -385,10 +385,22 @@ workflow 里的 `permissions: contents: write` 已经声明了写权限，但这
 - **Branch**：**`data`**，目录 `/ (root)`
 - **Save**
 
-> ⚠️ 为什么是 `data` 分支而不是 `main`：日报页面是**完全静态**的（每篇文献的数据在构建时
-> 直接内联进 HTML，浏览器不会去 fetch JSONL），所以首页 `index.html` 和归档页
-> `archive/*.html` 必须由 workflow 提交到 `data` 分支才能被 Pages 发布。
-> `main` 分支只放代码，根目录的 `index.html` 仅用于本地预览。
+> ⚠️ 为什么是 `data` 分支而不是 `main`：`index.html` 只是一个**壳**（约 60KB），
+> 里面的论文数据由前端按日期 `fetch("data/<日期>_AI_enhanced_Chinese.jsonl")` 加载。
+> 因此页面和数据必须**同源**——都发布在 `data` 分支，相对路径 fetch 才能成功
+> （也就不用配 CORS，不需要写死仓库名）。`main` 分支只放代码。
+
+### 单页架构说明
+
+站点只有**一个** `index.html`，没有「每天一个归档页」：
+
+- 日期列表在构建时扫描 `data/` 目录得到，直接写进页面
+- 默认显示最新一天；选其它日期时**原地切换**，不跳转、不刷新
+- 当前日期反映在 URL 的 `#2026-10-01` 上，可直接分享或收藏
+- 每天的数据按需加载（单日 8–86 篇，几十到几百 KB），首屏始终很快
+
+> 早期版本给每天生成独立的 `archive/<日期>.html`，需要两套模板，结果历史页和首页
+> 界面不一致。改成单页后只剩一套渲染逻辑，从根本上消除了这个不一致。
 
 等 1~2 分钟，访问：
 

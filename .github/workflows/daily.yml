@@ -204,29 +204,10 @@ jobs:
         run: |
           set -euo pipefail
           today="${{ steps.collect.outputs.today }}"
-          python -m render.build_html \
-            --data "data/${today}_AI_enhanced_${LANGUAGE}.jsonl" \
-            --out index.html \
-            --archive "archive/${today}.html" \
-            --date "${today}"
-
-          # 补齐历史归档页：archive/ 里缺哪天就补哪天。
-          # 页面是静态的，归档页必须实际存在，否则「归档页」链接会 404。
-          # 这一步也让首次部署 / data 分支重建后能自愈出全部历史页面。
-          mkdir -p archive
-          for f in data/*_AI_enhanced_${LANGUAGE}.jsonl; do
-            [ -e "$f" ] || continue
-            day=$(basename "$f" "_AI_enhanced_${LANGUAGE}.jsonl")
-            if [ ! -f "archive/${day}.html" ]; then
-              python -m render.build_html \
-                --data "$f" \
-                --out "/tmp/archive-${day}.html" \
-                --archive "archive/${day}.html" \
-                --date "$day" > /dev/null
-              echo "补齐归档页: ${day}"
-            fi
-          done
-          echo "归档页共 $(ls archive/*.html | wc -l) 个"
+          # 单页架构：只生成一个 index.html 壳，日期列表由 data/ 目录扫描得到，
+          # 论文数据由前端按需 fetch data/<date>_AI_enhanced_<lang>.jsonl。
+          # 因此这里**不需要**逐天生成归档页 —— 少一个环节就少一处不一致。
+          python -m render.build_html --data-dir data --out index.html --default-date "${today}"
 
       # ------------------------------------------------------------------
       # 7. 重建 assets/file-list.txt
@@ -263,7 +244,6 @@ jobs:
           # 浏览器不 fetch JSONL。若只推数据不推页面，Pages 上的首页会永远是空的。
           # 归档页同理 —— 缺了它，历史日期的链接会 404。
           git add data/*.jsonl assets/file-list.txt index.html
-          [ -d archive ] && git add archive/*.html || true
 
           echo "即将提交 / staged:"
           git diff --staged --name-only

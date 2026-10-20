@@ -225,7 +225,8 @@ echo "✅ AI 步骤完成：data/${RUN_DATE}_AI_enhanced_${LANGUAGE}.jsonl"
 # ---------------------------------------------------------------------------
 echo ""
 echo "▶ [3/3] 渲染 HTML"
-"${PYTHON_BIN}" -m render.build_html --data "${AI_FILE}" --out "${OUT_HTML}"
+# 单页架构：扫描 data/ 下所有日期生成站点壳，前端按需 fetch 各日 JSONL
+"${PYTHON_BIN}" -m render.build_html --data-dir "${DATA_DIR}" --out "${OUT_HTML}"
 
 if [ ! -f "${OUT_HTML}" ]; then
   echo "❌ 渲染失败：未生成 ${OUT_HTML}" >&2

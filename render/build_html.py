@@ -354,6 +354,21 @@ def _env() -> Environment:
     return env
 
 
+APP_SCRIPT_PATH = BASE_DIR / "assets" / "app.js"
+
+
+def read_app_script() -> str:
+    """读 ``assets/app.js``（前端渲染脚本），内联进页面。
+
+    内联而不是外链：保持「单文件、可离线双击打开」的特性，
+    也让 Pages 部署不依赖额外的静态资源路径。
+    """
+    try:
+        return APP_SCRIPT_PATH.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+
+
 def read_style() -> str:
     """读 ``assets/style.css``；缺失时用一份最小兜底，保证页面仍然可用。"""
     try:
@@ -372,68 +387,63 @@ def render_index(context: Dict[str, Any], *, style: Optional[str] = None) -> str
     )
 
 
-def render_archive(context: Dict[str, Any], *, style: Optional[str] = None) -> str:
-    """渲染归档页 HTML 字符串。
-
-    **刻意复用 index.html.j2 而不是单独一套模板**：历史日期必须与当天
-    界面完全一致（分组、筛选、检索、AI 解读面板、深浅色切换）。早期版本
-    用独立的紧凑列表模板，导致点「往期」后界面骤变成另一种样子 ——
-    读者会以为进了另一个站点。
-    """
-    template = _env().get_template("index.html.j2")
-    return template.render(
-        style=style if style is not None else read_style(),
-        depth=1,  # 归档页在 archive/ 下一级，所有站内链接需要 ../ 前缀
-        **context,
-    )
-
-
-def build_pages(
-    data_path: os.PathLike | str,
+def build_site(
+    data_dir: os.PathLike | str,
     out_path: os.PathLike | str = "index.html",
     *,
-    archive_path: Optional[os.PathLike | str] = None,
-    date: str = "",
     generated_at: Optional[datetime] = None,
+    default_date: str = "",
 ) -> Dict[str, str]:
-    """读 JSONL，写主页面（+ 归档页）。返回 ``{"index": ..., "archive": ...}``。
+    """生成**一个** HTML 壳，运行时按日期 fetch 对应的 JSONL。
 
-    ``archive_path`` 为 None 时按 ``<out 同级>/archive/<date>.html`` 推导。
+    这是对齐参考项目 daily-arXiv-ai-enhanced 的架构：
+      - 只有一个页面，没有「每天一个归档页」；
+      - 日期列表来自 ``data/`` 目录（构建时扫描，直接写进页面）；
+      - 用户选日期后，前端 ``fetch('data/YYYY-MM-DD_AI_enhanced_Chinese.jsonl')``，
+        解析 JSONL 就地渲染。
+
+    相比「31 个独立归档页」或「2MB 数据内嵌」，这个方案：
+      - 页面恒定很小（几十 KB），首屏快；
+      - 历史日期按需加载，不会拖慢打开速度；
+      - **只有一个模板**，不存在两套模板风格漂移的问题（之前就因此出过 bug）。
+
+    数据与页面同源（都发布在 data 分支 / Pages 根目录），所以用相对路径
+    fetch 即可，没有 CORS 问题，也不需要配置仓库名。
     """
-    items = load_jsonl(data_path)
-    day = _text(date) or infer_date(items) or date_from_filename(data_path)
+    data_dir = Path(data_dir)
+    files = sorted(data_dir.glob("*_AI_enhanced_*.jsonl"))
+    if not files:
+        raise SystemExit(f"[render] {data_dir} 下没有 *_AI_enhanced_*.jsonl 数据")
 
-    out_path = Path(out_path)
-    archive_dir = out_path.parent / "archive"
-    # 首页要列出全部日期（含当天）。当天归档页是在写完首页之后才落盘的，
-    # 所以扫描结果里不会有它 —— 必须把 day 并进去，否则首页的
-    # 「往期（N 天）」会永远少一天，且当天的归档页也点不到。
-    archives = discover_archives(archive_dir)
-    if day and day not in archives:
-        archives = sorted([*archives, day], reverse=True)
-    context = build_context(items, date=day, generated_at=generated_at, archives=archives)
+    days = []
+    for path in files:
+        day = date_from_filename(path)
+        if day:
+            days.append(day)
+    days = sorted(set(days), reverse=True)
+    if not days:
+        raise SystemExit("[render] 未能从数据文件名解析出任何日期")
 
-    style = read_style()
+    now = generated_at or datetime.now()
+    default = default_date if default_date in days else days[0]
+
+    context = {
+        "days": days,
+        "default_date": default,
+        "date_groups": group_archives_by_month(days),
+        "language": os.environ.get("LANGUAGE", "Chinese") or "Chinese",
+        "generated_at": now.strftime(_TIME_FMT),
+    }
+
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(render_index(context, style=style), encoding="utf-8")
-    written = {"index": str(out_path)}
-
-    if archive_path is None:
-        archive_name = f"{day}.html" if day else "archive.html"
-        archive_path = out_path.parent / "archive" / archive_name
-    archive_path = Path(archive_path)
-    archive_path.parent.mkdir(parents=True, exist_ok=True)
-    archive_context = {
-        **context,
-        "archives": discover_archives(archive_path.parent, exclude=day),
-    }
-    archive_path.write_text(render_archive(archive_context, style=style), encoding="utf-8")
-    written["archive"] = str(archive_path)
-
-    print(f"[render] {context['total']} 篇 -> {out_path}")
-    print(f"[render] 归档页 -> {archive_path}")
-    return written
+    template = _env().get_template("index.html.j2")
+    out_path.write_text(
+        template.render(style=read_style(), app_script=read_app_script(), **context),
+        encoding="utf-8",
+    )
+    print(f"[render] 站点壳 -> {out_path}（{len(days)} 天可用，默认 {default}）")
+    return {"index": str(out_path)}
 
 
 # ---------------------------------------------------------------------------
@@ -443,21 +453,27 @@ def build_pages(
 def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="python -m render.build_html",
-        description="把 AI 增强后的 JSONL 渲染成可离线打开的日报页面。",
+        description="生成日报站点壳：前端按日期 fetch data/*.jsonl 就地渲染。",
     )
-    parser.add_argument("--data", required=True, help="输入 JSONL 路径")
-    parser.add_argument("--out", default="index.html", help="输出主页面路径（默认 index.html）")
-    parser.add_argument("--archive", default=None, help="归档页输出路径（默认 archive/<date>.html）")
-    parser.add_argument("--date", default="", help="日报日期 YYYY-MM-DD（默认从数据推断）")
+    parser.add_argument(
+        "--data-dir", default="data",
+        help="包含 YYYY-MM-DD_AI_enhanced_*.jsonl 的目录（默认 data）",
+    )
+    parser.add_argument("--out", default="index.html", help="输出页面路径（默认 index.html）")
+    parser.add_argument(
+        "--default-date", default="",
+        help="默认显示的日期（默认最新一天）",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: Optional[List[str]] = None) -> int:
     args = _parse_args(argv)
-    if not Path(args.data).exists():
-        print(f"[render] 找不到数据文件：{args.data}", file=sys.stderr)
+    data_dir = Path(args.data_dir)
+    if not data_dir.is_dir():
+        print(f"[render] 找不到数据目录：{data_dir}", file=sys.stderr)
         return 2
-    build_pages(args.data, args.out, archive_path=args.archive, date=args.date)
+    build_site(data_dir, args.out, default_date=args.default_date)
     return 0
 
 

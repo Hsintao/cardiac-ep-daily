@@ -1,27 +1,30 @@
 {#
-  日报模板：**主页面与归档页共用**（历史日期与当天界面完全一致）
-  - 自包含：样式内联，脚本内联，无任何外链/CDN
-  - 所有文本走 Jinja2 autoescape（环境已开启），URL 走 safe_url 过滤
-  - ``depth``：页面所在层级相对站点根的深度。主页面 0，archive/ 下的页为 1，
-    用于拼出正确的相对链接前缀（``prefix``）。
+  日报页面模板（单页应用式）—— 对齐参考项目 daily-arXiv-ai-enhanced 的架构：
+    - 页面只是一个壳，不含论文数据；
+    - 日期列表在构建时写入（来自 data/ 目录扫描）；
+    - 用户选日期后，前端 fetch 对应 JSONL 就地渲染，不跳转。
+
+  为什么这样做：此前的「每天一个归档页」需要两套模板，风格容易漂移
+  （实际就出过历史页与首页完全不同的 bug）。单页方案只剩一套渲染逻辑。
+
+  所有论文文本一律经 JS 的 escapeHtml 转义后再插入 DOM —— 见 app 脚本。
 #}<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light dark">
-<meta name="description" content="心脏电生理每日论文检索{% if date %} · {{ date }}{% endif %}">
-<title>心脏电生理日报{% if date %} · {{ date }}{% endif %}</title>
+<meta name="description" content="心脏电生理每日论文检索">
+<title>心脏电生理日报</title>
 <script>
-/* 主题初始化：必须在样式生效前执行，避免深色用户看到白屏闪烁。
-   读取顺序：localStorage 手动选择 > 系统偏好。写入 <html data-theme>。 */
+/* 主题初始化：必须在样式生效前执行，避免深色用户看到白屏闪烁 */
 (function () {
     try {
         var saved = localStorage.getItem('ep-digest-theme');
         if (saved === 'dark' || saved === 'light') {
             document.documentElement.setAttribute('data-theme', saved);
         }
-    } catch (e) { /* 隐私模式下 localStorage 可能抛错，忽略即可 */ }
+    } catch (e) {}
 })();
 </script>
 <style>
@@ -29,44 +32,38 @@
 </style>
 </head>
 <body>
-{% set prefix = "../" * (depth | default(0)) %}
 
 <header class="site-header">
     <div class="wrap">
         <h1>心脏电生理每日论文检索</h1>
         <p class="subtitle">Cardiac Electrophysiology Daily Digest · 按亚专业分组的文献速览</p>
+
         <div class="header-meta">
-            {% if date %}<span class="chip">📅 日报日期 <strong>{{ date }}</strong></span>{% endif %}
+            <span class="chip">📅 日报日期 <strong id="chipDate">{{ default_date }}</strong></span>
             <span class="chip">🕒 生成时间 <strong>{{ generated_at }}</strong></span>
-            <span class="chip">📄 论文总数 <strong>{{ total }}</strong></span>
-            <span class="chip">🤖 含 AI 解读 <strong>{{ ai_count }}</strong></span>
-            {% if no_abstract_count %}<span class="chip">📝 无摘要 <strong>{{ no_abstract_count }}</strong></span>{% endif %}
+            <span class="chip">📄 论文总数 <strong id="chipTotal">—</strong></span>
+            <span class="chip">🤖 含 AI 解读 <strong id="chipAI">—</strong></span>
+            <span class="chip" id="chipNoAbsWrap" hidden>📝 无摘要 <strong id="chipNoAbs">—</strong></span>
         </div>
+
         <nav class="header-nav">
-            {% if archive_name %}<a href="{{ prefix }}archive/{{ archive_name }}">本篇归档页</a>{% endif %}
-            {% if depth %}<a href="{{ prefix }}index.html">最新一期</a>{% endif %}
             <a href="#top">回到顶部</a>
             <button type="button" class="theme-toggle" id="themeToggle"
                     aria-label="切换深色/浅色模式" title="切换深色/浅色模式">🌗 主题</button>
         </nav>
 
-        {# 日期选择：页面是纯静态的，历史内容靠这里进入。
-           31 天平铺会占掉两行、越积越多，所以做成下拉选择器：
-           点开是一个按月份分组的日期列表，当前日期高亮。 #}
-        {% if archives %}
         <div class="date-bar">
             <label class="date-bar-label" for="dateToggle">日期</label>
             <div class="date-select" id="dateSelect">
                 <button type="button" class="date-toggle" id="dateToggle"
-                        aria-haspopup="listbox" aria-expanded="false"
-                        aria-controls="datePanel">
-                    <span class="date-toggle-text">{% if date %}{{ date }}{% else %}最新{% endif %}</span>
+                        aria-haspopup="listbox" aria-expanded="false" aria-controls="datePanel">
+                    <span class="date-toggle-text" id="dateToggleText">{{ default_date }}</span>
                     <span class="date-toggle-caret" aria-hidden="true">▾</span>
                 </button>
                 <div class="date-panel" id="datePanel" role="listbox" hidden>
                     <div class="date-panel-head">
-                        <span>共 {{ archives | length }} 天</span>
-                        {% if depth %}<a class="date-panel-latest" href="{{ prefix }}index.html">跳到最新一期 →</a>{% endif %}
+                        <span>共 {{ days | length }} 天</span>
+                        <button type="button" class="date-panel-latest" id="jumpLatest">跳到最新 →</button>
                     </div>
                     <div class="date-panel-body">
                         {% for group in date_groups %}
@@ -74,9 +71,9 @@
                             <div class="date-month-label">{{ group.label }}</div>
                             <div class="date-month-days">
                                 {% for day in group.days %}
-                                <a href="{{ prefix }}archive/{{ day }}.html"
-                                   class="date-cell{% if day == date %} current{% endif %}"
-                                   role="option" aria-selected="{{ 'true' if day == date else 'false' }}">{{ day[8:10] }}</a>
+                                <button type="button" class="date-cell{% if day == default_date %} current{% endif %}"
+                                        data-day="{{ day }}" role="option"
+                                        aria-selected="{{ 'true' if day == default_date else 'false' }}">{{ day[8:10] }}</button>
                                 {% endfor %}
                             </div>
                         </div>
@@ -84,340 +81,54 @@
                     </div>
                 </div>
             </div>
-            <span class="date-bar-hint">共 {{ archives | length }} 天归档</span>
+            <span class="date-bar-hint">共 {{ days | length }} 天 · 选择后本页即切换</span>
         </div>
-        {% endif %}
     </div>
 </header>
 
-{% if total %}
 <div class="filters" id="top">
     <div class="wrap">
         <div class="filter-row">
             <span class="filter-label">主题</span>
-            <div class="filter-buttons" id="topicFilters">
-                <button type="button" class="filter-btn active" data-filter-topic="all">全部 <span class="count">{{ total }}</span></button>
-                {% for group in groups %}
-                <button type="button" class="filter-btn" data-filter-topic="{{ group.topic }}">{{ group.topic }} <span class="count">{{ group.count }}</span></button>
-                {% endfor %}
-            </div>
+            <div class="filter-buttons" id="topicFilters"></div>
         </div>
         <div class="filter-row">
             <span class="filter-label">期刊</span>
-            <div class="filter-buttons" id="journalFilters">
-                <button type="button" class="filter-btn active" data-filter-journal="all">全部</button>
-                {% for journal in journals %}
-                <button type="button" class="filter-btn{% if loop.index > 8 %} extra-journal{% endif %}" data-filter-journal="{{ journal.name }}">{{ journal.name }} <span class="count">{{ journal.count }}</span></button>
-                {% endfor %}
-                {% if journals | length > 8 %}
-                <button type="button" class="filter-btn more-btn" id="moreJournals">展开全部 {{ journals | length }} 个期刊 ▾</button>
-                {% endif %}
-            </div>
+            <div class="filter-buttons" id="journalFilters"></div>
         </div>
         <div class="filter-row">
             <span class="filter-label">检索</span>
-            <input type="search" id="textSearch" class="search-box" placeholder="输入关键词过滤标题 / 作者 / 摘要（本地匹配，不联网）" aria-label="关键词过滤">
+            <input type="search" id="textSearch" class="search-box"
+                   placeholder="输入关键词过滤标题 / 作者 / 摘要（本地匹配，不联网）" aria-label="关键词过滤">
         </div>
     </div>
 </div>
-{% endif %}
 
 <main>
-    <div class="wrap">
-
-    {% if total == 0 %}
-        <div class="empty-state">
-            <div class="icon">🗂️</div>
-            {# 归档页复用本模板，措辞要区分「今天」与「该日期」，否则历史页会说成今天 #}
-            {% if depth %}
-            <h2>该日期没有论文</h2>
-            <p>
-                {{ date }} 这一天没有匹配到论文。可能当天 PubMed 入库（edat）中确实没有命中
-                白名单期刊与主题词的文章 —— 周末与节假日尤其常见。
-            </p>
-            {% else %}
-            <h2>今天没有匹配到论文</h2>
-            <p>
-                检索可能还没有运行，或者当日 PubMed 入库（edat）中确实没有命中白名单期刊与主题词的文章。
-                这属于正常情况 —— 周末与节假日尤其常见，明天会自动重试。
-            </p>
-            {% endif %}
-            <p class="hint">
-                手动重跑：<code>python -m daily_ep.pipeline</code> &nbsp;·&nbsp;
-                如果期望有数据，请检查 <code>config.yaml</code> 的期刊白名单与主题词。
-            </p>
+    <div class="wrap" id="paperContainer">
+        <div class="loading-state" id="loadingState">
+            <div class="loading-spinner"></div>
+            <p>正在加载 {{ default_date }} 的论文…</p>
         </div>
-    {% else %}
-
-        {% for group in groups %}
-        <section class="topic-group" data-group-topic="{{ group.topic }}">
-            <h2 class="topic-heading">
-                <span class="bar"></span>
-                <span>{{ group.topic }}</span>
-                <span class="topic-count">{{ group.count }} 篇</span>
-            </h2>
-
-            <div class="paper-list">
-            {% for paper in group.papers %}
-                <article class="paper-card"
-                         data-topic="{{ paper.topic }}"
-                         data-journal="{{ paper.journal or '未知期刊' }}"
-                         data-search="{{ (paper.title ~ ' ' ~ paper.authors | join(' ') ~ ' ' ~ paper.summary ~ ' ' ~ paper.journal) | lower }}"
-                         id="paper-{{ loop.index }}">
-
-                    <div class="paper-top">
-                        <div class="paper-index">{{ loop.index }}</div>
-                        <div class="paper-main">
-
-                            <h3 class="paper-title">
-                                {% if paper.abstract_url %}
-                                <a href="{{ paper.abstract_url }}" target="_blank" rel="noopener noreferrer">{{ paper.title }}</a>
-                                {% else %}
-                                {{ paper.title }}
-                                {% endif %}
-                            </h3>
-
-                            <div class="paper-meta">
-                                {% if paper.journal %}<span class="paper-journal">{{ paper.journal }}</span>{% endif %}
-                                {% if paper.journal and paper.date %}<span class="dot">·</span>{% endif %}
-                                {% if paper.date %}<span class="paper-date">{{ paper.date }}</span>{% endif %}
-                                {% if paper.pmid %}<span class="dot">·</span><span class="paper-date">PMID {{ paper.pmid }}</span>{% endif %}
-                            </div>
-
-                            <div class="tag-row">
-                                <span class="tag tag-topic" data-topic="{{ paper.topic }}">{{ paper.topic }}</span>
-                                {% for ptype in paper.pub_types %}
-                                <span class="tag tag-type">{{ ptype }}</span>
-                                {% endfor %}
-                                {% if paper.is_open_access %}<span class="tag tag-oa">开放获取</span>{% endif %}
-                            </div>
-
-                            {% if paper.authors %}
-                            {# 简约阅读：只显示前 3 位作者，其余折叠。作者名单常达 20+ 位，
-                               全量铺开会占掉 4-5 行，是卡片里最占地方、信息密度最低的部分。
-                               完整名单放在 title 里，悬停可见；检索仍用完整名单（见 data-search）。 #}
-                            <p class="paper-authors" title="{{ paper.authors | join('、') }}">
-                                {{ paper.authors[:3] | join('、') }}{% if paper.authors | length > 3 %}<span class="authors-more"> 等 {{ paper.authors | length }} 位作者</span>{% endif %}
-                            </p>
-                            {% endif %}
-
-                            {% if paper.no_abstract %}
-                            <div class="abstract-block">
-                                <p class="abstract-none">暂无摘要（该文献可能为社论、评论或通信类文章）</p>
-                            </div>
-                            {% else %}
-                            <details class="abstract-block">
-                                <summary>英文摘要</summary>
-                                <p class="abstract-body">{{ paper.summary }}</p>
-                            </details>
-                            {% endif %}
-
-                            {% if paper.has_ai %}
-                            <div class="ai-panel">
-                                <p class="ai-panel-title">AI 中文解读</p>
-                                {% for section in paper.ai_sections %}
-                                <div class="ai-section {{ section.css }}">
-                                    <span class="ai-label {{ section.css }}">{{ section.label }}</span>
-                                    <p class="ai-text">{{ section.text }}</p>
-                                </div>
-                                {% endfor %}
-                            </div>
-                            {% else %}
-                            <p class="ai-missing">未生成 AI 解读（仅显示原文摘要）</p>
-                            {% endif %}
-
-                            {% if paper.links %}
-                            <div class="link-row">
-                                {% for link in paper.links %}
-                                <a class="btn-link {{ link.css }}" href="{{ link.href }}" target="_blank" rel="noopener noreferrer">{{ link.label }}</a>
-                                {% endfor %}
-                            </div>
-                            {% endif %}
-
-                        </div>
-                    </div>
-                </article>
-            {% endfor %}
-            </div>
-        </section>
-        {% endfor %}
-
-        <div class="filter-empty" id="filterEmpty">
-            <p>没有符合当前筛选条件的论文。</p>
-            <p class="hint">试试点「全部」或清空关键词。</p>
-        </div>
-
-    {% endif %}
-
     </div>
 </main>
 
 <footer class="site-footer">
     <div class="wrap">
-        <p>心脏电生理每日论文检索 · 数据来源 PubMed / Europe PMC 等公开数据库</p>
-        <p>页面离线自包含，无外部依赖 · 生成于 {{ generated_at }}</p>
+        <p>数据来源：PubMed / Europe PMC · AI 解读由 DeepSeek 生成 · 共 {{ days | length }} 天归档</p>
     </div>
 </footer>
 
-<script>
-(function () {
-    "use strict";
-
-    var topicBar = document.getElementById("topicFilters");
-    var journalBar = document.getElementById("journalFilters");
-    var searchBox = document.getElementById("textSearch");
-    var emptyTip = document.getElementById("filterEmpty");
-    var cards = Array.prototype.slice.call(document.querySelectorAll(".paper-card"));
-    var groups = Array.prototype.slice.call(document.querySelectorAll(".topic-group"));
-
-    if (!cards.length) { return; }
-
-    var state = { topic: "all", journal: "all", text: "" };
-
-    function apply() {
-        var needle = state.text.trim().toLowerCase();
-        var visible = 0;
-
-        cards.forEach(function (card) {
-            var okTopic = state.topic === "all" || card.getAttribute("data-topic") === state.topic;
-            var okJournal = state.journal === "all" || card.getAttribute("data-journal") === state.journal;
-            var hay = card.getAttribute("data-search") || "";
-            var okText = !needle || hay.indexOf(needle) !== -1;
-            var show = okTopic && okJournal && okText;
-            card.classList.toggle("hidden", !show);
-            if (show) { visible += 1; }
-        });
-
-        // 组内没有可见卡片时隐藏整组，避免留下空标题
-        groups.forEach(function (group) {
-            var any = group.querySelector(".paper-card:not(.hidden)");
-            group.style.display = any ? "" : "none";
-        });
-
-        if (emptyTip) { emptyTip.classList.toggle("show", visible === 0); }
-    }
-
-    function bind(bar, key, attr) {
-        if (!bar) { return; }
-        bar.addEventListener("click", function (event) {
-            var btn = event.target.closest(".filter-btn");
-            if (!btn || !bar.contains(btn)) { return; }
-            Array.prototype.forEach.call(bar.querySelectorAll(".filter-btn"), function (b) {
-                b.classList.toggle("active", b === btn);
-            });
-            state[key] = btn.getAttribute(attr);
-            apply();
-        });
-    }
-
-    bind(topicBar, "topic", "data-filter-topic");
-    bind(journalBar, "journal", "data-filter-journal");
-
-    if (searchBox) {
-        searchBox.addEventListener("input", function () {
-            state.text = searchBox.value || "";
-            apply();
-        });
-    }
-
-    // 期刊过多时默认折叠，只显示前 8 个 + 一个展开按钮
-    var moreBtn = document.getElementById("moreJournals");
-    if (moreBtn) {
-        var extras = document.querySelectorAll(".extra-journal");
-        Array.prototype.forEach.call(extras, function (b) { b.style.display = "none"; });
-        moreBtn.addEventListener("click", function () {
-            var open = moreBtn.getAttribute("data-open") === "1";
-            Array.prototype.forEach.call(extras, function (b) {
-                b.style.display = open ? "none" : "";
-            });
-            moreBtn.setAttribute("data-open", open ? "0" : "1");
-            moreBtn.textContent = open
-                ? "展开全部 " + extras.length + " 个期刊 ▾"
-                : "收起期刊列表 ▴";
-        });
-    }
-
-    // 键盘 /：直接聚焦搜索框
-    document.addEventListener("keydown", function (event) {
-        if (event.key === "/" && document.activeElement !== searchBox) {
-            event.preventDefault();
-            if (searchBox) { searchBox.focus(); }
-        }
-    });
-})();
-
-/* 主题切换：跟随系统 → 手动选择 → 再点回到跟随系统。
-   三态循环，按钮 title 显示当前状态，localStorage 记忆手动选择。 */
-(function () {
-    var btn = document.getElementById("themeToggle");
-    if (!btn) { return; }
-    var root = document.documentElement;
-    var mql = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
-
-    function current() {
-        var manual = root.getAttribute("data-theme");
-        if (manual === "dark" || manual === "light") { return manual; }
-        return (mql && mql.matches) ? "dark" : "light";
-    }
-    function label() {
-        var manual = root.getAttribute("data-theme");
-        var suffix = manual ? "" : "（跟随系统）";
-        btn.textContent = (current() === "dark" ? "☀️ 浅色" : "🌙 深色") + suffix;
-        btn.title = "当前：" + (current() === "dark" ? "深色" : "浅色") + suffix + "，点击切换";
-    }
-    btn.addEventListener("click", function () {
-        var next = current() === "dark" ? "light" : "dark";
-        root.setAttribute("data-theme", next);
-        try { localStorage.setItem("ep-digest-theme", next); } catch (e) {}
-        label();
-    });
-    if (mql && mql.addEventListener) {
-        mql.addEventListener("change", function () {
-            if (!root.getAttribute("data-theme")) { label(); }
-        });
-    }
-    label();
-})();
-
-/* 日期选择器：点开显示按月份分组的日期网格，点外部/Esc 关闭。
-   纯前端、不联网；每个日期都是指向 archive/<date>.html 的普通链接，
-   所以即使 JS 失效也仍然可用（只是不会弹出面板）。 */
-(function () {
-    var toggle = document.getElementById("dateToggle");
-    var panel = document.getElementById("datePanel");
-    if (!toggle || !panel) { return; }
-
-    function open() {
-        panel.hidden = false;
-        toggle.setAttribute("aria-expanded", "true");
-        var cur = panel.querySelector(".date-cell.current");
-        if (cur && cur.scrollIntoView) {
-            cur.scrollIntoView({ block: "nearest" });
-        }
-    }
-    function close() {
-        panel.hidden = true;
-        toggle.setAttribute("aria-expanded", "false");
-    }
-    function isOpen() { return !panel.hidden; }
-
-    toggle.addEventListener("click", function (event) {
-        event.stopPropagation();
-        if (isOpen()) { close(); } else { open(); }
-    });
-
-    panel.addEventListener("click", function (event) { event.stopPropagation(); });
-
-    document.addEventListener("click", function () { if (isOpen()) { close(); } });
-
-    document.addEventListener("keydown", function (event) {
-        if (event.key === "Escape" && isOpen()) {
-            close();
-            toggle.focus();
-        }
-    });
-})();
+<script id="site-config" type="application/json">
+{
+  "defaultDate": {{ default_date | tojson }},
+  "days": {{ days | tojson }},
+  "language": {{ language | tojson }}
+}
 </script>
 
+<script>
+{{ app_script | safe }}
+</script>
 </body>
 </html>
