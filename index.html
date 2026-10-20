@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light dark">
-<meta name="description" content="心脏电生理每日论文检索 · 2026-10-19">
-<title>心脏电生理日报 · 2026-10-19</title>
+<meta name="description" content="心脏电生理每日论文检索 · 2026-10-20">
+<title>心脏电生理日报 · 2026-10-20</title>
 <script>
 /* 主题初始化：必须在样式生效前执行，避免深色用户看到白屏闪烁。
    读取顺序：localStorage 手动选择 > 系统偏好。写入 <html data-theme>。 */
@@ -808,6 +808,71 @@ main { padding: 26px 0 60px; }
 /* 作者折叠提示：弱化处理，避免与正文争视觉权重 */
 .authors-more { color: var(--text-tertiary); }
 
+/* ---------------------------------------------------------------- 往期导航 */
+
+.archive-nav {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--header-border);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    font-size: 13px;
+}
+
+.archive-nav-label {
+    color: var(--text-tertiary);
+    white-space: nowrap;
+}
+
+.archive-nav-days,
+.archive-nav-all {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.archive-nav a {
+    color: var(--header-accent);
+    background: var(--surface);
+    border: 1px solid var(--header-border);
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-variant-numeric: tabular-nums;
+    transition: background .15s, border-color .15s;
+}
+.archive-nav a:hover { background: var(--brand-soft); text-decoration: none; }
+.archive-nav a.current {
+    background: var(--brand);
+    border-color: var(--brand);
+    color: var(--surface);
+    font-weight: 600;
+}
+
+.archive-more {
+    font: inherit;
+    font-size: 13px;
+    color: var(--header-accent);
+    background: transparent;
+    border: 1px dashed var(--header-border);
+    border-radius: 999px;
+    padding: 2px 10px;
+    cursor: pointer;
+}
+.archive-more:hover { background: var(--brand-soft); }
+
+.archive-nav-all {
+    flex-basis: 100%;
+    margin-top: 4px;
+}
+
+/* hidden 必须显式压到 display:none —— 作者样式里的 display:flex 会覆盖
+   [hidden] 自带的 display:none，导致「收起」状态其实没藏住。 */
+.archive-nav-all[hidden] { display: none; }
+/* 展开时用 class 切换，比 hidden 属性更稳（display:flex 会覆盖 [hidden]） */
+.archive-nav.expanded .archive-nav-days { display: none; }
+
 </style>
 </head>
 <body>
@@ -817,14 +882,60 @@ main { padding: 26px 0 60px; }
         <h1>心脏电生理每日论文检索</h1>
         <p class="subtitle">Cardiac Electrophysiology Daily Digest · 按亚专业分组的文献速览</p>
         <div class="header-meta">
-<span class="chip">📅 日报日期 <strong>2026-10-19</strong></span>            <span class="chip">🕒 生成时间 <strong>2026-10-20 01:03</strong></span>
-            <span class="chip">📄 论文总数 <strong>20</strong></span>
+<span class="chip">📅 日报日期 <strong>2026-10-20</strong></span>            <span class="chip">🕒 生成时间 <strong>2026-10-20 00:34</strong></span>
+            <span class="chip">📄 论文总数 <strong>12</strong></span>
             <span class="chip">🤖 含 AI 解读 <strong>0</strong></span>
-<span class="chip">📝 无摘要 <strong>4</strong></span>        </div>
+<span class="chip">📝 无摘要 <strong>3</strong></span>        </div>
         <nav class="header-nav">
-<a href="archive/2026-10-19.html">归档页</a>            <a href="#top">回到顶部</a>
+<a href="archive/2026-10-20.html">本篇归档页</a>            <a href="#top">回到顶部</a>
             <button type="button" class="theme-toggle" id="themeToggle"
                     aria-label="切换深色/浅色模式" title="切换深色/浅色模式">🌗 主题</button>
+        </nav>
+
+        <nav class="archive-nav" aria-label="往期日报">
+            <span class="archive-nav-label">往期（30 天）</span>
+            <div class="archive-nav-days">
+                <a href="archive/2026-10-19.html">2026-10-19</a>
+                <a href="archive/2026-10-18.html">2026-10-18</a>
+                <a href="archive/2026-10-17.html">2026-10-17</a>
+                <a href="archive/2026-10-16.html">2026-10-16</a>
+                <a href="archive/2026-10-15.html">2026-10-15</a>
+                <a href="archive/2026-10-14.html">2026-10-14</a>
+                <a href="archive/2026-10-13.html">2026-10-13</a>
+            </div>
+            <button type="button" class="archive-more" id="archiveMore" aria-expanded="false">全部 30 天 ▾</button>
+            <div class="archive-nav-all" id="archiveAll" hidden>
+                <a href="archive/2026-10-19.html">2026-10-19</a>
+                <a href="archive/2026-10-18.html">2026-10-18</a>
+                <a href="archive/2026-10-17.html">2026-10-17</a>
+                <a href="archive/2026-10-16.html">2026-10-16</a>
+                <a href="archive/2026-10-15.html">2026-10-15</a>
+                <a href="archive/2026-10-14.html">2026-10-14</a>
+                <a href="archive/2026-10-13.html">2026-10-13</a>
+                <a href="archive/2026-10-12.html">2026-10-12</a>
+                <a href="archive/2026-10-11.html">2026-10-11</a>
+                <a href="archive/2026-10-10.html">2026-10-10</a>
+                <a href="archive/2026-10-09.html">2026-10-09</a>
+                <a href="archive/2026-10-08.html">2026-10-08</a>
+                <a href="archive/2026-10-07.html">2026-10-07</a>
+                <a href="archive/2026-10-06.html">2026-10-06</a>
+                <a href="archive/2026-10-05.html">2026-10-05</a>
+                <a href="archive/2026-10-04.html">2026-10-04</a>
+                <a href="archive/2026-10-03.html">2026-10-03</a>
+                <a href="archive/2026-10-02.html">2026-10-02</a>
+                <a href="archive/2026-10-01.html">2026-10-01</a>
+                <a href="archive/2026-09-30.html">2026-09-30</a>
+                <a href="archive/2026-09-29.html">2026-09-29</a>
+                <a href="archive/2026-09-28.html">2026-09-28</a>
+                <a href="archive/2026-09-27.html">2026-09-27</a>
+                <a href="archive/2026-09-26.html">2026-09-26</a>
+                <a href="archive/2026-09-25.html">2026-09-25</a>
+                <a href="archive/2026-09-24.html">2026-09-24</a>
+                <a href="archive/2026-09-23.html">2026-09-23</a>
+                <a href="archive/2026-09-22.html">2026-09-22</a>
+                <a href="archive/2026-09-21.html">2026-09-21</a>
+                <a href="archive/2026-09-20.html">2026-09-20</a>
+            </div>
         </nav>
     </div>
 </header>
@@ -834,11 +945,11 @@ main { padding: 26px 0 60px; }
         <div class="filter-row">
             <span class="filter-label">主题</span>
             <div class="filter-buttons" id="topicFilters">
-                <button type="button" class="filter-btn active" data-filter-topic="all">全部 <span class="count">20</span></button>
-                <button type="button" class="filter-btn" data-filter-topic="房颤与消融">房颤与消融 <span class="count">7</span></button>
-                <button type="button" class="filter-btn" data-filter-topic="室性心律失常">室性心律失常 <span class="count">5</span></button>
-                <button type="button" class="filter-btn" data-filter-topic="影像与标测">影像与标测 <span class="count">2</span></button>
-                <button type="button" class="filter-btn" data-filter-topic="遗传与基础">遗传与基础 <span class="count">5</span></button>
+                <button type="button" class="filter-btn active" data-filter-topic="all">全部 <span class="count">12</span></button>
+                <button type="button" class="filter-btn" data-filter-topic="房颤与消融">房颤与消融 <span class="count">6</span></button>
+                <button type="button" class="filter-btn" data-filter-topic="室性心律失常">室性心律失常 <span class="count">2</span></button>
+                <button type="button" class="filter-btn" data-filter-topic="器械治疗">器械治疗 <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-topic="遗传与基础">遗传与基础 <span class="count">2</span></button>
                 <button type="button" class="filter-btn" data-filter-topic="其他">其他 <span class="count">1</span></button>
             </div>
         </div>
@@ -846,24 +957,18 @@ main { padding: 26px 0 60px; }
             <span class="filter-label">期刊</span>
             <div class="filter-buttons" id="journalFilters">
                 <button type="button" class="filter-btn active" data-filter-journal="all">全部</button>
-                <button type="button" class="filter-btn" data-filter-journal="Am J Prev Cardiol">Am J Prev Cardiol <span class="count">3</span></button>
-                <button type="button" class="filter-btn" data-filter-journal="J Physiol">J Physiol <span class="count">2</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="Cureus">Cureus <span class="count">2</span></button>
                 <button type="button" class="filter-btn" data-filter-journal="Ann Intensive Care">Ann Intensive Care <span class="count">1</span></button>
                 <button type="button" class="filter-btn" data-filter-journal="Cardiol Young">Cardiol Young <span class="count">1</span></button>
-                <button type="button" class="filter-btn" data-filter-journal="Clin Case Rep">Clin Case Rep <span class="count">1</span></button>
-                <button type="button" class="filter-btn" data-filter-journal="Cureus">Cureus <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="Clin Res Cardiol">Clin Res Cardiol <span class="count">1</span></button>
                 <button type="button" class="filter-btn" data-filter-journal="Echo Res Pract">Echo Res Pract <span class="count">1</span></button>
                 <button type="button" class="filter-btn" data-filter-journal="Eur J Cardiovasc Nurs">Eur J Cardiovasc Nurs <span class="count">1</span></button>
-                <button type="button" class="filter-btn extra-journal" data-filter-journal="Int J Cardiol">Int J Cardiol <span class="count">1</span></button>
-                <button type="button" class="filter-btn extra-journal" data-filter-journal="J Anesth Transl Med">J Anesth Transl Med <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="Eur J Pediatr">Eur J Pediatr <span class="count">1</span></button>
+                <button type="button" class="filter-btn" data-filter-journal="Herzschrittmacherther Elektrophysiol">Herzschrittmacherther Elektrophysiol <span class="count">1</span></button>
                 <button type="button" class="filter-btn extra-journal" data-filter-journal="J Cardiothorac Surg">J Cardiothorac Surg <span class="count">1</span></button>
-                <button type="button" class="filter-btn extra-journal" data-filter-journal="J Community Genet">J Community Genet <span class="count">1</span></button>
-                <button type="button" class="filter-btn extra-journal" data-filter-journal="JACC Case Rep">JACC Case Rep <span class="count">1</span></button>
                 <button type="button" class="filter-btn extra-journal" data-filter-journal="JACC Clin Electrophysiol">JACC Clin Electrophysiol <span class="count">1</span></button>
                 <button type="button" class="filter-btn extra-journal" data-filter-journal="Phys Imaging Radiat Oncol">Phys Imaging Radiat Oncol <span class="count">1</span></button>
-                <button type="button" class="filter-btn extra-journal" data-filter-journal="Transplant Proc">Transplant Proc <span class="count">1</span></button>
-                <button type="button" class="filter-btn extra-journal" data-filter-journal="Vasc Endovascular Surg">Vasc Endovascular Surg <span class="count">1</span></button>
-                <button type="button" class="filter-btn more-btn" id="moreJournals">展开全部 17 个期刊 ▾</button>
+                <button type="button" class="filter-btn more-btn" id="moreJournals">展开全部 11 个期刊 ▾</button>
             </div>
         </div>
         <div class="filter-row">
@@ -881,7 +986,7 @@ main { padding: 26px 0 60px; }
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>房颤与消融</span>
-                <span class="topic-count">7 篇</span>
+                <span class="topic-count">6 篇</span>
             </h2>
 
             <div class="paper-list">
@@ -928,6 +1033,95 @@ main { padding: 26px 0 60px; }
                 </article>
                 <article class="paper-card"
                          data-topic="房颤与消融"
+                         data-journal="Clin Res Cardiol"
+                         data-search="echocardiography-derived left atrial volumetric-mechanical coupling index predicts early new-onset atrial fibrillation after embolic stroke/transient ischemic attack of undetermined source. chiara giordano giacomo gamberini andrea faggiano laura garau giulia conti paolo fabio d&#39;andria francesco moda giulio mallardi massimo saviano sara bonato isabella ghione silvia lanfranconi elisa gherbesi gloria santangelo massimiliano ruscica francesca bursi stefano carugo aim: in patients with embolic stroke or transient ischemic attack of undetermined source (esus/tia), occult atrial fibrillation (af) is a frequent underlying mechanism with critical therapeutic implications, yet selecting patients who warrant intensified rhythm monitoring remains challenging. the left atrioventricular coupling index (laci = la end-diastolic volume/lv end-diastolic volume) captures atrioventricular uncoupling, whereas the left atrial volumetric-mechanical coupling index (laci-vm = lavi/a&#39;) integrates atrial size with mechanical performance; both may capture complementary domains of atrial remodelling relevant to subclinical af. we aimed to investigate the association of laci-vm and laci with incident af in esus/tia.
+
+methods and results: in this retrospective single-center cohort, 285 consecutive patients with esus/tia of undetermined source underwent transthoracic echocardiography at index hospitalization, including measurement of laci-vm and laci. the primary endpoint was new-onset af during follow-up. median age was 71 years and 43% were women. over a median follow-up of 10.9 months, af occurred in 24 patients (8.4%), with 62% of events occurring within the first year. laci-vm was higher in patients who developed af and remained independently associated with incident af after multivariable adjustment (hr 6.64, ci 1.34-59.88; p = 0.041). laci showed a non-significant association overall (hr 2.28, ci 0.74-7.01; p = 0.09), with predictive value confined to events within 12 months. a combined assessment of laci-vm and lv filling pressures further refined risk stratification: patients with preserved laci-vm (&lt; 2.5) and normal filling pressures (e/e&#39; ≤ 10) had a very low af incidence (~ 2%), identifying a truly low-risk subgroup; conversely, when both laci-vm (≥ 2.5) and filling pressures (e/e&#39; &gt; 10) were impaired, af risk was ~ tenfold higher (~ 20%).
+
+conclusion: in esus/tia, echocardiography-derived laci-vm independently predicts incident af and identifies patients at genuinely low risk. as a simple echocardiographic metric, its integration with lv filling pressures may support a more personalized use of rhythm monitoring. clin res cardiol"
+                         id="paper-2">
+
+                    <div class="paper-top">
+                        <div class="paper-index">2</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42895543/" target="_blank" rel="noopener noreferrer">Echocardiography-derived Left Atrial Volumetric-Mechanical Coupling Index predicts early new-onset atrial fibrillation after embolic stroke/transient ischemic attack of undetermined source.</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Clin Res Cardiol</span><span class="dot">·</span><span class="paper-date">2026-10-19</span><span class="dot">·</span><span class="paper-date">PMID 42895543</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Journal Article</span>
+                            </div>
+
+                            <p class="paper-authors" title="Chiara Giordano、Giacomo Gamberini、Andrea Faggiano、Laura Garau、Giulia Conti、Paolo Fabio D&#39;Andria、Francesco Moda、Giulio Mallardi、Massimo Saviano、Sara Bonato、Isabella Ghione、Silvia Lanfranconi、Elisa Gherbesi、Gloria Santangelo、Massimiliano Ruscica、Francesca Bursi、Stefano Carugo">
+                                Chiara Giordano、Giacomo Gamberini、Andrea Faggiano<span class="authors-more"> 等 17 位作者</span>                            </p>
+
+                            <details class="abstract-block">
+                                <summary>英文摘要</summary>
+                                <p class="abstract-body">AIM: In patients with embolic stroke or transient ischemic attack of undetermined source (ESUS/TIA), occult atrial fibrillation (AF) is a frequent underlying mechanism with critical therapeutic implications, yet selecting patients who warrant intensified rhythm monitoring remains challenging. The Left Atrioventricular Coupling Index (LACI = LA end-diastolic volume/LV end-diastolic volume) captures atrioventricular uncoupling, whereas the Left Atrial Volumetric-Mechanical Coupling Index (LACI-VM = LAVi/a&#39;) integrates atrial size with mechanical performance; both may capture complementary domains of atrial remodelling relevant to subclinical AF. We aimed to investigate the association of LACI-VM and LACI with incident AF in ESUS/TIA.
+
+METHODS AND RESULTS: In this retrospective single-center cohort, 285 consecutive patients with ESUS/TIA of undetermined source underwent transthoracic echocardiography at index hospitalization, including measurement of LACI-VM and LACI. The primary endpoint was new-onset AF during follow-up. Median age was 71 years and 43% were women. Over a median follow-up of 10.9 months, AF occurred in 24 patients (8.4%), with 62% of events occurring within the first year. LACI-VM was higher in patients who developed AF and remained independently associated with incident AF after multivariable adjustment (HR 6.64, CI 1.34-59.88; p = 0.041). LACI showed a non-significant association overall (HR 2.28, CI 0.74-7.01; p = 0.09), with predictive value confined to events within 12 months. A combined assessment of LACI-VM and LV filling pressures further refined risk stratification: patients with preserved LACI-VM (&lt; 2.5) and normal filling pressures (E/e&#39; ≤ 10) had a very low AF incidence (~ 2%), identifying a truly low-risk subgroup; conversely, when both LACI-VM (≥ 2.5) and filling pressures (E/e&#39; &gt; 10) were impaired, AF risk was ~ tenfold higher (~ 20%).
+
+CONCLUSION: In ESUS/TIA, echocardiography-derived LACI-VM independently predicts incident AF and identifies patients at genuinely low risk. As a simple echocardiographic metric, its integration with LV filling pressures may support a more personalized use of rhythm monitoring.</p>
+                            </details>
+
+                            <p class="ai-missing">未生成 AI 解读（仅显示原文摘要）</p>
+
+                            <div class="link-row">
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42895543/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1007/s00392-026-03041-y" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42895543/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="房颤与消融"
+                         data-journal="Cureus"
+                         data-search="initiation of glucagon-like peptide-1 receptor agonist therapy and lifestyle modifications for morbid obesity in a patient with paroxysmal atrial fibrillation, severe osteoarthritis, and obstructive sleep apnea: a case report morris b  cureus"
+                         id="paper-3">
+
+                    <div class="paper-top">
+                        <div class="paper-index">3</div>
+                        <div class="paper-main">
+
+                            <h3 class="paper-title">
+                                <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC13671583/" target="_blank" rel="noopener noreferrer">Initiation of Glucagon-Like Peptide-1 Receptor Agonist Therapy and Lifestyle Modifications for Morbid Obesity in a Patient With Paroxysmal Atrial Fibrillation, Severe Osteoarthritis, and Obstructive Sleep Apnea: A Case Report</a>
+                            </h3>
+
+                            <div class="paper-meta">
+<span class="paper-journal">Cureus</span><span class="dot">·</span><span class="paper-date">2026-10-19</span>                            </div>
+
+                            <div class="tag-row">
+                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
+                                <span class="tag tag-type">Case Reports</span>
+                                <span class="tag tag-type">case-report</span>
+<span class="tag tag-oa">开放获取</span>                            </div>
+
+                            <p class="paper-authors" title="Morris B">
+                                Morris B                            </p>
+
+                            <div class="abstract-block">
+                                <p class="abstract-none">暂无摘要（该文献可能为社论、评论或通信类文章）</p>
+                            </div>
+
+                            <p class="ai-missing">未生成 AI 解读（仅显示原文摘要）</p>
+
+                            <div class="link-row">
+                                <a class="btn-link pdf" href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC13671583/pdf/?tool=EBI" target="_blank" rel="noopener noreferrer">PDF</a>
+                                <a class="btn-link source" href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC13671583/" target="_blank" rel="noopener noreferrer">原文</a>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+                <article class="paper-card"
+                         data-topic="房颤与消融"
                          data-journal="Echo Res Pract"
                          data-search="determinants of outcome in atrial functional tricuspid regurgitation. jawza aldakhil kush patel sveeta badiani steffen e petersen guy lloyd sanjeev bhattacharyya background: atrial functional tricuspid regurgitation (aftr) is increasingly recognized as a result of atrial remodelling in patients with atrial fibrillation (af). however, prognostic predictors in this population remain incompletely defined.
 
@@ -938,10 +1132,10 @@ methods: we retrospectively studied consecutive patients with af who underwent t
 results: a total of 152 patients were included, comprising 120 patients with aftr and 32 controls. compared with controls, patients with aftr demonstrated larger atrial dimensions, higher right-sided hemodynamic-burden, impaired rv longitudinal strain, and reduced reservoir ra strain. during a median follow-up of 6.3 years, 53 deaths (45%) occurred among patients with aftr. in univariable cox analysis, age (hr 1.02, 95% ci 1.00-1.04; p = 0.016), tr vmax (hr 1.59, 95% ci 1.07-2.35; p = 0.020), and lower reservoir ra strain (hr 0.90, 95% ci 0.84-0.96; p = 0.003) were associated with mortality. in multivariable analysis, reservoir ra strain remained independently associated with mortality (adjusted hr 0.88, 95% ci 0.81-0.95; p &lt; 0.001).
 
 conclusion: aftr is characterized by marked biatrial remodelling and impaired right atrial function. reduced ra reservoir strain was independently associated with mortality, supporting a potential role for ra deformation imaging in risk stratification in aftr. echo res pract"
-                         id="paper-2">
+                         id="paper-4">
 
                     <div class="paper-top">
-                        <div class="paper-index">2</div>
+                        <div class="paper-index">4</div>
                         <div class="paper-main">
 
                             <h3 class="paper-title">
@@ -987,10 +1181,10 @@ CONCLUSION: AFTR is characterized by marked biatrial remodelling and impaired ri
                          data-topic="房颤与消融"
                          data-journal="Eur J Cardiovasc Nurs"
                          data-search="physical and psychological pathways associated with cognitive recovery following baduanjin exercise combined with digital cognitive training in older adults with atrial fibrillation: a secondary mediation analysis of a randomized controlled trial. ding yunmei lu xiaohong wang maojing cao lihua xiang cong tham dong yanhong yue shouwei cui yan  eur j cardiovasc nurs"
-                         id="paper-3">
+                         id="paper-5">
 
                     <div class="paper-top">
-                        <div class="paper-index">3</div>
+                        <div class="paper-index">5</div>
                         <div class="paper-main">
 
                             <h3 class="paper-title">
@@ -1033,10 +1227,10 @@ methods: we retrospectively analyzed patients undergoing the maze procedure (201
 results: in the iptw-adjusted cohort, the nsr group achieved significant cardiac reverse remodeling, characterized by improved lvef (58.5%), reduced la volume index (75.1 ml/m²), and notable recovery of lasct. in stark contrast, the jr group failed to show any reverse remodeling or mechanical recovery, exhibiting hemodynamic stagnation indistinguishable from the af group. consequently, no significant difference in cardiac function was observed between the jr and af groups. furthermore, the jr group faced a drastically elevated risk of ppm implantation compared to both the nsr and af groups (p &lt; 0.001).
 
 conclusions: jr is not a benign alternative to sinus rhythm; it mimics af in preventing cardiac reverse remodeling and carries a high risk of pacemaker dependency. therefore, jr should be clinically differentiated from nsr and recognized as a suboptimal hemodynamic outcome similar to af. j cardiothorac surg"
-                         id="paper-4">
+                         id="paper-6">
 
                     <div class="paper-top">
-                        <div class="paper-index">4</div>
+                        <div class="paper-index">6</div>
                         <div class="paper-main">
 
                             <h3 class="paper-title">
@@ -1076,160 +1270,13 @@ CONCLUSIONS: JR is not a benign alternative to sinus rhythm; it mimics AF in pre
                         </div>
                     </div>
                 </article>
-                <article class="paper-card"
-                         data-topic="房颤与消融"
-                         data-journal="Vasc Endovascular Surg"
-                         data-search="collapse and thrombosis of an iliac branch endovascular device following blunt force trauma. autumn stevens peter henke frank davis jeri stevens nicholas osborne iliac branch endovascular device thrombosis following blunt force trauma has rarely been reported. we describe an 81-year-old man who developed proximal aortobiiliac endograft collapse with subsequent thrombosis after blunt force trauma occurring two months following endovascular aneurysm repair. the patient delayed vascular follow-up for one year and later presented at routine surveillance with progressive bilateral hip and buttock claudication. despite chronic therapeutic anticoagulation for atrial fibrillation, the patient developed progressive thrombosis with ischemic symptoms. the case highlights a rare mechanical cause of post-evar aortoiliac thrombosis and demonstrates the importance of early vascular imaging and consultation following traumatic injury in post-evar patients. vasc endovascular surg"
-                         id="paper-5">
-
-                    <div class="paper-top">
-                        <div class="paper-index">5</div>
-                        <div class="paper-main">
-
-                            <h3 class="paper-title">
-                                <a href="https://pubmed.ncbi.nlm.nih.gov/42895371/" target="_blank" rel="noopener noreferrer">Collapse and Thrombosis of an Iliac Branch Endovascular Device Following Blunt Force Trauma.</a>
-                            </h3>
-
-                            <div class="paper-meta">
-<span class="paper-journal">Vasc Endovascular Surg</span><span class="dot">·</span><span class="paper-date">2026-10-19</span><span class="dot">·</span><span class="paper-date">PMID 42895371</span>                            </div>
-
-                            <div class="tag-row">
-                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
-                                <span class="tag tag-type">Journal Article</span>
-                            </div>
-
-                            <p class="paper-authors" title="Autumn Stevens、Peter Henke、Frank Davis、Jeri Stevens、Nicholas Osborne">
-                                Autumn Stevens、Peter Henke、Frank Davis<span class="authors-more"> 等 5 位作者</span>                            </p>
-
-                            <details class="abstract-block">
-                                <summary>英文摘要</summary>
-                                <p class="abstract-body">Iliac branch endovascular device thrombosis following blunt force trauma has rarely been reported. We describe an 81-year-old man who developed proximal aortobiiliac endograft collapse with subsequent thrombosis after blunt force trauma occurring two months following endovascular aneurysm repair. The patient delayed vascular follow-up for one year and later presented at routine surveillance with progressive bilateral hip and buttock claudication. Despite chronic therapeutic anticoagulation for atrial fibrillation, the patient developed progressive thrombosis with ischemic symptoms. The case highlights a rare mechanical cause of post-EVAR aortoiliac thrombosis and demonstrates the importance of early vascular imaging and consultation following traumatic injury in post-EVAR patients.</p>
-                            </details>
-
-                            <p class="ai-missing">未生成 AI 解读（仅显示原文摘要）</p>
-
-                            <div class="link-row">
-                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42895371/" target="_blank" rel="noopener noreferrer">PubMed</a>
-                                <a class="btn-link doi" href="https://doi.org/10.1177/15385744261501094" target="_blank" rel="noopener noreferrer">DOI</a>
-                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42895371/" target="_blank" rel="noopener noreferrer">原文</a>
-                            </div>
-
-                        </div>
-                    </div>
-                </article>
-                <article class="paper-card"
-                         data-topic="房颤与消融"
-                         data-journal="Am J Prev Cardiol"
-                         data-search="heart failure and atrial fibrillation prediction from non-gated chest ct scans using ai-based cardiac chamber volumetry: an ai-cvd study within the multi-ethnic study of atherosclerosis (mesa). seyed reza mirjalili kyle atlas anthony p reeves chenyu zhang jakob wasserthal amir azimi ali hashemi mohammadhossein mozafarybazargany amir ghaffari jolfayi thomas atlas claudia i henschke david f yankelevitz javier j zulueta wenjun fan jeffrey i mechanick andrea d branch khurram nasir zahi fayad michael v mcconnell jamal s rana rozemarijn vliegenthart david j maron jagat narula matthew j budoff roxana mehran kim a williams prediman k shah oren mechanic arthur s agatston robert a kloner nathan d wong morteza naghavi background: we previously demonstrated that ai-derived cardiac chamber volumetry in ecg-gated ct scans predicts atrial fibrillation (af) and heart failure (hf). since most chest cts are non-gated, and the american heart association recently highlighted their value for opportunistic cardiovascular risk assessment using ai-based coronary artery calcium scoring, we extended this concept to evaluate whether ai-derived chamber volumetry from non-gated cts can reliably predict hf and af.s.
-
-methods: we compared ai-derived chamber volumetry from non-gated and ecg-gated chest cts in 2053 multi-ethnic study of atherosclerosis (mesa) exam 5 participants using mean and standard-deviation of absolute differences, intraclass correlation coefficients (icc), and cohen&#39;s κ. variability between paired ecg-gated scans was determined by analyzing scans acquired 2 min apart in 5749 mesa exam 1 participants. predictive performance for incident hf and af was compared using cumulative incidence curves, age- and sex-adjusted c-indices, and non-inferiority testing (δ=0.05).
-
-results: non-gated scans demonstrated excellent overall agreement with ecg-gated scans, with comparable performance for detecting cardiac chamber enlargement (98.8-99.2%, κ=0.76-0.84), relative to agreement observed between paired ecg-gated scans (98.6-98.9%, κ=0.72-0.77). cumulative incidence curves for hf and af stratified by quartiles showed substantial overlap. age- and sex-adjusted c-indices were comparable for left atrial volume (0.75 vs 0.74, p = 0.001, non-inferiority p &lt; 0.001), ventricular volume (both 0.77, p = 0.97, non-inferiority p &lt; 0.001), and ventricular ratio (both 0.74, p = 0.57, non-inferiority p &lt; 0.001) in predicting af and hf.
-
-conclusion: ai-based evaluation of non-gated chest ct may provide reliable cardiac chamber volumetry and cardiovascular outcome prediction, enabling opportunistic screening for hf and af risk. am j prev cardiol"
-                         id="paper-6">
-
-                    <div class="paper-top">
-                        <div class="paper-index">6</div>
-                        <div class="paper-main">
-
-                            <h3 class="paper-title">
-                                <a href="https://pubmed.ncbi.nlm.nih.gov/42893186/" target="_blank" rel="noopener noreferrer">Heart failure and atrial fibrillation prediction from non-gated chest CT scans using AI-based cardiac chamber volumetry: an AI-CVD study within the multi-ethnic study of atherosclerosis (MESA).</a>
-                            </h3>
-
-                            <div class="paper-meta">
-<span class="paper-journal">Am J Prev Cardiol</span><span class="dot">·</span><span class="paper-date">2026-10-18</span><span class="dot">·</span><span class="paper-date">PMID 42893186</span>                            </div>
-
-                            <div class="tag-row">
-                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
-                                <span class="tag tag-type">Journal Article</span>
-                            </div>
-
-                            <p class="paper-authors" title="Seyed Reza Mirjalili、Kyle Atlas、Anthony P Reeves、Chenyu Zhang、Jakob Wasserthal、Amir Azimi、Ali Hashemi、Mohammadhossein Mozafarybazargany、Amir Ghaffari Jolfayi、Thomas Atlas、Claudia I Henschke、David F Yankelevitz、Javier J Zulueta、Wenjun Fan、Jeffrey I Mechanick、Andrea D Branch、Khurram Nasir、Zahi Fayad、Michael V McConnell、Jamal S Rana、Rozemarijn Vliegenthart、David J Maron、Jagat Narula、Matthew J Budoff、Roxana Mehran、Kim A Williams、Prediman K Shah、Oren Mechanic、Arthur S Agatston、Robert A Kloner、Nathan D Wong、Morteza Naghavi">
-                                Seyed Reza Mirjalili、Kyle Atlas、Anthony P Reeves<span class="authors-more"> 等 32 位作者</span>                            </p>
-
-                            <details class="abstract-block">
-                                <summary>英文摘要</summary>
-                                <p class="abstract-body">BACKGROUND: We previously demonstrated that AI-derived cardiac chamber volumetry in ECG-gated CT scans predicts atrial fibrillation (AF) and heart failure (HF). Since most chest CTs are non-gated, and the American Heart Association recently highlighted their value for opportunistic cardiovascular risk assessment using AI-based coronary artery calcium scoring, we extended this concept to evaluate whether AI-derived chamber volumetry from non-gated CTs can reliably predict HF and AF.s.
-
-METHODS: We compared AI-derived chamber volumetry from non-gated and ECG-gated chest CTs in 2053 Multi-Ethnic Study of Atherosclerosis (MESA) Exam 5 participants using mean and standard-deviation of absolute differences, intraclass correlation coefficients (ICC), and Cohen&#39;s κ. Variability between paired ECG-gated scans was determined by analyzing scans acquired 2 min apart in 5749 MESA Exam 1 participants. Predictive performance for incident HF and AF was compared using cumulative incidence curves, age- and sex-adjusted C-indices, and non-inferiority testing (δ=0.05).
-
-RESULTS: Non-gated scans demonstrated excellent overall agreement with ECG-gated scans, with comparable performance for detecting cardiac chamber enlargement (98.8-99.2%, κ=0.76-0.84), relative to agreement observed between paired ECG-gated scans (98.6-98.9%, κ=0.72-0.77). Cumulative incidence curves for HF and AF stratified by quartiles showed substantial overlap. Age- and sex-adjusted C-indices were comparable for left atrial volume (0.75 vs 0.74, p = 0.001, non-inferiority p &lt; 0.001), ventricular volume (both 0.77, p = 0.97, non-inferiority p &lt; 0.001), and ventricular ratio (both 0.74, p = 0.57, non-inferiority p &lt; 0.001) in predicting AF and HF.
-
-CONCLUSION: AI-based evaluation of non-gated chest CT may provide reliable cardiac chamber volumetry and cardiovascular outcome prediction, enabling opportunistic screening for HF and AF risk.</p>
-                            </details>
-
-                            <p class="ai-missing">未生成 AI 解读（仅显示原文摘要）</p>
-
-                            <div class="link-row">
-                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42893186/" target="_blank" rel="noopener noreferrer">PubMed</a>
-                                <a class="btn-link doi" href="https://doi.org/10.1016/j.ajpc.2026.101732" target="_blank" rel="noopener noreferrer">DOI</a>
-                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42893186/" target="_blank" rel="noopener noreferrer">原文</a>
-                            </div>
-
-                        </div>
-                    </div>
-                </article>
-                <article class="paper-card"
-                         data-topic="房颤与消融"
-                         data-journal="Int J Cardiol"
-                         data-search="glp-1 receptor agonist therapy and incident atrial fibrillation in non-diabetic adults with obesity and chronic kidney disease: a propensity matched cohort study. abdulraheem hassan efeturi okorigba chilaka grace emmanuel otabor busayo osineye olalekan olayiwola tutuola oyeleye parthiv amin background: obesity and chronic kidney disease (ckd) are potent risk factors for atrial fibrillation (af), yet whether glp-1 receptor agonists (glp-1ras) prevent incident af in non-diabetic adults with obesity and ckd is unexamined. we assessed whether glp-1ra therapy reduces 1-year af incidence in this cardiorenal phenotype.
-
-methods: using the trinetx us collaborative network (66 healthcare organizations), we conducted a retrospective target trial emulation of non-diabetic adults aged 18 or older with obesity and ckd stages 3-5 diagnosed 2021-2024. patients receiving semaglutide, liraglutide, or tirzepatide (n = 10,985) were compared with unexposed patients (n = 94,527). after propensity score matching, 7326 patients remained per cohort. the primary outcome was incident af at 1 year; secondary outcomes included af subtypes, ventricular tachyarrhythmias, and all-cause hospitalization. cox models generated hazard ratios (hrs); sensitivity analyses extended follow-up to 2-3 years with landmark analyses.
-
-results: at 1 year, glp-1ra use was associated with significantly lower incident af (1.63% vs. 2.62%; hr 0.655, 95% ci 0.508-0.844; p = 0.001), a 34.5% relative risk reduction. reductions were consistent for paroxysmal (hr 0.586), persistent (hr 0.482), and longstanding persistent af (hr 0.527; all p &lt; 0.05); permanent af was non-significant at 1 year. ventricular tachyarrhythmias (hr 0.556; p = 0.002) and hospitalization (hr 0.668; p &lt; 0.001) were also significantly reduced. benefits persisted across 2- and 3-year follow-up and remained consistent in landmark analyses.
-
-conclusions: in non-diabetic adults with obesity and ckd, glp-1ra therapy was associated with significant, durable reductions in incident af, ventricular arrhythmias, and hospitalization. these findings are consistent with a possible cardiorenal benefit and support prioritizing this phenotype for dedicated randomized trials. int j cardiol"
-                         id="paper-7">
-
-                    <div class="paper-top">
-                        <div class="paper-index">7</div>
-                        <div class="paper-main">
-
-                            <h3 class="paper-title">
-                                <a href="https://pubmed.ncbi.nlm.nih.gov/42892471/" target="_blank" rel="noopener noreferrer">GLP-1 receptor agonist therapy and incident atrial fibrillation in non-diabetic adults with obesity and chronic kidney disease: a propensity matched cohort study.</a>
-                            </h3>
-
-                            <div class="paper-meta">
-<span class="paper-journal">Int J Cardiol</span><span class="dot">·</span><span class="paper-date">2026-10-18</span><span class="dot">·</span><span class="paper-date">PMID 42892471</span>                            </div>
-
-                            <div class="tag-row">
-                                <span class="tag tag-topic" data-topic="房颤与消融">房颤与消融</span>
-                                <span class="tag tag-type">Journal Article</span>
-                            </div>
-
-                            <p class="paper-authors" title="Abdulraheem Hassan、Efeturi Okorigba、Chilaka Grace、Emmanuel Otabor、Busayo Osineye、Olalekan Olayiwola、Tutuola Oyeleye、Parthiv Amin">
-                                Abdulraheem Hassan、Efeturi Okorigba、Chilaka Grace<span class="authors-more"> 等 8 位作者</span>                            </p>
-
-                            <details class="abstract-block">
-                                <summary>英文摘要</summary>
-                                <p class="abstract-body">BACKGROUND: Obesity and chronic kidney disease (CKD) are potent risk factors for atrial fibrillation (AF), yet whether GLP-1 receptor agonists (GLP-1RAs) prevent incident AF in non-diabetic adults with obesity and CKD is unexamined. We assessed whether GLP-1RA therapy reduces 1-year AF incidence in this cardiorenal phenotype.
-
-METHODS: Using the TriNetX US Collaborative Network (66 healthcare organizations), we conducted a retrospective target trial emulation of non-diabetic adults aged 18 or older with obesity and CKD stages 3-5 diagnosed 2021-2024. Patients receiving semaglutide, liraglutide, or tirzepatide (n = 10,985) were compared with unexposed patients (n = 94,527). After propensity score matching, 7326 patients remained per cohort. The primary outcome was incident AF at 1 year; secondary outcomes included AF subtypes, ventricular tachyarrhythmias, and all-cause hospitalization. Cox models generated hazard ratios (HRs); sensitivity analyses extended follow-up to 2-3 years with landmark analyses.
-
-RESULTS: At 1 year, GLP-1RA use was associated with significantly lower incident AF (1.63% vs. 2.62%; HR 0.655, 95% CI 0.508-0.844; p = 0.001), a 34.5% relative risk reduction. Reductions were consistent for paroxysmal (HR 0.586), persistent (HR 0.482), and longstanding persistent AF (HR 0.527; all p &lt; 0.05); permanent AF was non-significant at 1 year. Ventricular tachyarrhythmias (HR 0.556; p = 0.002) and hospitalization (HR 0.668; p &lt; 0.001) were also significantly reduced. Benefits persisted across 2- and 3-year follow-up and remained consistent in landmark analyses.
-
-CONCLUSIONS: In non-diabetic adults with obesity and CKD, GLP-1RA therapy was associated with significant, durable reductions in incident AF, ventricular arrhythmias, and hospitalization. These findings are consistent with a possible cardiorenal benefit and support prioritizing this phenotype for dedicated randomized trials.</p>
-                            </details>
-
-                            <p class="ai-missing">未生成 AI 解读（仅显示原文摘要）</p>
-
-                            <div class="link-row">
-                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42892471/" target="_blank" rel="noopener noreferrer">PubMed</a>
-                                <a class="btn-link doi" href="https://doi.org/10.1016/j.ijcard.2026.135000" target="_blank" rel="noopener noreferrer">DOI</a>
-                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42892471/" target="_blank" rel="noopener noreferrer">原文</a>
-                            </div>
-
-                        </div>
-                    </div>
-                </article>
             </div>
         </section>
         <section class="topic-group" data-group-topic="室性心律失常">
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>室性心律失常</span>
-                <span class="topic-count">5 篇</span>
+                <span class="topic-count">2 篇</span>
             </h2>
 
             <div class="paper-list">
@@ -1344,150 +1391,20 @@ CONCLUSIONS: The ultrasound probe could be spared from the primary beam without 
                         </div>
                     </div>
                 </article>
-                <article class="paper-card"
-                         data-topic="室性心律失常"
-                         data-journal="Clin Case Rep"
-                         data-search="recurrent supraventricular tachycardia triggered by tea consumption in a postoperative adolescent female: a case report. mukti nath sankhi raj kumar thapa pramila dhakal nirmal shrestha nabin adhikari rajiv sitaula santosh kumar singh supraventricular tachycardia (svt) in adolescents may be triggered by physiological stress or caffeine. we report a 16-year-old girl who complained of palpitations, dyspnea, and regular tachycardia (170 beats/min) after tea intake. ecg showed svt and intravenous adenosine restored sinus rhythm. recognizing dietary stimulants as potential precipitants of svt is important. clin case rep"
-                         id="paper-3">
-
-                    <div class="paper-top">
-                        <div class="paper-index">3</div>
-                        <div class="paper-main">
-
-                            <h3 class="paper-title">
-                                <a href="https://pubmed.ncbi.nlm.nih.gov/42892855/" target="_blank" rel="noopener noreferrer">Recurrent Supraventricular Tachycardia Triggered by Tea Consumption in a Postoperative Adolescent Female: A Case Report.</a>
-                            </h3>
-
-                            <div class="paper-meta">
-<span class="paper-journal">Clin Case Rep</span><span class="dot">·</span><span class="paper-date">2026-10-18</span><span class="dot">·</span><span class="paper-date">PMID 42892855</span>                            </div>
-
-                            <div class="tag-row">
-                                <span class="tag tag-topic" data-topic="室性心律失常">室性心律失常</span>
-                                <span class="tag tag-type">Journal Article</span>
-                            </div>
-
-                            <p class="paper-authors" title="Mukti Nath Sankhi、Raj Kumar Thapa、Pramila Dhakal、Nirmal Shrestha、Nabin Adhikari、Rajiv Sitaula、Santosh Kumar Singh">
-                                Mukti Nath Sankhi、Raj Kumar Thapa、Pramila Dhakal<span class="authors-more"> 等 7 位作者</span>                            </p>
-
-                            <details class="abstract-block">
-                                <summary>英文摘要</summary>
-                                <p class="abstract-body">Supraventricular tachycardia (SVT) in adolescents may be triggered by physiological stress or caffeine. We report a 16-year-old girl who complained of palpitations, dyspnea, and regular tachycardia (170 beats/min) after tea intake. ECG showed SVT and intravenous adenosine restored sinus rhythm. Recognizing dietary stimulants as potential precipitants of SVT is important.</p>
-                            </details>
-
-                            <p class="ai-missing">未生成 AI 解读（仅显示原文摘要）</p>
-
-                            <div class="link-row">
-                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42892855/" target="_blank" rel="noopener noreferrer">PubMed</a>
-                                <a class="btn-link doi" href="https://doi.org/10.1002/ccr3.73741" target="_blank" rel="noopener noreferrer">DOI</a>
-                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42892855/" target="_blank" rel="noopener noreferrer">原文</a>
-                            </div>
-
-                        </div>
-                    </div>
-                </article>
-                <article class="paper-card"
-                         data-topic="室性心律失常"
-                         data-journal="J Anesth Transl Med"
-                         data-search="stellate ganglion block for ventricular arrhythmia disease states: emerging treatment options. ahmed i anwar fatima iqbal walid k mohammed alexander s harris emily a francis aishwarya reddy henry liu alan d kaye autonomic modulation has emerged as an effective therapeutic target in the management of ventricular arrhythmias and electrical storm (e.g., refractory ventricular arrhythmias), in a background of growing evidence of the link between the autonomic nervous system and arrhythmias. stellate ganglion blockade (sgb) is a minimally invasive procedure targeting the stellate ganglion with an anesthetic agent that has emerged as a temporizing treatment option for management of refractory and hemodynamically unstable ventricular arrhythmias and electrical storm (es). sgb which can be performed with fluoroscopy-guidance or at the bedside with anatomic landmark approach or ultrasound guidance, has shown potential efficacy in short-term reduction of arrhythmic burden and termination of electrical storm, based on data from case series and observational studies. in the current review, we highlight the role of the autonomic nervous system in arrhythmogenesis and the clinical applications as well as current limitations and future directions of sgb in management of ventricular arrhythmia and electrical storm. j anesth transl med"
-                         id="paper-4">
-
-                    <div class="paper-top">
-                        <div class="paper-index">4</div>
-                        <div class="paper-main">
-
-                            <h3 class="paper-title">
-                                <a href="https://pubmed.ncbi.nlm.nih.gov/42893002/" target="_blank" rel="noopener noreferrer">Stellate ganglion block for ventricular arrhythmia disease states: Emerging treatment options.</a>
-                            </h3>
-
-                            <div class="paper-meta">
-<span class="paper-journal">J Anesth Transl Med</span><span class="dot">·</span><span class="paper-date">2026-10-18</span><span class="dot">·</span><span class="paper-date">PMID 42893002</span>                            </div>
-
-                            <div class="tag-row">
-                                <span class="tag tag-topic" data-topic="室性心律失常">室性心律失常</span>
-                                <span class="tag tag-type">Journal Article</span>
-                                <span class="tag tag-type">Review</span>
-                            </div>
-
-                            <p class="paper-authors" title="Ahmed I Anwar、Fatima Iqbal、Walid K Mohammed、Alexander S Harris、Emily A Francis、Aishwarya Reddy、Henry Liu、Alan D Kaye">
-                                Ahmed I Anwar、Fatima Iqbal、Walid K Mohammed<span class="authors-more"> 等 8 位作者</span>                            </p>
-
-                            <details class="abstract-block">
-                                <summary>英文摘要</summary>
-                                <p class="abstract-body">Autonomic modulation has emerged as an effective therapeutic target in the management of ventricular arrhythmias and electrical storm (e.g., refractory ventricular arrhythmias), in a background of growing evidence of the link between the autonomic nervous system and arrhythmias. Stellate ganglion blockade (SGB) is a minimally invasive procedure targeting the stellate ganglion with an anesthetic agent that has emerged as a temporizing treatment option for management of refractory and hemodynamically unstable ventricular arrhythmias and electrical storm (ES). SGB which can be performed with fluoroscopy-guidance or at the bedside with anatomic landmark approach or ultrasound guidance, has shown potential efficacy in short-term reduction of arrhythmic burden and termination of electrical storm, based on data from case series and observational studies. In the current review, we highlight the role of the autonomic nervous system in arrhythmogenesis and the clinical applications as well as current limitations and future directions of SGB in management of ventricular arrhythmia and electrical storm.</p>
-                            </details>
-
-                            <p class="ai-missing">未生成 AI 解读（仅显示原文摘要）</p>
-
-                            <div class="link-row">
-                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42893002/" target="_blank" rel="noopener noreferrer">PubMed</a>
-                                <a class="btn-link doi" href="https://doi.org/10.1016/j.jatmed.2026.09.001" target="_blank" rel="noopener noreferrer">DOI</a>
-                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42893002/" target="_blank" rel="noopener noreferrer">原文</a>
-                            </div>
-
-                        </div>
-                    </div>
-                </article>
-                <article class="paper-card"
-                         data-topic="室性心律失常"
-                         data-journal="Transplant Proc"
-                         data-search="rapid progression of cardiac allograft vasculopathy with sudden cardiac death within the first year of heart transplantation: a case report. malcom dix jean-pierre iskandar lefan he mohaned s serdah aditya a joshi anuradha godishala abhishek chaturvedi katherine kaproth-joslin david a dombroski yeeann chen wendy a cheruiyot ronald chong-yik ronald g schwartz jeffrey alexis igor gosev katherine l wood sabu thomas cardiac allograft vasculopathy (cav) is a major cause of mortality and morbidity within the first 3 years of heart transplantation (ht). cav results in progressive coronary artery stenosis and may lead to arrhythmias and sudden cardiac death. in some cases, sudden cardiac death represents the initial presentation of cav, as cardiac denervation blunts anginal symptoms that otherwise could have preceded sudden cardiac death (scd). here, we describe the case of a 56-year-old man with non-ischemic cardiomyopathy. he underwent left ventricular assist device implantation followed by orthotopic ht. five months after transplantation, he presented with atypical mid-sternal chest discomfort initially thought to be musculoskeletal in origin. routine coronary angiography at 12 months revealed severe, diffuse 3-vessel disease consistent with international society of heart and lung transplantation (ishlt) cav-3, and cardiac mri revealed full thickness delayed enhancement in the inferior wall consistent with infarction. despite overall preserved left ventricular ejection fraction, he developed polymorphic ventricular tachycardia (vt) with an appropriate shock from a wearable cardioverter-defibrillator (wcd) and was transferred with an intra-aortic balloon pump to a larger transplant center and underwent another heart transplantation. this case highlights rapid cav progression leading to infarction and arrhythmia despite preserved lvef, emphasizing the need for enhanced screening with biomarkers and imaging as well as earlier consideration for device-based strategies to prevent sudden cardiac death in high-risk transplant recipients. transplant proc"
-                         id="paper-5">
-
-                    <div class="paper-top">
-                        <div class="paper-index">5</div>
-                        <div class="paper-main">
-
-                            <h3 class="paper-title">
-                                <a href="https://pubmed.ncbi.nlm.nih.gov/42892593/" target="_blank" rel="noopener noreferrer">Rapid Progression of Cardiac Allograft Vasculopathy With Sudden Cardiac Death Within the First Year of Heart Transplantation: A Case Report.</a>
-                            </h3>
-
-                            <div class="paper-meta">
-<span class="paper-journal">Transplant Proc</span><span class="dot">·</span><span class="paper-date">2026-10-18</span><span class="dot">·</span><span class="paper-date">PMID 42892593</span>                            </div>
-
-                            <div class="tag-row">
-                                <span class="tag tag-topic" data-topic="室性心律失常">室性心律失常</span>
-                                <span class="tag tag-type">Journal Article</span>
-                            </div>
-
-                            <p class="paper-authors" title="Malcom Dix、Jean-Pierre Iskandar、Lefan He、Mohaned S Serdah、Aditya A Joshi、Anuradha Godishala、Abhishek Chaturvedi、Katherine Kaproth-Joslin、David A Dombroski、YeeAnn Chen、Wendy A Cheruiyot、Ronald Chong-Yik、Ronald G Schwartz、Jeffrey Alexis、Igor Gosev、Katherine L Wood、Sabu Thomas">
-                                Malcom Dix、Jean-Pierre Iskandar、Lefan He<span class="authors-more"> 等 17 位作者</span>                            </p>
-
-                            <details class="abstract-block">
-                                <summary>英文摘要</summary>
-                                <p class="abstract-body">Cardiac allograft vasculopathy (CAV) is a major cause of mortality and morbidity within the first 3 years of heart transplantation (HT). CAV results in progressive coronary artery stenosis and may lead to arrhythmias and sudden cardiac death. In some cases, sudden cardiac death represents the initial presentation of CAV, as cardiac denervation blunts anginal symptoms that otherwise could have preceded sudden cardiac death (SCD). Here, we describe the case of a 56-year-old man with non-ischemic cardiomyopathy. He underwent left ventricular assist device implantation followed by orthotopic HT. Five months after transplantation, he presented with atypical mid-sternal chest discomfort initially thought to be musculoskeletal in origin. Routine coronary angiography at 12 months revealed severe, diffuse 3-vessel disease consistent with International Society of Heart and Lung Transplantation (ISHLT) CAV-3, and cardiac MRI revealed full thickness delayed enhancement in the inferior wall consistent with infarction. Despite overall preserved left ventricular ejection fraction, he developed polymorphic ventricular tachycardia (VT) with an appropriate shock from a wearable cardioverter-defibrillator (WCD) and was transferred with an intra-aortic balloon pump to a larger transplant center and underwent another heart transplantation. This case highlights rapid CAV progression leading to infarction and arrhythmia despite preserved LVEF, emphasizing the need for enhanced screening with biomarkers and imaging as well as earlier consideration for device-based strategies to prevent sudden cardiac death in high-risk transplant recipients.</p>
-                            </details>
-
-                            <p class="ai-missing">未生成 AI 解读（仅显示原文摘要）</p>
-
-                            <div class="link-row">
-                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42892593/" target="_blank" rel="noopener noreferrer">PubMed</a>
-                                <a class="btn-link doi" href="https://doi.org/10.1016/j.transproceed.2026.09.019" target="_blank" rel="noopener noreferrer">DOI</a>
-                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42892593/" target="_blank" rel="noopener noreferrer">原文</a>
-                            </div>
-
-                        </div>
-                    </div>
-                </article>
             </div>
         </section>
-        <section class="topic-group" data-group-topic="影像与标测">
+        <section class="topic-group" data-group-topic="器械治疗">
             <h2 class="topic-heading">
                 <span class="bar"></span>
-                <span>影像与标测</span>
-                <span class="topic-count">2 篇</span>
+                <span>器械治疗</span>
+                <span class="topic-count">1 篇</span>
             </h2>
 
             <div class="paper-list">
                 <article class="paper-card"
-                         data-topic="影像与标测"
-                         data-journal="Am J Prev Cardiol"
-                         data-search="external validation of artificial intelligence-guided electrocardiogram (ai-ecg) in detecting asymptomatic left ventricular dysfunction: a systematic review and meta-analysis. jacky chen thomas h marwick cheng hwee soh aim: asymptomatic left ventricular dysfunction (lvd) represents a key and frequently under-recognized stage in the heart failure (hf) continuum. early identification enables targeted prevention and timely initiation of evidence-based therapies. artificial intelligence-enabled electrocardiography (ai-ecg) may provide a scalable alternative to imaging for lvd detection. this systematic review synthesized evidence from exclusively externally validated ai-ecg studies evaluating the detection of asymptomatic lvd, with symptomatic hf cohorts included to contextualize the evidence base across the hf continuum.
-
-methods: a systematic literature search was conducted on 8th september 2025. the main output was the pooled area under the receiver operating characteristic curve (auroc).
-
-results: from 3,587 records, 12 asymptomatic and 30 symptomatic studies were identified (538,735 participants). in asymptomatic cohorts evaluating left ventricular systolic dysfunction (lvsd), ai-ecg demonstrated promising but heterogeneous discriminatory performance (i²&gt;85%) with pooled aurocs of 0.87 (95% ci 0.75-0.99) for lvef ≤35%, 0.93 (95% ci 0.88-0.97) for lvef ≤40%, and 0.89 (95% ci 0.85-0.97) for lvef ≤50%. symptomatic cohorts showed aurocs of 0.89 (95% ci 0.86-0.92), 0.90 (95% ci 0.88-0.92), and 0.85 (95% ci 0.83-0.86) respectively. asymptomatic left ventricular diastolic dysfunction (lvdd) demonstrated moderate performance (auroc 0.76, 95% ci 0.66-0.86) with no externally validated symptomatic lvdd studies identified. small-study effects were detected exclusively in asymptomatic cohorts.
-
-conclusions: discriminatory performance of ai-ecg in asymptomatic lvsd is broadly comparable to symptomatic populations. high risk of bias driven by prolonged ecg-to-echocardiogram intervals reflecting real-world logistical constraints necessitate cautious interpretation of results and further prospective validation. am j prev cardiol"
+                         data-topic="器械治疗"
+                         data-journal="Herzschrittmacherther Elektrophysiol"
+                         data-search="[positive communication during pacemaker implantation in local anesthesia : results of an interdisciplinary task force comprising a psychotherapist, german linguist and cardiac surgeon]. katharina tigges-limmer dietmar jacobs brigitte osswald communication during medical interventions under local anesthesia is related with patient stress, and opportunities to reduce the stress are underestimated. there is no special training for medical students, and awareness within the medical community is lacking. for this reason, a psychotherapist, satire and comedy writer, and cardiac surgeon specializing in device therapy collaborated. excerpts from their book published in 2022 are used to provide background of various situations, practical advice, and ways to avoid common pitfalls in communication. herzschrittmacherther elektrophysiol"
                          id="paper-1">
 
                     <div class="paper-top">
@@ -1495,77 +1412,33 @@ conclusions: discriminatory performance of ai-ecg in asymptomatic lvsd is broadl
                         <div class="paper-main">
 
                             <h3 class="paper-title">
-                                <a href="https://pubmed.ncbi.nlm.nih.gov/42893154/" target="_blank" rel="noopener noreferrer">External validation of artificial intelligence-guided electrocardiogram (AI-ECG) in detecting asymptomatic left ventricular dysfunction: A systematic review and meta-analysis.</a>
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42895637/" target="_blank" rel="noopener noreferrer">[Positive communication during pacemaker implantation in local anesthesia : Results of an interdisciplinary task force comprising a psychotherapist, German linguist and cardiac surgeon].</a>
                             </h3>
 
                             <div class="paper-meta">
-<span class="paper-journal">Am J Prev Cardiol</span><span class="dot">·</span><span class="paper-date">2026-10-18</span><span class="dot">·</span><span class="paper-date">PMID 42893154</span>                            </div>
+<span class="paper-journal">Herzschrittmacherther Elektrophysiol</span><span class="dot">·</span><span class="paper-date">2026-10-19</span><span class="dot">·</span><span class="paper-date">PMID 42895637</span>                            </div>
 
                             <div class="tag-row">
-                                <span class="tag tag-topic" data-topic="影像与标测">影像与标测</span>
+                                <span class="tag tag-topic" data-topic="器械治疗">器械治疗</span>
+                                <span class="tag tag-type">English Abstract</span>
                                 <span class="tag tag-type">Journal Article</span>
+                                <span class="tag tag-type">Review</span>
                             </div>
 
-                            <p class="paper-authors" title="Jacky Chen、Thomas H Marwick、Cheng Hwee Soh">
-                                Jacky Chen、Thomas H Marwick、Cheng Hwee Soh                            </p>
+                            <p class="paper-authors" title="Katharina Tigges-Limmer、Dietmar Jacobs、Brigitte Osswald">
+                                Katharina Tigges-Limmer、Dietmar Jacobs、Brigitte Osswald                            </p>
 
                             <details class="abstract-block">
                                 <summary>英文摘要</summary>
-                                <p class="abstract-body">AIM: Asymptomatic left ventricular dysfunction (LVD) represents a key and frequently under-recognized stage in the heart failure (HF) continuum. Early identification enables targeted prevention and timely initiation of evidence-based therapies. Artificial intelligence-enabled electrocardiography (AI-ECG) may provide a scalable alternative to imaging for LVD detection. This systematic review synthesized evidence from exclusively externally validated AI-ECG studies evaluating the detection of asymptomatic LVD, with symptomatic HF cohorts included to contextualize the evidence base across the HF continuum.
-
-METHODS: A systematic literature search was conducted on 8th September 2025. The main output was the pooled area under the receiver operating characteristic curve (AUROC).
-
-RESULTS: From 3,587 records, 12 asymptomatic and 30 symptomatic studies were identified (538,735 participants). In asymptomatic cohorts evaluating left ventricular systolic dysfunction (LVSD), AI-ECG demonstrated promising but heterogeneous discriminatory performance (I²&gt;85%) with pooled AUROCs of 0.87 (95% CI 0.75-0.99) for LVEF ≤35%, 0.93 (95% CI 0.88-0.97) for LVEF ≤40%, and 0.89 (95% CI 0.85-0.97) for LVEF ≤50%. Symptomatic cohorts showed AUROCs of 0.89 (95% CI 0.86-0.92), 0.90 (95% CI 0.88-0.92), and 0.85 (95% CI 0.83-0.86) respectively. Asymptomatic left ventricular diastolic dysfunction (LVDD) demonstrated moderate performance (AUROC 0.76, 95% CI 0.66-0.86) with no externally validated symptomatic LVDD studies identified. Small-study effects were detected exclusively in asymptomatic cohorts.
-
-CONCLUSIONS: Discriminatory performance of AI-ECG in asymptomatic LVSD is broadly comparable to symptomatic populations. High risk of bias driven by prolonged ECG-to-echocardiogram intervals reflecting real-world logistical constraints necessitate cautious interpretation of results and further prospective validation.</p>
+                                <p class="abstract-body">Communication during medical interventions under local anesthesia is related with patient stress, and opportunities to reduce the stress are underestimated. There is no special training for medical students, and awareness within the medical community is lacking. For this reason, a psychotherapist, satire and comedy writer, and cardiac surgeon specializing in device therapy collaborated. Excerpts from their book published in 2022 are used to provide background of various situations, practical advice, and ways to avoid common pitfalls in communication.</p>
                             </details>
 
                             <p class="ai-missing">未生成 AI 解读（仅显示原文摘要）</p>
 
                             <div class="link-row">
-                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42893154/" target="_blank" rel="noopener noreferrer">PubMed</a>
-                                <a class="btn-link doi" href="https://doi.org/10.1016/j.ajpc.2026.101691" target="_blank" rel="noopener noreferrer">DOI</a>
-                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42893154/" target="_blank" rel="noopener noreferrer">原文</a>
-                            </div>
-
-                        </div>
-                    </div>
-                </article>
-                <article class="paper-card"
-                         data-topic="影像与标测"
-                         data-journal="Am J Prev Cardiol"
-                         data-search="comparison of ai-enabled cardiac chambers volumetry based on non-gated chest ct scans with echocardiography: an ai-cvd study within the multi-ethnic study of atherosclerosis (mesa). seyed reza mirjalili kyle atlas anthony p reeves chenyu zhang jakob wasserthal amir azimi ali hashemi mohammadhossein mozafarybazargany amir ghaffari jolfayi thomas atlas claudia i henschke david f yankelevitz javier j zulueta wenjun fan jeffrey i mechanick andrea d branch khurram nasir zahi fayad michael v mcconnell jamal s rana rozemarijn vliegenthart david j maron jagat narula matthew j budoff roxana mehran kim a williams prediman k shah oren mechanic arthur s agatston robert a kloner nathan d wong morteza naghavi  am j prev cardiol"
-                         id="paper-2">
-
-                    <div class="paper-top">
-                        <div class="paper-index">2</div>
-                        <div class="paper-main">
-
-                            <h3 class="paper-title">
-                                <a href="https://pubmed.ncbi.nlm.nih.gov/42892953/" target="_blank" rel="noopener noreferrer">Comparison of AI-enabled cardiac chambers volumetry based on non-gated chest CT scans with echocardiography: An AI-CVD study within the Multi-Ethnic Study of Atherosclerosis (MESA).</a>
-                            </h3>
-
-                            <div class="paper-meta">
-<span class="paper-journal">Am J Prev Cardiol</span><span class="dot">·</span><span class="paper-date">2026-10-18</span><span class="dot">·</span><span class="paper-date">PMID 42892953</span>                            </div>
-
-                            <div class="tag-row">
-                                <span class="tag tag-topic" data-topic="影像与标测">影像与标测</span>
-                                <span class="tag tag-type">Journal Article</span>
-                            </div>
-
-                            <p class="paper-authors" title="Seyed Reza Mirjalili、Kyle Atlas、Anthony P Reeves、Chenyu Zhang、Jakob Wasserthal、Amir Azimi、Ali Hashemi、Mohammadhossein Mozafarybazargany、Amir Ghaffari Jolfayi、Thomas Atlas、Claudia I Henschke、David F Yankelevitz、Javier J Zulueta、Wenjun Fan、Jeffrey I Mechanick、Andrea D Branch、Khurram Nasir、Zahi Fayad、Michael V McConnell、Jamal S Rana、Rozemarijn Vliegenthart、David J Maron、Jagat Narula、Matthew J Budoff、Roxana Mehran、Kim A Williams、Prediman K Shah、Oren Mechanic、Arthur S Agatston、Robert A Kloner、Nathan D Wong、Morteza Naghavi">
-                                Seyed Reza Mirjalili、Kyle Atlas、Anthony P Reeves<span class="authors-more"> 等 32 位作者</span>                            </p>
-
-                            <div class="abstract-block">
-                                <p class="abstract-none">暂无摘要（该文献可能为社论、评论或通信类文章）</p>
-                            </div>
-
-                            <p class="ai-missing">未生成 AI 解读（仅显示原文摘要）</p>
-
-                            <div class="link-row">
-                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42892953/" target="_blank" rel="noopener noreferrer">PubMed</a>
-                                <a class="btn-link doi" href="https://doi.org/10.1016/j.ajpc.2026.101731" target="_blank" rel="noopener noreferrer">DOI</a>
-                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42892953/" target="_blank" rel="noopener noreferrer">原文</a>
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42895637/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1007/s00399-026-01178-x" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42895637/" target="_blank" rel="noopener noreferrer">原文</a>
                             </div>
 
                         </div>
@@ -1577,7 +1450,7 @@ CONCLUSIONS: Discriminatory performance of AI-ECG in asymptomatic LVSD is broadl
             <h2 class="topic-heading">
                 <span class="bar"></span>
                 <span>遗传与基础</span>
-                <span class="topic-count">5 篇</span>
+                <span class="topic-count">2 篇</span>
             </h2>
 
             <div class="paper-list">
@@ -1625,14 +1498,8 @@ CONCLUSIONS: Discriminatory performance of AI-ECG in asymptomatic LVSD is broadl
                 </article>
                 <article class="paper-card"
                          data-topic="遗传与基础"
-                         data-journal="J Community Genet"
-                         data-search="structured postmortem genetic counselling and testing in sudden unexplained death among young adults in the netherlands: results and implications regarding hereditary risk. tess m wemeijer leonie a verbaan wilma l j m duijst yvonne m hoedemaekers imke christiaans introduction: sudden unexplained death (sud) in young adults may result from hereditary cardiovascular disorders that remain undetected even after conventional autopsy. routine postmortem genetic testing may identify these disorders, improving determination of the cause of death while providing diagnostic and preventive opportunities for surviving blood relatives.
-
-methods: between september 2022 and october 2025, 100 cases of sud in young adults in the netherlands were investigated using the nodov (nader onderzoek naar de doodsoorzaak bij (jong)volwassenen) procedure. genetic counselling was offered to surviving blood relatives in 50 cases where conventional autopsy findings suggested an inherited cardiovascular disorder. conventional autopsy findings, medical history and family history guided phenotype-directed genetic testing using targeted gene panel analysis following whole-exome/genome sequencing.
-
-results: genetic testing was successfully performed in 46 out of 50 cases and identified pathogenic variants in six cases involving the cacna1c, bag3, mybpc3, ldl-r, kcnj2, and pkd1 genes. pretest genetic counselling proved important in guiding genetic testing in 10% of all cases and 50% of genetically confirmed cases. pathogenic variants were identified in both structurally abnormal and autopsy-negative cases. families received tailored genetic counselling and recommendations for clinical follow-up based on predictive genetic testing. among the 44 families without a genetic diagnosis, 43 were advised to undergo clinical cardiovascular screening.
-
-conclusion: this study highlights the importance of a structured multidisciplinary postmortem investigation, such as the nodov procedure, integrating pretest genetic counselling and tailored postmortem genetic testing. this approach may improve determination of cause of death (particularly in autopsy-negative cases), aid in the identification of hereditary cardiovascular disorders and facilitate preventive strategies for at-risk blood relatives. j community genet"
+                         data-journal="Eur J Pediatr"
+                         data-search="family screening for genetic cardiomyopathies in ecg-positive phenotype-negative adolescents: a joint clinical and genetic approach. mark abela jessica debattista jeanesse scerri tiziana felice victor grech christian scerri adolescents may present with abnormal ecg findings despite having no structural or electrical evidence of cardiomyopathy. the value of extending family screening to this subgroup remains uncertain. to evaluate the impact of family screening in ecg-positive phenotype-negative adolescents, and determine whether a joint clinical-genetic approach improves the diagnostic yield. in this prospective cohort study, adolescents with an abnormal ecg identified through a nationwide screening program underwent comprehensive clinical/genetic evaluation. phenotype-negative individuals were included. relatives underwent clinical screening, with cascade genetic testing offered when probands carried a likely/definite pathogenic (lp/p) cardiomyopathy variant. abnormal screening outcomes included relatives with (i) de novo cardiomyopathy diagnosis, (ii) early cardiomyopathic traits, or (iii) gene-positive/phenotype-negative (g + p -) status. sixteen adolescents (0.6%) met inclusion criteria, and 3 (18.8%) were g + (mybpc3, myh7, actc1). one in five relatives (n = 13/71, 18.3%; 95% ci 11.0-28.9%) were referred, most having an abnormal ecg (12.7%). nine relatives (12.7%; 95% ci 4.9-20.4%) exhibited early cardiomyopathy traits at baseline. one (1.4%) relative was g + /p - . cardiomyopathy was diagnosed in 3 (4.2%, 95% ci 0.9-11.8%) relatives at baseline (n = 2 hcm, n = 1 dcm). one relative with early cardiomyopathy traits underwent phenoconversion (ndlvc) during follow-up at 77 months, yielding an overall diagnostic rate of 5.6% (95% ci 2.0-13.8%) in 4 unrelated families. a joint clinical-genetic approach enabled personalized surveillance in 6 relatives (8.5%), including 2 (2.8%) diagnoses that would otherwise have been missed with conventional clinical screening.conclusion: one in five relatives of ecg‑positive phenotype‑negative adolescents received a cardiomyopathy diagnosis or had early cardiomyopathy traits. a joint clinical-genetic approach in this subgroup may aid early cardiomyopathy detection in selected families, though findings remain exploratory and require validation in larger cohorts. what is known - what is new: •resting ecg can identify individuals harboring conditions linked to sudden cardiac death •the penetrance of cardiomyopathy is age dependent, which explains why screened adolescents may exhibit abnormal ecg patterns in the absence of a cardiomyopathy diagnosis •our data indicate that extending screening to relatives of ecg-positive, phenotype-negative adolescents is justified, with one in five relatives receiving a new cardiomyopathy diagnosis (5.6%) or exhibiting early cardiomyopathy traits (11.3%) •a joint clinical/genetic evaluation in this context may help personalize screening strategies. eur j pediatr"
                          id="paper-2">
 
                     <div class="paper-top">
@@ -1640,172 +1507,31 @@ conclusion: this study highlights the importance of a structured multidisciplina
                         <div class="paper-main">
 
                             <h3 class="paper-title">
-                                <a href="https://pubmed.ncbi.nlm.nih.gov/42891777/" target="_blank" rel="noopener noreferrer">Structured postmortem genetic counselling and testing in sudden unexplained death among young adults in the Netherlands: results and implications regarding hereditary risk.</a>
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/42895645/" target="_blank" rel="noopener noreferrer">Family screening for genetic cardiomyopathies in ECG-positive phenotype-negative adolescents: a joint clinical and genetic approach.</a>
                             </h3>
 
                             <div class="paper-meta">
-<span class="paper-journal">J Community Genet</span><span class="dot">·</span><span class="paper-date">2026-10-18</span><span class="dot">·</span><span class="paper-date">PMID 42891777</span>                            </div>
+<span class="paper-journal">Eur J Pediatr</span><span class="dot">·</span><span class="paper-date">2026-10-19</span><span class="dot">·</span><span class="paper-date">PMID 42895645</span>                            </div>
 
                             <div class="tag-row">
                                 <span class="tag tag-topic" data-topic="遗传与基础">遗传与基础</span>
                                 <span class="tag tag-type">Journal Article</span>
                             </div>
 
-                            <p class="paper-authors" title="Tess M Wemeijer、Leonie A Verbaan、Wilma L J M Duijst、Yvonne M Hoedemaekers、Imke Christiaans">
-                                Tess M Wemeijer、Leonie A Verbaan、Wilma L J M Duijst<span class="authors-more"> 等 5 位作者</span>                            </p>
+                            <p class="paper-authors" title="Mark Abela、Jessica Debattista、Jeanesse Scerri、Tiziana Felice、Victor Grech、Christian Scerri">
+                                Mark Abela、Jessica Debattista、Jeanesse Scerri<span class="authors-more"> 等 6 位作者</span>                            </p>
 
                             <details class="abstract-block">
                                 <summary>英文摘要</summary>
-                                <p class="abstract-body">INTRODUCTION: Sudden unexplained death (SUD) in young adults may result from hereditary cardiovascular disorders that remain undetected even after conventional autopsy. Routine postmortem genetic testing may identify these disorders, improving determination of the cause of death while providing diagnostic and preventive opportunities for surviving blood relatives.
-
-METHODS: Between September 2022 and October 2025, 100 cases of SUD in young adults in the Netherlands were investigated using the NODOV (Nader Onderzoek naar de DoodsOorzaak bij (jong)Volwassenen) procedure. Genetic counselling was offered to surviving blood relatives in 50 cases where conventional autopsy findings suggested an inherited cardiovascular disorder. Conventional autopsy findings, medical history and family history guided phenotype-directed genetic testing using targeted gene panel analysis following whole-exome/genome sequencing.
-
-RESULTS: Genetic testing was successfully performed in 46 out of 50 cases and identified pathogenic variants in six cases involving the CACNA1C, BAG3, MYBPC3, LDL-R, KCNJ2, and PKD1 genes. Pretest genetic counselling proved important in guiding genetic testing in 10% of all cases and 50% of genetically confirmed cases. Pathogenic variants were identified in both structurally abnormal and autopsy-negative cases. Families received tailored genetic counselling and recommendations for clinical follow-up based on predictive genetic testing. Among the 44 families without a genetic diagnosis, 43 were advised to undergo clinical cardiovascular screening.
-
-CONCLUSION: This study highlights the importance of a structured multidisciplinary postmortem investigation, such as the NODOV procedure, integrating pretest genetic counselling and tailored postmortem genetic testing. This approach may improve determination of cause of death (particularly in autopsy-negative cases), aid in the identification of hereditary cardiovascular disorders and facilitate preventive strategies for at-risk blood relatives.</p>
+                                <p class="abstract-body">Adolescents may present with abnormal ECG findings despite having no structural or electrical evidence of cardiomyopathy. The value of extending family screening to this subgroup remains uncertain. To evaluate the impact of family screening in ECG-positive phenotype-negative adolescents, and determine whether a joint clinical-genetic approach improves the diagnostic yield. In this prospective cohort study, adolescents with an abnormal ECG identified through a nationwide screening program underwent comprehensive clinical/genetic evaluation. Phenotype-negative individuals were included. Relatives underwent clinical screening, with cascade genetic testing offered when probands carried a likely/definite pathogenic (LP/P) cardiomyopathy variant. Abnormal screening outcomes included relatives with (i) de novo cardiomyopathy diagnosis, (ii) early cardiomyopathic traits, or (iii) gene-positive/phenotype-negative (G + P -) status. Sixteen adolescents (0.6%) met inclusion criteria, and 3 (18.8%) were G + (MYBPC3, MYH7, ACTC1). One in five relatives (n = 13/71, 18.3%; 95% CI 11.0-28.9%) were referred, most having an abnormal ECG (12.7%). Nine relatives (12.7%; 95% CI 4.9-20.4%) exhibited early cardiomyopathy traits at baseline. One (1.4%) relative was G + /P - . Cardiomyopathy was diagnosed in 3 (4.2%, 95% CI 0.9-11.8%) relatives at baseline (n = 2 HCM, n = 1 DCM). One relative with early cardiomyopathy traits underwent phenoconversion (NDLVC) during follow-up at 77 months, yielding an overall diagnostic rate of 5.6% (95% CI 2.0-13.8%) in 4 unrelated families. A joint clinical-genetic approach enabled personalized surveillance in 6 relatives (8.5%), including 2 (2.8%) diagnoses that would otherwise have been missed with conventional clinical screening.Conclusion: One in five relatives of ECG‑positive phenotype‑negative adolescents received a cardiomyopathy diagnosis or had early cardiomyopathy traits. A joint clinical-genetic approach in this subgroup may aid early cardiomyopathy detection in selected families, though findings remain exploratory and require validation in larger cohorts. What is Known - What is New: •Resting ECG can identify individuals harboring conditions linked to sudden cardiac death •The penetrance of cardiomyopathy is age dependent, which explains why screened adolescents may exhibit abnormal ECG patterns in the absence of a cardiomyopathy diagnosis •Our data indicate that extending screening to relatives of ECG-positive, phenotype-negative adolescents is justified, with one in five relatives receiving a new cardiomyopathy diagnosis (5.6%) or exhibiting early cardiomyopathy traits (11.3%) •A joint clinical/genetic evaluation in this context may help personalize screening strategies.</p>
                             </details>
 
                             <p class="ai-missing">未生成 AI 解读（仅显示原文摘要）</p>
 
                             <div class="link-row">
-                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42891777/" target="_blank" rel="noopener noreferrer">PubMed</a>
-                                <a class="btn-link doi" href="https://doi.org/10.1007/s12687-026-00946-z" target="_blank" rel="noopener noreferrer">DOI</a>
-                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42891777/" target="_blank" rel="noopener noreferrer">原文</a>
-                            </div>
-
-                        </div>
-                    </div>
-                </article>
-                <article class="paper-card"
-                         data-topic="遗传与基础"
-                         data-journal="J Physiol"
-                         data-search="optogenetic cardioversion: to depolarize or to hyperpolarize? emilia entcheva matthew w kay  j physiol"
-                         id="paper-3">
-
-                    <div class="paper-top">
-                        <div class="paper-index">3</div>
-                        <div class="paper-main">
-
-                            <h3 class="paper-title">
-                                <a href="https://pubmed.ncbi.nlm.nih.gov/42893480/" target="_blank" rel="noopener noreferrer">Optogenetic cardioversion: To depolarize or to hyperpolarize?</a>
-                            </h3>
-
-                            <div class="paper-meta">
-<span class="paper-journal">J Physiol</span><span class="dot">·</span><span class="paper-date">2026-10-18</span><span class="dot">·</span><span class="paper-date">PMID 42893480</span>                            </div>
-
-                            <div class="tag-row">
-                                <span class="tag tag-topic" data-topic="遗传与基础">遗传与基础</span>
-                                <span class="tag tag-type">Journal Article</span>
-                            </div>
-
-                            <p class="paper-authors" title="Emilia Entcheva、Matthew W Kay">
-                                Emilia Entcheva、Matthew W Kay                            </p>
-
-                            <div class="abstract-block">
-                                <p class="abstract-none">暂无摘要（该文献可能为社论、评论或通信类文章）</p>
-                            </div>
-
-                            <p class="ai-missing">未生成 AI 解读（仅显示原文摘要）</p>
-
-                            <div class="link-row">
-                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42893480/" target="_blank" rel="noopener noreferrer">PubMed</a>
-                                <a class="btn-link doi" href="https://doi.org/10.1113/JP292377" target="_blank" rel="noopener noreferrer">DOI</a>
-                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42893480/" target="_blank" rel="noopener noreferrer">原文</a>
-                            </div>
-
-                        </div>
-                    </div>
-                </article>
-                <article class="paper-card"
-                         data-topic="遗传与基础"
-                         data-journal="J Physiol"
-                         data-search="channelrhodopsin ion selectivity determines mechanisms and efficacy of optogenetic defibrillation in human atria and ventricles. sophia ohnemus albert dasí ahmed f ramadan joachim greiner eike m wülfers matthew r stoyek linda tillert johannes vierock t alexander quinn peter kohl patrick m boyle viviane timmermann franziska schneider-warme cardiac re-entrant arrhythmias are a major cause of sudden cardiac death. optogenetic defibrillation has emerged as a promising anti-arrhythmic strategy based on photoactivation of channelrhodopsins, yet the efficacy and potential adverse consequences of activating different classes of light-gated ion channels have not been systematically evaluated. previous studies assessed either cation (e.g. chr2) or anion (e.g. gtacr1) non-selective channels, both of which depolarize resting cardiomyocytes. recently identified light-gated k+ channels (e.g. wichr) suppress cardiomyocyte activity while maintaining the membrane potential near its resting state, but their defibrillation potential remains unexplored. we used computational simulations to compare chr2, gtacr1 and wichr. single-cell simulations showed that chr2 and gtacr1 markedly increased diastolic intracellular ca2+ (by 42.6% and 52.6%, respectively), whereas wichr induced only minimal changes (by 4.0%), suggesting lower pro-arrhythmogenic risk. wichr, however, slightly increased intracellular na+ (by 15.1% vs. 0.1% and 3.4% for chr2 and gtacr1), consistent with the residual na+ permeability of currently available k+-conducting channelrhodopsins. simulations in human ventricles and atria showed that gtacr1 most effectively terminated re-entrant arrhythmias at low light intensities, whereas wichr achieved comparable efficacy at ≥5 mw/mm2. complementary tissue-scale simulations revealed that defibrillation occurs through depolarization within the excitable gap followed by fast na+ channel inactivation (chr2 and partly gtacr1), or through reduced membrane resistance at sufficiently high light intensities (large-conductance channels gtacr1 and wichr). overall, we demonstrate that channelrhodopsin ion selectivity is a key determinant of both optogenetic defibrillation efficacy and its underlying mechanisms. translational perspective: re-entrant arrhythmias are a leading cause of sudden cardiac death. standard therapies, including the activation of implantable cardioverter-defibrillators, carry burdens such as pain and myocardial injury. optogenetic defibrillation has been suggested as a potentially gentler alternative, replacing high-voltage electrical shocks by photoactivation of light-gated ion channels expressed in cardiac cells. determining which light-gated ion channel optimally balances efficacy and adverse effects on cardiac electrophysiology is critical for clinical translation. we addressed this question using computational simulations and validation experiments in zebrafish hearts. we identify ion selectivity as a key determinant of both the success rate for arrhythmia termination and the underlying mechanisms: non-selective cation- and anion-conducting channels terminate re-entry efficiently while promoting intracellular ca2+ accumulation, a plausible substrate for pro-arrhythmic side effects that could undermine therapeutic safety. k+-conducting channels largely avoid this pro-arrhythmic risk by holding cardiomyocytes near their resting potential, albeit at the cost of requiring transmural illumination, while also causing mild na+ accumulation attributable to residual na+ permeability. together, these trade-offs define clear clinical implications: k+-conducting channels may provide the safest option for optogenetic defibrillation, particularly once variants with further enhanced k+ selectivity and red-shifted activation spectra for improved operation within blood-perfused myocardium become available. key points: we use computational simulations to compare cation non-selective (chr2), anion non-selective (gtacr1) and k+-selective (wichr) channelrhodopsins for optogenetic termination of re-entrant arrhythmia. single-cardiomyocyte simulations suggest that chr2 and gtacr1 activation can cause progressive accumulation of intracellular ca2+, which is minimized when using wichr. intracellular microelectrode recordings from hearts of transgenic adult zebrafish validate the simulated voltage dynamics seen with chr2, gtacr1 or wichr activation. simulations of human left ventricles and atria indicate that gtacr1 is most effective in terminating re-entrant arrhythmia at low light intensities, whereas wichr becomes similarly effective at higher intensities. tissue-scale simulations indicate distinct defibrillation mechanisms: excitable gap extinction by de novo action potential initiation followed by inactivation of fast na+ channels for depolarizing channelrhodopsins (chr2, gtacr1), and reduction in membrane resistance for the large-conductance channels (gtacr1, wichr), effectively clamping the membrane potential at each channel&#39;s reversal potential at high light levels. j physiol"
-                         id="paper-4">
-
-                    <div class="paper-top">
-                        <div class="paper-index">4</div>
-                        <div class="paper-main">
-
-                            <h3 class="paper-title">
-                                <a href="https://pubmed.ncbi.nlm.nih.gov/42892728/" target="_blank" rel="noopener noreferrer">Channelrhodopsin ion selectivity determines mechanisms and efficacy of optogenetic defibrillation in human atria and ventricles.</a>
-                            </h3>
-
-                            <div class="paper-meta">
-<span class="paper-journal">J Physiol</span><span class="dot">·</span><span class="paper-date">2026-10-18</span><span class="dot">·</span><span class="paper-date">PMID 42892728</span>                            </div>
-
-                            <div class="tag-row">
-                                <span class="tag tag-topic" data-topic="遗传与基础">遗传与基础</span>
-                                <span class="tag tag-type">Journal Article</span>
-                            </div>
-
-                            <p class="paper-authors" title="Sophia Ohnemus、Albert Dasí、Ahmed F Ramadan、Joachim Greiner、Eike M Wülfers、Matthew R Stoyek、Linda Tillert、Johannes Vierock、T Alexander Quinn、Peter Kohl、Patrick M Boyle、Viviane Timmermann、Franziska Schneider-Warme">
-                                Sophia Ohnemus、Albert Dasí、Ahmed F Ramadan<span class="authors-more"> 等 13 位作者</span>                            </p>
-
-                            <details class="abstract-block">
-                                <summary>英文摘要</summary>
-                                <p class="abstract-body">Cardiac re-entrant arrhythmias are a major cause of sudden cardiac death. Optogenetic defibrillation has emerged as a promising anti-arrhythmic strategy based on photoactivation of channelrhodopsins, yet the efficacy and potential adverse consequences of activating different classes of light-gated ion channels have not been systematically evaluated. Previous studies assessed either cation (e.g. ChR2) or anion (e.g. GtACR1) non-selective channels, both of which depolarize resting cardiomyocytes. Recently identified light-gated K+ channels (e.g. WiChR) suppress cardiomyocyte activity while maintaining the membrane potential near its resting state, but their defibrillation potential remains unexplored. We used computational simulations to compare ChR2, GtACR1 and WiChR. Single-cell simulations showed that ChR2 and GtACR1 markedly increased diastolic intracellular Ca2+ (by 42.6% and 52.6%, respectively), whereas WiChR induced only minimal changes (by 4.0%), suggesting lower pro-arrhythmogenic risk. WiChR, however, slightly increased intracellular Na+ (by 15.1% vs. 0.1% and 3.4% for ChR2 and GtACR1), consistent with the residual Na+ permeability of currently available K+-conducting channelrhodopsins. Simulations in human ventricles and atria showed that GtACR1 most effectively terminated re-entrant arrhythmias at low light intensities, whereas WiChR achieved comparable efficacy at ≥5 mW/mm2. Complementary tissue-scale simulations revealed that defibrillation occurs through depolarization within the excitable gap followed by fast Na+ channel inactivation (ChR2 and partly GtACR1), or through reduced membrane resistance at sufficiently high light intensities (large-conductance channels GtACR1 and WiChR). Overall, we demonstrate that channelrhodopsin ion selectivity is a key determinant of both optogenetic defibrillation efficacy and its underlying mechanisms. TRANSLATIONAL PERSPECTIVE: Re-entrant arrhythmias are a leading cause of sudden cardiac death. Standard therapies, including the activation of implantable cardioverter-defibrillators, carry burdens such as pain and myocardial injury. Optogenetic defibrillation has been suggested as a potentially gentler alternative, replacing high-voltage electrical shocks by photoactivation of light-gated ion channels expressed in cardiac cells. Determining which light-gated ion channel optimally balances efficacy and adverse effects on cardiac electrophysiology is critical for clinical translation. We addressed this question using computational simulations and validation experiments in zebrafish hearts. We identify ion selectivity as a key determinant of both the success rate for arrhythmia termination and the underlying mechanisms: non-selective cation- and anion-conducting channels terminate re-entry efficiently while promoting intracellular Ca2+ accumulation, a plausible substrate for pro-arrhythmic side effects that could undermine therapeutic safety. K+-conducting channels largely avoid this pro-arrhythmic risk by holding cardiomyocytes near their resting potential, albeit at the cost of requiring transmural illumination, while also causing mild Na+ accumulation attributable to residual Na+ permeability. Together, these trade-offs define clear clinical implications: K+-conducting channels may provide the safest option for optogenetic defibrillation, particularly once variants with further enhanced K+ selectivity and red-shifted activation spectra for improved operation within blood-perfused myocardium become available. KEY POINTS: We use computational simulations to compare cation non-selective (ChR2), anion non-selective (GtACR1) and K+-selective (WiChR) channelrhodopsins for optogenetic termination of re-entrant arrhythmia. Single-cardiomyocyte simulations suggest that ChR2 and GtACR1 activation can cause progressive accumulation of intracellular Ca2+, which is minimized when using WiChR. Intracellular microelectrode recordings from hearts of transgenic adult zebrafish validate the simulated voltage dynamics seen with ChR2, GtACR1 or WiChR activation. Simulations of human left ventricles and atria indicate that GtACR1 is most effective in terminating re-entrant arrhythmia at low light intensities, whereas WiChR becomes similarly effective at higher intensities. Tissue-scale simulations indicate distinct defibrillation mechanisms: excitable gap extinction by de novo action potential initiation followed by inactivation of fast Na+ channels for depolarizing channelrhodopsins (ChR2, GtACR1), and reduction in membrane resistance for the large-conductance channels (GtACR1, WiChR), effectively clamping the membrane potential at each channel&#39;s reversal potential at high light levels.</p>
-                            </details>
-
-                            <p class="ai-missing">未生成 AI 解读（仅显示原文摘要）</p>
-
-                            <div class="link-row">
-                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42892728/" target="_blank" rel="noopener noreferrer">PubMed</a>
-                                <a class="btn-link doi" href="https://doi.org/10.1113/JP291707" target="_blank" rel="noopener noreferrer">DOI</a>
-                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42892728/" target="_blank" rel="noopener noreferrer">原文</a>
-                            </div>
-
-                        </div>
-                    </div>
-                </article>
-                <article class="paper-card"
-                         data-topic="遗传与基础"
-                         data-journal="JACC Case Rep"
-                         data-search="pathogenic variants in nkx2-5 associated with familial atrial septal defect and conduction system disease. varun srivatsav andrea guerin hoshiar abdollah stephen l archer background: most atrial septal defects (asds) occur sporadically, but familial cases can occur and carry a 10% risk of transmission to offspring.
-
-case summary: we describe a 3-generation family with autosomal dominant secundum asd and conduction system disease related to a novel nkx2-5 variant (c.300del; p.asp101thrfs∗75). the index patient, a 58-year-old woman with prior asd repair and mitral valve replacement, presented with chronotropic incompetence, atrial fibrillation, left bundle branch block, and prolonged pauses, leading to pacemaker implantation. her mother had an asd, atrial fibrillation, left bundle branch block, and pulmonary arterial hypertension. the proband&#39;s daughter also had an asd. genetic testing revealed a novel nkx2-5 pathogenic variant in all 3 patients.
-
-review summary: the combination of an asd and conduction system disease represents the most common phenotype in patients with pathogenic nkx2-5 variants.
-
-take-home message: a thorough family history and genetic testing are needed when evaluating patients with asd and concurrent conduction system abnormalities. jacc case rep"
-                         id="paper-5">
-
-                    <div class="paper-top">
-                        <div class="paper-index">5</div>
-                        <div class="paper-main">
-
-                            <h3 class="paper-title">
-                                <a href="https://pubmed.ncbi.nlm.nih.gov/42891680/" target="_blank" rel="noopener noreferrer">Pathogenic Variants in NKX2-5 Associated With Familial Atrial Septal Defect and Conduction System Disease.</a>
-                            </h3>
-
-                            <div class="paper-meta">
-<span class="paper-journal">JACC Case Rep</span><span class="dot">·</span><span class="paper-date">2026-10-18</span><span class="dot">·</span><span class="paper-date">PMID 42891680</span>                            </div>
-
-                            <div class="tag-row">
-                                <span class="tag tag-topic" data-topic="遗传与基础">遗传与基础</span>
-                                <span class="tag tag-type">Case Reports</span>
-                                <span class="tag tag-type">Journal Article</span>
-                            </div>
-
-                            <p class="paper-authors" title="Varun Srivatsav、Andrea Guerin、Hoshiar Abdollah、Stephen L Archer">
-                                Varun Srivatsav、Andrea Guerin、Hoshiar Abdollah<span class="authors-more"> 等 4 位作者</span>                            </p>
-
-                            <details class="abstract-block">
-                                <summary>英文摘要</summary>
-                                <p class="abstract-body">BACKGROUND: Most atrial septal defects (ASDs) occur sporadically, but familial cases can occur and carry a 10% risk of transmission to offspring.
-
-CASE SUMMARY: We describe a 3-generation family with autosomal dominant secundum ASD and conduction system disease related to a novel NKX2-5 variant (c.300del; p.Asp101Thrfs∗75). The index patient, a 58-year-old woman with prior ASD repair and mitral valve replacement, presented with chronotropic incompetence, atrial fibrillation, left bundle branch block, and prolonged pauses, leading to pacemaker implantation. Her mother had an ASD, atrial fibrillation, left bundle branch block, and pulmonary arterial hypertension. The proband&#39;s daughter also had an ASD. Genetic testing revealed a novel NKX2-5 pathogenic variant in all 3 patients.
-
-REVIEW SUMMARY: The combination of an ASD and conduction system disease represents the most common phenotype in patients with pathogenic NKX2-5 variants.
-
-TAKE-HOME MESSAGE: A thorough family history and genetic testing are needed when evaluating patients with ASD and concurrent conduction system abnormalities.</p>
-                            </details>
-
-                            <p class="ai-missing">未生成 AI 解读（仅显示原文摘要）</p>
-
-                            <div class="link-row">
-                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42891680/" target="_blank" rel="noopener noreferrer">PubMed</a>
-                                <a class="btn-link doi" href="https://doi.org/10.1016/j.jaccas.2026.110619" target="_blank" rel="noopener noreferrer">DOI</a>
-                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42891680/" target="_blank" rel="noopener noreferrer">原文</a>
+                                <a class="btn-link pubmed" href="https://pubmed.ncbi.nlm.nih.gov/42895645/" target="_blank" rel="noopener noreferrer">PubMed</a>
+                                <a class="btn-link doi" href="https://doi.org/10.1007/s00431-026-07524-y" target="_blank" rel="noopener noreferrer">DOI</a>
+                                <a class="btn-link source" href="https://pubmed.ncbi.nlm.nih.gov/42895645/" target="_blank" rel="noopener noreferrer">原文</a>
                             </div>
 
                         </div>
@@ -1877,7 +1603,7 @@ TAKE-HOME MESSAGE: A thorough family history and genetic testing are needed when
 <footer class="site-footer">
     <div class="wrap">
         <p>心脏电生理每日论文检索 · 数据来源 PubMed / Europe PMC 等公开数据库</p>
-        <p>页面离线自包含，无外部依赖 · 生成于 2026-10-20 01:03</p>
+        <p>页面离线自包含，无外部依赖 · 生成于 2026-10-20 00:34</p>
     </div>
 </footer>
 
@@ -1999,6 +1725,22 @@ TAKE-HOME MESSAGE: A thorough family history and genetic testing are needed when
         });
     }
     label();
+})();
+
+/* 往期导航：默认只显示最近 7 天，点「全部 N 天」展开完整列表。
+   用容器 class 控制显隐 —— 直接设 element.hidden 会被 display:flex 覆盖。 */
+(function () {
+    var btn = document.getElementById("archiveMore");
+    var all = document.getElementById("archiveAll");
+    var nav = btn && btn.closest(".archive-nav");
+    if (!btn || !all || !nav) { return; }
+    btn.addEventListener("click", function () {
+        var expanded = nav.classList.toggle("expanded");
+        all.hidden = !expanded;
+        btn.setAttribute("aria-expanded", expanded ? "true" : "false");
+        var n = all.querySelectorAll("a").length;
+        btn.textContent = expanded ? "收起 ▴" : ("全部 " + n + " 天 ▾");
+    });
 })();
 </script>
 
