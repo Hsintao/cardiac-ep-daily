@@ -1194,6 +1194,171 @@ main { padding: 26px 0 60px; }
     box-shadow: var(--shadow-btn);
 }
 
+/* -------------------------------------------------- 日期区间模式（单日 / 区间） */
+
+/* 顶栏按钮里的区间天数徽标（默认 hidden，切到区间后由 JS 显示「7 天」） */
+.date-toggle-count {
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 500;
+    line-height: 1.5;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+/* 作者样式里的 display 会覆盖 [hidden] 自带的 display:none，必须显式压回 */
+.date-toggle-count[hidden] { display: none; }
+
+/* 面板头部：「单日 / 区间」分段控件 */
+.date-mode-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    flex: 0 0 auto;
+    padding: 2px;
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+}
+
+.date-mode-btn {
+    font: inherit;
+    font-size: 11.5px;
+    line-height: 1.5;
+    font-weight: 500;
+    padding: 1px 10px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: var(--transition);
+}
+.date-mode-btn:hover { color: var(--primary-color); background: var(--primary-tint); }
+.date-mode-btn.active {
+    background: var(--primary-tint);
+    color: var(--primary-color);
+    font-weight: 600;
+}
+.date-mode-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+/* 区间工具条：默认 hidden，切到「区间」后由 JS 显示 */
+.date-range-bar {
+    display: block;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+}
+/* display:block 会覆盖 [hidden] 的 display:none，必须显式写 */
+.date-range-bar[hidden] { display: none; }
+
+.date-range-hint {
+    margin: 0 0 6px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.date-range-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+/* 快捷区间 / 清除：小号 pill 按钮 */
+.date-range-preset,
+.date-range-clear {
+    font: inherit;
+    font-size: 11.5px;
+    line-height: 1.5;
+    padding: 2px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: var(--transition);
+}
+.date-range-preset:hover,
+.date-range-clear:hover {
+    background: var(--primary-tint);
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+.date-range-preset:focus-visible,
+.date-range-clear:focus-visible {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.date-range-clear { margin-left: auto; color: var(--text-secondary); }
+
+/* 区间内的日期格：主色 tint 背景 + 主色边框，整体弱于起止端点 */
+.date-cell.in-range {
+    background: var(--primary-tint);
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+    font-weight: 500;
+}
+
+/* 起止端点：与单日选中（.current）同一套渐变强调 */
+.date-cell.range-start,
+.date-cell.range-end {
+    background: var(--gradient-primary);
+    color: #ffffff; /* 渐变上的文字与 .date-cell.current 一致，不随主题翻转 */
+    font-weight: 700;
+    border-color: transparent;
+    box-shadow: var(--shadow-btn);
+}
+
+/* 预览态：已点起点、尚未点终点时的临时高亮，用虚线边框与 in-range 区分 */
+.date-cell.preview {
+    background: var(--primary-tint-strong);
+    color: var(--primary-color);
+    border: 1px dashed var(--primary-color);
+    font-weight: 600;
+}
+
+/* 卡片 tag-row 内的「覆盖日期」小标签（区间聚合时标注论文所属日期） */
+.tag-day {
+    display: inline-block;
+    font-size: 11px;
+    line-height: 1.6;
+    font-weight: 500;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+/* 区间部分日期加载失败的提示条：复用 OA 淡橙令牌，深浅色都保证可读 */
+.load-warning {
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    border: 1px solid var(--oa-bd);
+    border-radius: var(--radius-sm);
+    background: var(--oa-bg);
+    color: var(--oa-fg);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+/* 手机上：区间天数徽标缩小、工具条正常换行（面板宽度沿用既有规则） */
+@media (max-width: 640px) {
+    .date-toggle-count { font-size: 11px; }
+    .date-range-actions { gap: 4px; }
+    .date-mode-btn { padding: 1px 8px; }
+}
+
 /* ------------------------------------------------------------ 页脚 */
 
 .site-footer {
@@ -1437,6 +1602,10 @@ main { padding: 26px 0 60px; }
     font-size: 12.5px;
     color: var(--text-secondary);
 }
+
+/* .header-stats .chip 的 display:inline-flex 会覆盖 [hidden] 自带的 display:none，
+   导致「覆盖 N 天」「无摘要」等按需出现的 chip 在隐藏状态下仍然显示。显式压回。 */
+.header-stats .chip[hidden] { display: none; }
 
 .header-stats .chip strong {
     font-weight: 700;

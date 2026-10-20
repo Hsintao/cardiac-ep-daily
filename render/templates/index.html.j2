@@ -64,14 +64,32 @@
         <div class="header-right">
             <div class="date-select" id="dateSelect">
                 <button type="button" class="date-toggle" id="dateToggle"
-                        aria-haspopup="listbox" aria-expanded="false" aria-controls="datePanel">
+                        aria-haspopup="dialog" aria-expanded="false" aria-controls="datePanel"
+                        title="选择单日，或切换到「区间」选取一段日期">
                     <span class="date-toggle-icon" aria-hidden="true">📅</span>
                     <span class="date-toggle-text" id="dateToggleText">{{ default_date }}</span>
+                    <span class="date-toggle-count" id="dateToggleCount" hidden></span>
                     <span class="date-toggle-caret" aria-hidden="true">▾</span>
                 </button>
-                <div class="date-panel" id="datePanel" role="listbox" hidden>
+                <div class="date-panel" id="datePanel" role="dialog" aria-label="选择日期或日期区间" hidden>
                     <div class="date-panel-head">
+                        <div class="date-mode-switch" role="group" aria-label="日期选择模式">
+                            <button type="button" class="date-mode-btn active" id="modeSingle"
+                                    data-mode="single" aria-pressed="true">单日</button>
+                            <button type="button" class="date-mode-btn" id="modeRange"
+                                    data-mode="range" aria-pressed="false">区间</button>
+                        </div>
                         <button type="button" class="date-panel-latest" id="jumpLatest">跳到最新 →</button>
+                    </div>
+                    <div class="date-range-bar" id="dateRangeBar" hidden>
+                        <p class="date-range-hint" id="dateRangeHint">先点起始日，再点结束日</p>
+                        <div class="date-range-actions">
+                            <button type="button" class="date-range-preset" data-preset="7"
+                                    title="最近 7 个有数据的日子">近 7 天</button>
+                            <button type="button" class="date-range-preset" data-preset="14"
+                                    title="最近 14 个有数据的日子">近 14 天</button>
+                            <button type="button" class="date-range-clear" id="clearRange" hidden>清除</button>
+                        </div>
                     </div>
                     <div class="date-panel-body">
                         {% for group in date_groups %}
@@ -80,8 +98,7 @@
                             <div class="date-month-days">
                                 {% for day in group.days %}
                                 <button type="button" class="date-cell{% if day == default_date %} current{% endif %}"
-                                        data-day="{{ day }}" role="option"
-                                        aria-selected="{{ 'true' if day == default_date else 'false' }}">{{ day[8:10] }}</button>
+                                        data-day="{{ day }}" title="{{ day }}">{{ day[8:10] }}</button>
                                 {% endfor %}
                             </div>
                         </div>
@@ -99,6 +116,7 @@
     <div class="wrap header-stats">
         <span class="chip">📄 论文 <strong id="chipTotal">—</strong></span>
         <span class="chip">🤖 AI 解读 <strong id="chipAI">—</strong></span>
+        <span class="chip" id="chipDaysWrap" hidden>📅 覆盖 <strong id="chipDays">—</strong> 天</span>
         <span class="chip" id="chipNoAbsWrap" hidden>📝 无摘要 <strong id="chipNoAbs">—</strong></span>
     </div>
 </header>
