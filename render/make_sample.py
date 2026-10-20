@@ -6,8 +6,7 @@
 
 产物：
   render/sample/2026-10-19_AI_enhanced_Chinese.jsonl  虚构样例数据
-  render/sample/index.html                            主页面
-  render/sample/archive/2026-10-19.html               归档页
+  render/sample/index.html                            站点壳（打开后按日期 fetch JSONL）
 
 样例刻意覆盖四种降级/边界路径：
   - 完整数据（有 AI、有摘要、多链接）
@@ -26,7 +25,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
-from render.build_html import build_pages  # noqa: E402
+from render.build_html import build_site  # noqa: E402
 
 SAMPLE_DIR = Path(__file__).resolve().parent / "sample"
 SAMPLE_DATE = "2026-10-19"
@@ -478,11 +477,11 @@ def main() -> int:
         for paper in SAMPLE_PAPERS:
             fh.write(json.dumps(paper, ensure_ascii=False) + "\n")
 
-    build_pages(
-        jsonl,
+    build_site(
+        SAMPLE_DIR,
         SAMPLE_DIR / "index.html",
-        date=SAMPLE_DATE,
         generated_at=datetime(2026, 10, 19, 7, 30),
+        default_date=SAMPLE_DATE,
     )
     print(f"[sample] 数据 -> {jsonl}")
     print(f"[sample] 主页面 -> {SAMPLE_DIR / 'index.html'}")

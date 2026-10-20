@@ -60,9 +60,21 @@
         dateRangeBar: document.getElementById("dateRangeBar"),
         dateRangeHint: document.getElementById("dateRangeHint"),
         clearRange: document.getElementById("clearRange"),
+        srStatus: document.getElementById("srStatus"),
     };
 
-    var TOPIC_ORDER = ["房颤与消融", "室性心律失常", "器械治疗", "影像与标测", "遗传与基础", "其他"];
+    /* 状态播报：切日期 / 筛选结果变化时写入 aria-live 区域，通知屏幕阅读器。
+       先清空再写入，保证连续两次相同文本也会被重新播报。 */
+    function announce(text) {
+        if (!el.srStatus) { return; }
+        el.srStatus.textContent = "";
+        el.srStatus.textContent = String(text);
+    }
+
+    /* 主题顺序由构建端写进 site-config（数据源 render/build_html.py 的 TOPIC_ORDER），
+       前端不再自留一份，避免两份清单漂移；cfg 缺失时退回内置默认。 */
+    var TOPIC_ORDER = (Array.isArray(cfg.topics) && cfg.topics.length) ? cfg.topics :
+        ["房颤与消融", "室性心律失常", "器械治疗", "影像与标测", "遗传与基础", "其他"];
 
     /* ---------------------------------------------------------------- 工具 */
 
@@ -74,11 +86,12 @@
         return String(value).replace(/[&<>"']/g, function (ch) { return ESCAPE_HTML_MAP[ch]; });
     }
 
-    /* 链接同样要过一遍：只放行 http(s)，避免 javascript: 之类伪协议进入 href */
+    /* 链接同样要过一遍：只放行 http(s)/mailto，避免 javascript: 之类伪协议进入 href。
+       协议白名单与构建端 render/build_html.py 的 _SAFE_SCHEMES 保持一致。 */
     function safeUrl(url) {
         if (!url) { return ""; }
         var text = String(url).trim();
-        if (/^https?:\/\//i.test(text)) { return escapeHtml(text); }
+        if (/^(https?:\/\/|mailto:)/i.test(text)) { return escapeHtml(text); }
         return "";
     }
 
@@ -389,7 +402,9 @@
 
     function renderAI(ai) {
         if (!ai || !ai.tldr) { return ""; }
-        var sections = [
+        /* 五段标签来自 site-config（构建端 render/build_html.py 的 AI_SECTIONS），
+           cfg 缺失时退回内置默认 */
+        var sections = (Array.isArray(cfg.aiSections) && cfg.aiSections.length) ? cfg.aiSections : [
             ["tldr", "一句话结论"],
             ["motivation", "研究动机"],
             ["method", "方法"],
@@ -651,6 +666,8 @@
         } else if (emptyNote) {
             emptyNote.hidden = true;
         }
+        /* 有搜索词时播报剩余篇数，屏幕阅读器用户不必逐张数卡片 */
+        if (q) { announce("关键词筛选后剩余 " + visible + " 篇论文"); }
         syncJournalLabel();
     }
 
@@ -739,13 +756,60 @@
         return null;
     }
 
-    function closePanel() {
+    /* 网格漫游（roving tabindex）：面板里只有一格在 Tab 序列里（tabindex=0），
+       焦点落到哪格哪格进 Tab 序列；方向键在格子间移动（←/→ 前后一天，
+       ↑/↓ 前后一周（近似），Home/End 跳首尾），与 ARIA grid 模式一致。 */
+    function initCellGridNav() {
+        var cells = panelCells();
+        if (!cells.length) { return; }
+        var current = el.datePanel.querySelector(
+            ".date-cell.current, .date-cell.range-start, .date-cell.range-end"
+        ) || cells[0];
+        eachNode(cells, function (cell) {
+            cell.setAttribute("tabindex", cell === current ? "0" : "-1");
+        });
+        el.datePanel.addEventListener("focusin", function (event) {
+            var cell = event.target.closest ? event.target.closest(".date-cell") : null;
+            if (!cell) { return; }
+            eachNode(panelCells(), function (c) {
+                c.setAttribute("tabindex", c === cell ? "0" : "-1");
+            });
+        });
+        el.datePanel.addEventListener("keydown", function (event) {
+            var cell = event.target.closest ? event.target.closest(".date-cell") : null;
+            if (!cell) { return; }
+            var all = panelCells();
+            var index = Array.prototype.indexOf.call(all, cell);
+            if (index < 0) { return; }
+            var delta = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[event.key];
+            var next = -1;
+            if (delta) {
+                /* 月份各自成格、首日不对齐星期，±7 只是近似「上/下周」，越界夹在首尾 */
+                next = Math.min(Math.max(index + delta, 0), all.length - 1);
+            } else if (event.key === "Home") {
+                next = 0;
+            } else if (event.key === "End") {
+                next = all.length - 1;
+            } else {
+                return;
+            }
+            event.preventDefault();
+            if (next !== index) { all[next].focus(); }
+        });
+    }
+
+    /* restoreFocus=true 用于「用户在面板里完成操作」的关闭（选好日期、按 Esc）：
+       焦点还给触发按钮，键盘用户不会丢位置。document 全局点击关闭时不传，
+       避免鼠标点别处反而把焦点抢回顶栏。 */
+    function closePanel(restoreFocus) {
         if (!el.datePanel) { return; }
         el.datePanel.hidden = true;
         if (el.dateToggle) { el.dateToggle.setAttribute("aria-expanded", "false"); }
+        if (restoreFocus && el.dateToggle) { el.dateToggle.focus(); }
     }
 
-    /* 清掉面板里所有选中态（含悬停预览），后面的函数再按需重新加 */
+    /* 清掉面板里所有选中态（含悬停预览），后面的函数再按需重新加。
+       格子不是开关按钮：选中态用 aria-current="date" 表达，不用 aria-pressed。 */
     function clearCellMarks() {
         eachNode(panelCells(), function (cell) {
             cell.classList.remove("current");
@@ -753,7 +817,7 @@
             cell.classList.remove("range-start");
             cell.classList.remove("range-end");
             cell.classList.remove("preview");
-            cell.setAttribute("aria-pressed", "false");
+            cell.removeAttribute("aria-current");
         });
     }
 
@@ -788,7 +852,11 @@
                 cell.classList.add("current");
                 active = true;
             }
-            cell.setAttribute("aria-pressed", active ? "true" : "false");
+            if (active) {
+                cell.setAttribute("aria-current", "date");
+            } else {
+                cell.removeAttribute("aria-current");
+            }
         });
     }
 
@@ -920,7 +988,7 @@
         var cell = findCell(day);
         if (cell) {
             cell.classList.add("range-start");
-            cell.setAttribute("aria-pressed", "true");
+            cell.setAttribute("aria-current", "date");
         }
         if (el.clearRange) { el.clearRange.hidden = false; }
         setHint("起始 " + dayShort(day) + "，再点结束日");
@@ -977,7 +1045,7 @@
             days = all.slice(0, n);
         }
         if (!days.length) { return; }
-        closePanel();
+        closePanel(true);
         switchRange(days[days.length - 1], days[0]);
     }
 
@@ -1016,6 +1084,7 @@
             renderTopicFilters(papers);
             renderJournalFilters(papers);
             renderPapers();
+            announce(day + "：" + papers.length + " 篇论文");
             if (options.scroll !== false) { scrollToTop(); }
         }).catch(function (err) {
             if (token !== loadToken) { return; }   // 同上：旧请求失败也不干扰新视图
@@ -1023,6 +1092,7 @@
                 '<div class="empty-state"><div class="icon">⚠️</div><h2>加载失败</h2>' +
                 "<p>" + escapeHtml(day) + " 的数据读取失败：" + escapeHtml(err.message) +
                 '。请检查该日期的数据文件是否已发布。</p></div>';
+            announce(day + " 的数据读取失败");
         });
     }
 
@@ -1104,6 +1174,8 @@
         Promise.all(loadDays(days)).then(function (results) {
             if (token !== loadToken) { return; }   // 慢请求后到：别覆盖新视图
             applyRangeResults(results);
+            announce(rangeLabel(state.startDay, state.endDay) +
+                "：" + state.papers.length + " 篇论文");
             if (options.scroll !== false) { scrollToTop(); }
         }).catch(function (err) {
             /* loadDays 每天各自 catch，不会整体拒绝；能走到这里的是
@@ -1114,6 +1186,7 @@
                 "<p>" + escapeHtml(rangeLabel(state.startDay, state.endDay)) +
                 " 的数据处理失败：" + escapeHtml(err && err.message ? err.message : String(err)) +
                 "。请稍后重试。</p></div>";
+            announce(rangeLabel(state.startDay, state.endDay) + " 的数据处理失败");
         });
     }
 
@@ -1154,10 +1227,16 @@
                 if (open) {
                     var cur = el.datePanel.querySelector(
                         ".date-cell.current, .date-cell.range-start, .date-cell.range-end"
-                    );
-                    if (cur && cur.scrollIntoView) { cur.scrollIntoView({ block: "nearest" }); }
+                    ) || panelCells()[0];
+                    if (cur) {
+                        if (cur.scrollIntoView) { cur.scrollIntoView({ block: "nearest" }); }
+                        /* 打开面板即聚焦当前选中格：键盘用户立刻能用方向键漫游，
+                           不必先 Tab 穿过大半个面板 */
+                        if (cur.focus) { cur.focus({ preventScroll: true }); }
+                    }
                 }
             });
+            initCellGridNav();
         }
         if (el.datePanel) {
             el.datePanel.addEventListener("click", function (event) {
@@ -1178,7 +1257,7 @@
                     var earlier = pendingStart <= day ? pendingStart : day;
                     var later = pendingStart <= day ? day : pendingStart;
                     pendingStart = null;
-                    closePanel();
+                    closePanel(true);
                     /* 起止点相同 = 用户只想看这一天：回到单日视图，
                        避免出现「1 天区间」这种既像单日又带区间徽标的中间态 */
                     if (earlier === later) {
@@ -1188,7 +1267,7 @@
                     switchRange(earlier, later);
                     return;
                 }
-                closePanel();
+                closePanel(true);
                 if (event.shiftKey && isDayString(state.day)) {
                     /* 单日模式下 Shift+点击 = 从当前日到点击日的区间 */
                     var from = state.day <= day ? state.day : day;
@@ -1224,15 +1303,14 @@
         });
         document.addEventListener("keydown", function (event) {
             if (event.key === "Escape" && el.datePanel && !el.datePanel.hidden) {
-                closePanel();
-                if (el.dateToggle) { el.dateToggle.focus(); }
+                closePanel(true);
             }
         });
         var latest = document.getElementById("jumpLatest");
         if (latest) {
             latest.addEventListener("click", function (event) {
                 event.stopPropagation();
-                closePanel();
+                closePanel(true);
                 var latestDay = (cfg.days || [])[0] || cfg.defaultDate;
                 if (latestDay) { switchDay(latestDay); }
             });
@@ -1277,14 +1355,22 @@
         if (!btn) { return; }
         var root = document.documentElement;
         var mql = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+        /* <html data-theme> 由页头内联脚本保证总有值（手动选择或跟随系统） */
         function current() {
-            var manual = root.getAttribute("data-theme");
-            if (manual === "dark" || manual === "light") { return manual; }
+            var attr = root.getAttribute("data-theme");
+            if (attr === "dark" || attr === "light") { return attr; }
             return (mql && mql.matches) ? "dark" : "light";
         }
+        /* 有没有手动选择过要看 localStorage：初始化脚本总是写 data-theme，
+           属性本身已不再区分手动/跟随 */
+        function isManual() {
+            try {
+                var saved = localStorage.getItem("ep-digest-theme");
+                return saved === "dark" || saved === "light";
+            } catch (e) { return false; }
+        }
         function label() {
-            var manual = root.getAttribute("data-theme");
-            var suffix = manual ? "" : "（跟随系统）";
+            var suffix = isManual() ? "" : "（跟随系统）";
             btn.textContent = (current() === "dark" ? "☀️ 浅色" : "🌙 深色") + suffix;
         }
         btn.addEventListener("click", function () {
@@ -1293,13 +1379,40 @@
             try { localStorage.setItem("ep-digest-theme", next); } catch (e) {}
             label();
         });
+        /* 未手动选择时跟随系统主题实时切换 */
+        if (mql && mql.addEventListener) {
+            mql.addEventListener("change", function (event) {
+                if (isManual()) { return; }
+                root.setAttribute("data-theme", event.matches ? "dark" : "light");
+                label();
+            });
+        }
         label();
+    }
+
+    /* 打印前强制展开所有折叠块（闭合的 <details> 只显示 summary，摘要/解读会丢），
+       打印后还原回用户原本的折叠状态 */
+    function initPrintExpand() {
+        if (!window.addEventListener) { return; }
+        window.addEventListener("beforeprint", function () {
+            document.querySelectorAll("details:not([open])").forEach(function (d) {
+                d.setAttribute("open", "");
+                d.setAttribute("data-print-opened", "");
+            });
+        });
+        window.addEventListener("afterprint", function () {
+            document.querySelectorAll("details[data-print-opened]").forEach(function (d) {
+                d.removeAttribute("open");
+                d.removeAttribute("data-print-opened");
+            });
+        });
     }
 
     function init() {
         initDatePicker();
         initFilters();
         initTheme();
+        initPrintExpand();
         /* logo = 回到最新一天。不加 handler 时 href="#" 会把地址栏里
            可分享的日期 hash 清掉（URL 与视图对不上） */
         var logo = document.querySelector(".site-logo");

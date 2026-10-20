@@ -187,6 +187,10 @@ class TestFrontendEscaping:
         out = self._run('safeUrl("https://pubmed.ncbi.nlm.nih.gov/1/")')
         assert out.startswith("https://pubmed.ncbi.nlm.nih.gov/")
 
+    def test_mailto_url_allowed(self):
+        """协议白名单与 Python 端 _SAFE_SCHEMES 对齐：mailto 也放行。"""
+        assert self._run('safeUrl("mailto:ep@example.com")') == "mailto:ep@example.com"
+
 
 # ---------------------------------------------------------------------------
 # 摘要折叠块：英文摘要 + 中文摘要（AI 翻译）
@@ -292,8 +296,11 @@ class TestFrontendRenderPaper:
         )[1].partition("\n    function renderPapers")
         assert sep, "assets/app.js 缺少 function renderPapers"
         code = (
-            # renderPaper 只读 state.rangeView；其余渲染函数在本测试里不会被调用
+            # renderPaper 只读 state.rangeView；renderAI 读 cfg.aiSections（由
+            # site-config 注入的常量）。其余渲染函数在本测试里不会被调用
             "var state = { rangeView: false };\n"
+            'var cfg = { aiSections: [["tldr","一句话结论"],["motivation","研究动机"],'
+            '["method","方法"],["result","结果"],["conclusion","结论与意义"]] };\n'
             + tools + abstracts + render
             + "\nvar paper = " + json.dumps(paper, ensure_ascii=False) + ";\n"
             + "process.stdout.write(JSON.stringify({"
@@ -330,18 +337,6 @@ class TestFrontendRenderPaper:
         assert paper["doi"] in blob
         assert "authors-more" not in blob       # 不含页面标记，搜 "span" 不会假阳性
         assert "&quot;" not in blob
-
-
-class TestNormalizePaper:
-    def test_summary_zh_passthrough(self):
-        normalized = build_html.normalize_paper(
-            make_paper(summary_zh="  背景：……。  ")
-        )
-        assert normalized["summary_zh"] == "背景：……。"
-        assert normalized["summary"]  # 英文摘要不受影响
-
-    def test_missing_summary_zh_is_empty_string(self):
-        assert build_html.normalize_paper(make_paper())["summary_zh"] == ""
 
 
 # ---------------------------------------------------------------------------

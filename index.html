@@ -7,14 +7,20 @@
 <meta name="description" content="心脏电生理每日论文检索">
 <title>心脏电生理日报</title>
 <script>
-/* 主题初始化：必须在样式生效前执行，避免深色用户看到白屏闪烁 */
+/* 主题初始化：必须在样式生效前执行，避免深色用户看到白屏闪烁。
+   总是写入 data-theme（没有手动选择时按系统偏好写），样式侧因此只需
+   :root 默认（浅色）+ :root[data-theme="dark"] 两份令牌，不再三处漂移。 */
 (function () {
+    var theme = '';
     try {
         var saved = localStorage.getItem('ep-digest-theme');
-        if (saved === 'dark' || saved === 'light') {
-            document.documentElement.setAttribute('data-theme', saved);
-        }
+        if (saved === 'dark' || saved === 'light') { theme = saved; }
     } catch (e) {}
+    if (!theme) {
+        var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        theme = dark ? 'dark' : 'light';
+    }
+    document.documentElement.setAttribute('data-theme', theme);
 })();
 </script>
 <style>
@@ -28,11 +34,10 @@
      - 顶栏 sticky + backdrop-filter 毛玻璃。
    只改视觉层（颜色 / 圆角 / 阴影 / 字体 / 过渡），类名与布局结构保持不变。
 
-   主题切换：
-     1. @media (prefers-color-scheme: dark) —— 跟随系统；
-     2. :root[data-theme="dark"] / [data-theme="light"] —— 手动切换，由页头按钮
-        写入 <html data-theme> 并用 localStorage 记忆。
-   两套深色规则都只覆盖颜色变量，排版/结构复用浅色定义，避免两套样式漂移。
+   主题切换：页头内联脚本总会给 <html> 写入 data-theme="dark|light"
+   （有手动选择用手动值，否则按系统偏好写），样式侧因此只需
+   :root（浅色默认）+ :root[data-theme="dark"] 两份令牌；
+   深色只覆盖颜色变量，排版/结构复用浅色定义，避免两套样式漂移。
    ========================================================================== */
 
 /* ------------------------------------------------------------ 设计令牌 */
@@ -42,6 +47,10 @@
     --primary-color: #667eea;
     --secondary-color: #764ba2;
     --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    /* 文字承载版渐变：两端色对白字都 ≥ 4.5:1（--gradient-primary 的
+       #667eea 端只有约 3.7:1，不满足 WCAG AA）。只用于「渐变底 + 白字」
+       的控件/徽标；装饰性渐变（logo、标题、分隔条）仍用 --gradient-primary。 */
+    --gradient-text: linear-gradient(135deg, #5566d6 0%, #6b4296 100%);
     --gradient-soft: linear-gradient(135deg, #eef2ff 0%, #f5f0ff 100%);
 
     /* 中性色 */
@@ -58,7 +67,6 @@
     /* 圆角 */
     --radius-sm: 8px;
     --radius-md: 12px;
-    --radius-lg: 12px;
 
     /* 阴影（紫调、极轻） */
     --shadow-sm: 0 1px 3px rgba(102, 126, 234, 0.1);
@@ -77,7 +85,6 @@
     --header-border: rgba(226, 232, 240, 0.9);
     --filter-bg: rgba(250, 251, 255, 0.85);
     --focus-ring: rgba(102, 126, 234, 0.22);
-    --hover-surface: #f1f5f9;
     --scrollbar-thumb: rgba(102, 126, 234, 0.28);
     --scrollbar-thumb-hover: rgba(102, 126, 234, 0.45);
     --code-bg: #f1f5f9;
@@ -85,8 +92,7 @@
     --primary-tint-strong: #e0e7ff;
     --primary-contrast: #ffffff; /* 渐变/主色块上的文字色 */
 
-    /* 标签：期刊、开放获取、作者 */
-    --accent-color: #6d2dad;
+    /* 标签：开放获取、作者 */
     --oa-bg: #fff7ed;
     --oa-fg: #b45309;
     --oa-bd: #fed7aa;
@@ -121,88 +127,23 @@
 
 /* ------------------------------------------------------------ 深色令牌 */
 
-/* 深色三套规则共享同一组取值，避免两处漂移。 */
-
-@media (prefers-color-scheme: dark) {
-    /* 跟随系统；手动选「浅色」时退出（:not([data-theme="light"])） */
-    :root:not([data-theme="light"]) {
-        --primary-color: #8b9cf7;
-        --secondary-color: #9b6fd6;
-        --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        --gradient-soft: linear-gradient(135deg, #232b40 0%, #2e2440 100%);
-
-        --bg: #0f1420;
-        --surface: #161c2a;
-        --surface-muted: #1a2130;
-        --border: #2a3242;
-        --border-strong: #3b4557;
-
-        --text: #e6e9f2;
-        --text-secondary: #a9b2c6;
-        --text-tertiary: #939db5;
-
-        --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
-        --shadow-md: 0 4px 15px rgba(0, 0, 0, 0.55);
-        --shadow-lg: 0 8px 25px rgba(0, 0, 0, 0.65);
-        --shadow-btn: 0 2px 8px rgba(0, 0, 0, 0.45);
-        --shadow-btn-hover: 0 4px 14px rgba(0, 0, 0, 0.55);
-
-        --header-bg: rgba(15, 20, 32, 0.82);
-        --header-fg: #e6e9f2;
-        --header-accent: #a5b4fc;
-        --header-border: #2a3242;
-        --filter-bg: rgba(22, 28, 42, 0.85);
-        --focus-ring: rgba(139, 156, 247, 0.32);
-        --hover-surface: #222a3b;
-        --scrollbar-thumb: rgba(255, 255, 255, 0.2);
-        --scrollbar-thumb-hover: rgba(255, 255, 255, 0.34);
-        --code-bg: #1b2130;
-        --primary-tint: #232b40;
-        --primary-tint-strong: #2e2440;
-        --primary-contrast: #0f1420;
-
-        --accent-color: #bf95f7;
-        --oa-bg: #3a2c0e;
-        --oa-fg: #fcd34d;
-        --oa-bd: #6b5320;
-        --author-color: #34d399;
-
-        --t-af: #7dd3fc;        --t-af-bg: #123145;        --t-af-bd: #1d4d68;
-        --t-vt: #fda4b4;        --t-vt-bg: #401b24;        --t-vt-bd: #6b2c3a;
-        --t-device: #c4b5fd;    --t-device-bg: #2c2247;    --t-device-bd: #4b3a7a;
-        --t-imaging: #a5b4fc;   --t-imaging-bg: #1e2447;   --t-imaging-bd: #3a4580;
-        --t-genetics: #6ee7b7;  --t-genetics-bg: #0f3d2e;  --t-genetics-bd: #1d5c45;
-        --t-other: #cbd5e1;     --t-other-bg: #2a323d;     --t-other-bd: #3b4557;
-
-        --link-pubmed-bg: #1e2447; --link-pubmed-fg: #a5b4fc; --link-pubmed-bd: #3a4580; --link-pubmed-hover: #262e59;
-        --link-doi-bg: #2b2145;    --link-doi-fg: #c4b5fd;    --link-doi-bd: #4b3a7a;    --link-doi-hover: #352a55;
-        --link-pdf-bg: #33161a;    --link-pdf-fg: #fda4b4;    --link-pdf-bd: #6b2c3a;    --link-pdf-hover: #421d24;
-        --link-src-bg: #1a2130;    --link-src-fg: #cbd5e1;    --link-src-bd: #3b4557;    --link-src-hover: #222a3b;
-
-        --ai-tldr-bg: linear-gradient(135deg, #4f5fd4 0%, #5b3a9e 100%);
-        --ai-tldr-fg: #ffffff;
-        --ai-motiv-bg: #2b2145; --ai-motiv-fg: #d8b4fe;
-        --ai-method-bg: #1e2447; --ai-method-fg: #a5b4fc;
-        --ai-result-bg: #10352a; --ai-result-fg: #6ee7b7;
-        --ai-concl-bg: #3a2c0e; --ai-concl-fg: #fcd34d;
-
-        --empty-bd: #3a4580;
-
-        color-scheme: dark;
-    }
-}
-
+/* 初始化脚本保证 <html data-theme> 总有值（手动选择或跟随系统），
+   因此不再需要 @media (prefers-color-scheme) 版本和手动浅色副本，
+   深色令牌只在这里维护一份。 */
 :root[data-theme="dark"] {
     --primary-color: #8b9cf7;
-    --secondary-color: #9b6fd6;
+    /* #9b6fd6 在深色 AI 面板底上只有约 3.8:1；提亮到 #b18ce8 后 ≥ 5.5:1 */
+    --secondary-color: #b18ce8;
     --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     --gradient-soft: linear-gradient(135deg, #232b40 0%, #2e2440 100%);
 
     --bg: #0f1420;
     --surface: #161c2a;
     --surface-muted: #1a2130;
-    --border: #2a3242;
-    --border-strong: #3b4557;
+    /* 边框承载组件轮廓（输入框、按钮、日期格），不是纯装饰：
+       原 #2a3242 对卡片底只有约 1.3:1，提亮后对 surface ≥ 2:1 */
+    --border: #46536b;
+    --border-strong: #5b6a86;
 
     --text: #e6e9f2;
     --text-secondary: #a9b2c6;
@@ -217,10 +158,9 @@
     --header-bg: rgba(15, 20, 32, 0.82);
     --header-fg: #e6e9f2;
     --header-accent: #a5b4fc;
-    --header-border: #2a3242;
+    --header-border: #46536b;
     --filter-bg: rgba(22, 28, 42, 0.85);
     --focus-ring: rgba(139, 156, 247, 0.32);
-    --hover-surface: #222a3b;
     --scrollbar-thumb: rgba(255, 255, 255, 0.2);
     --scrollbar-thumb-hover: rgba(255, 255, 255, 0.34);
     --code-bg: #1b2130;
@@ -228,7 +168,6 @@
     --primary-tint-strong: #2e2440;
     --primary-contrast: #0f1420;
 
-    --accent-color: #bf95f7;
     --oa-bg: #3a2c0e;
     --oa-fg: #fcd34d;
     --oa-bd: #6b5320;
@@ -258,72 +197,6 @@
     color-scheme: dark;
 }
 
-/* 手动选「浅色」时强制回到浅色令牌，覆盖系统深色 */
-:root[data-theme="light"] {
-    --primary-color: #667eea;
-    --secondary-color: #764ba2;
-    --gradient-soft: linear-gradient(135deg, #eef2ff 0%, #f5f0ff 100%);
-
-    --bg: #fafbff;
-    --surface: #ffffff;
-    --surface-muted: #f8f9ff;
-    --border: #e2e8f0;
-    --border-strong: #cbd5e1;
-
-    --text: #1e293b;
-    --text-secondary: #475569;
-    --text-tertiary: #64748b;
-
-    --shadow-sm: 0 1px 3px rgba(102, 126, 234, 0.1);
-    --shadow-md: 0 4px 15px rgba(102, 126, 234, 0.15);
-    --shadow-lg: 0 8px 24px rgba(102, 126, 234, 0.2);
-    --shadow-btn: 0 2px 6px rgba(102, 126, 234, 0.25);
-    --shadow-btn-hover: 0 4px 12px rgba(102, 126, 234, 0.35);
-
-    --header-bg: rgba(255, 255, 255, 0.8);
-    --header-fg: #1e293b;
-    --header-accent: #667eea;
-    --header-border: rgba(226, 232, 240, 0.9);
-    --filter-bg: rgba(250, 251, 255, 0.85);
-    --focus-ring: rgba(102, 126, 234, 0.22);
-    --hover-surface: #f1f5f9;
-    --scrollbar-thumb: rgba(102, 126, 234, 0.28);
-    --scrollbar-thumb-hover: rgba(102, 126, 234, 0.45);
-    --code-bg: #f1f5f9;
-    --primary-tint: #eef2ff;
-    --primary-tint-strong: #e0e7ff;
-    --primary-contrast: #ffffff;
-
-    --accent-color: #6d2dad;
-    --oa-bg: #fff7ed;
-    --oa-fg: #b45309;
-    --oa-bd: #fed7aa;
-    --author-color: #047857;
-
-    --t-af: #0e7490;        --t-af-bg: #e0f2fe;        --t-af-bd: #a5d8ea;
-    --t-vt: #be123c;        --t-vt-bg: #ffe4e9;        --t-vt-bd: #fbc4cf;
-    --t-device: #6d28d9;    --t-device-bg: #efe7ff;    --t-device-bd: #d3c4f5;
-    --t-imaging: #1d4ed8;   --t-imaging-bg: #e0e8ff;   --t-imaging-bd: #b8c8f7;
-    --t-genetics: #047857;  --t-genetics-bg: #d9f8ee;  --t-genetics-bd: #a3e6cd;
-    --t-other: #475569;     --t-other-bg: #eef1f6;     --t-other-bd: #d8dfe9;
-
-    --link-pubmed-bg: #eef2ff; --link-pubmed-fg: #4338ca; --link-pubmed-bd: #c7d2fe; --link-pubmed-hover: #e0e7ff;
-    --link-doi-bg: #f5f0ff;    --link-doi-fg: #6d28d9;    --link-doi-bd: #ddd0fb;    --link-doi-hover: #ece2ff;
-    --link-pdf-bg: #fff1f3;    --link-pdf-fg: #be123c;    --link-pdf-bd: #fbc4cf;    --link-pdf-hover: #ffe4e9;
-    --link-src-bg: #ffffff;    --link-src-fg: #475569;    --link-src-bd: #cbd5e1;    --link-src-hover: #f4f6ff;
-
-    --ai-tldr-bg: linear-gradient(135deg, #4f5fd4 0%, #5b3a9e 100%);
-    --ai-tldr-fg: #ffffff;
-    --ai-motiv-bg: #f3e8ff;  --ai-motiv-fg: #6b21a8;
-    --ai-method-bg: #e0e7ff; --ai-method-fg: #3730a3;
-    --ai-result-bg: #d9f8ee; --ai-result-fg: #065f46;
-    --ai-concl-bg: #fef3c7;  --ai-concl-fg: #92400e;
-
-    --empty-bd: #c7d2fe;
-
-    color-scheme: light;
-}
-
 /* ------------------------------------------------------------ 基础 */
 
 * { box-sizing: border-box; }
@@ -348,6 +221,20 @@ a { color: var(--primary-color); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
 ::selection { background: rgba(102, 126, 234, 0.22); }
+
+/* 只供屏幕阅读器：视觉上看不见，但能被 aria-live 正常播报 */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
 
 /* 滚动条 —— 跟随主题令牌 */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -383,79 +270,6 @@ a:hover { text-decoration: underline; }
     max-width: 980px;
     margin: 0 auto;
     padding: 0 24px;
-}
-
-.site-header h1 {
-    margin: 0 0 6px;
-    font-size: 24px;
-    font-weight: 700;
-    letter-spacing: .3px;
-    /* 标题用主渐变做文字填充，呼应参考项目的 site-title */
-    background: var(--gradient-primary);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    color: var(--primary-color); /* 不支持 background-clip 的旧内核回退 */
-    width: fit-content;
-}
-
-.site-header .subtitle {
-    margin: 0;
-    font-size: 13.5px;
-    color: var(--text-secondary);
-}
-
-.header-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px 10px;
-    margin-top: 12px;
-    font-size: 13px;
-    color: var(--text-secondary);
-}
-
-.header-meta .chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 3px 12px;
-    box-shadow: var(--shadow-sm);
-    line-height: 1.5;
-}
-
-.header-meta .chip strong {
-    font-weight: 700;
-    color: var(--primary-color);
-    font-variant-numeric: tabular-nums;
-}
-
-.chip[hidden] { display: none; }
-
-.header-nav {
-    margin-top: 12px;
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    align-items: center;
-}
-
-.header-nav a {
-    color: var(--header-accent);
-    font-size: 13px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    border-radius: 999px;
-    padding: 4px 14px;
-    transition: var(--transition);
-}
-.header-nav a:hover {
-    background: var(--primary-tint);
-    border-color: var(--primary-color);
-    text-decoration: none;
 }
 
 /* ------------------------------------------------------------ 筛选栏 */
@@ -517,7 +331,9 @@ a:hover { text-decoration: underline; }
     color: var(--primary-color);
 }
 .filter-btn.active {
-    background: var(--gradient-primary);
+    /* 文字承载的控件用加深渐变（--gradient-text）：白字对比度 ≥ 4.5:1。
+       装饰性渐变 --gradient-primary 的 #667eea 端只有约 3.7:1，不用于文字。 */
+    background: var(--gradient-text);
     border-color: transparent;
     /* 渐变块上固定用白字：深浅两套主题下渐变本身不变，对比度恒定 */
     color: #ffffff;
@@ -526,6 +342,8 @@ a:hover { text-decoration: underline; }
 }
 .filter-btn.active:hover { box-shadow: var(--shadow-btn-hover); color: #ffffff; }
 .filter-btn .count { opacity: .8; margin-left: 3px; font-variant-numeric: tabular-nums; }
+/* 激活态已是渐变底白字，计数再降 .8 透明度等效拉低对比度，压回 1 */
+.filter-btn.active .count { opacity: 1; }
 
 .filter-btn.more-btn {
     background: var(--surface);
@@ -591,14 +409,6 @@ a:hover { text-decoration: underline; }
     box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
-.filter-empty {
-    display: none;
-    padding: 40px 0 60px;
-    text-align: center;
-    color: var(--text-secondary);
-}
-.filter-empty.show { display: block; }
-
 /* ------------------------------------------------------------ 分组 */
 
 main { padding: 26px 0 60px; }
@@ -653,7 +463,11 @@ main { padding: 26px 0 60px; }
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
-    padding: 18px 20px 16px;
+    /* 卡片本体不再加内边距：header/content/footer 各自带横向 padding，
+       卡片再加一层会让内容区白白窄一截，footer 分隔线也无法贯通全宽。
+       overflow:hidden 让内部元素服帖圆角。 */
+    padding: 0;
+    overflow: hidden;
     box-shadow: var(--shadow-sm);
     transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
     /* 大区间上千张卡片：跳过屏外卡片的布局/绘制，首屏只渲染可见部分。
@@ -667,20 +481,13 @@ main { padding: 26px 0 60px; }
     transform: translateY(-2px);
 }
 
-.paper-card.hidden { display: none; }
-
-.paper-top {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-}
-
 .paper-index {
     flex: 0 0 auto;
     width: 26px;
     height: 26px;
     border-radius: 50%;
-    background: var(--gradient-primary);
+    /* 白字序号是文字内容，用加深渐变保证 ≥ 4.5:1 */
+    background: var(--gradient-text);
     color: #ffffff;
     font-size: 12px;
     font-weight: 700;
@@ -691,8 +498,6 @@ main { padding: 26px 0 60px; }
     margin-top: 3px;
     box-shadow: var(--shadow-btn);
 }
-
-.paper-main { flex: 1 1 auto; min-width: 0; }
 
 .paper-title {
     margin: 0 0 8px;
@@ -749,7 +554,6 @@ main { padding: 26px 0 60px; }
 .tag-topic[data-topic="器械治疗"]     { background: var(--t-device-bg);   color: var(--t-device);   border-color: var(--t-device-bd); }
 .tag-topic[data-topic="影像与标测"]   { background: var(--t-imaging-bg);  color: var(--t-imaging);  border-color: var(--t-imaging-bd); }
 .tag-topic[data-topic="遗传与基础"]   { background: var(--t-genetics-bg); color: var(--t-genetics); border-color: var(--t-genetics-bd); }
-.tag-topic[data-topic="其他"]         { background: var(--t-other-bg);    color: var(--t-other);    border-color: var(--t-other-bd); }
 
 .tag-type {
     background: var(--surface-muted);
@@ -834,7 +638,6 @@ main { padding: 26px 0 60px; }
     border-radius: var(--radius-md);
     padding: 14px 16px 12px;
     margin-bottom: 12px;
-    margin-top: 0;
     box-shadow: var(--shadow-sm);
 }
 
@@ -880,7 +683,6 @@ main { padding: 26px 0 60px; }
 
 .ai-section { margin-bottom: 9px; }
 .ai-section:last-child { margin-bottom: 0; }
-.ai-section + .ai-section { margin-top: 0; }
 
 .ai-label {
     display: inline-block;
@@ -925,13 +727,11 @@ main { padding: 26px 0 60px; }
 
 /* ------------------------------------------------------------ 链接按钮 */
 
-.link-row,
 .paper-links {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    padding-top: 12px;
-    border-top: 1px dashed var(--border);
+    /* 分隔线由外层 .paper-card-footer 的 border-top 提供，这里不再叠一条虚线 */
 }
 
 .btn-link {
@@ -982,6 +782,11 @@ main { padding: 26px 0 60px; }
     animation: ep-spin .8s linear infinite;
 }
 @keyframes ep-spin { to { transform: rotate(360deg); } }
+/* 深色下 --primary-tint-strong 轨道几乎贴底看不清，换可见的边框令牌 */
+:root[data-theme="dark"] .loading-spinner {
+    border-color: var(--border-strong);
+    border-top-color: var(--primary-color);
+}
 
 .empty-state {
     background: var(--surface);
@@ -1011,139 +816,7 @@ main { padding: 26px 0 60px; }
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-/* ------------------------------------------------------------ 往期导航（兼容旧结构） */
-
-.archive-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-.archive-list li {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    padding: 12px 18px;
-    display: flex;
-    align-items: flex-start;
-    gap: 14px;
-    box-shadow: var(--shadow-sm);
-    transition: var(--transition);
-}
-.archive-list li:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
-.archive-list .topic-pill {
-    font-size: 11.5px;
-    font-weight: 600;
-    border-radius: 999px;
-    padding: 1px 9px;
-    background: var(--t-other-bg);
-    color: var(--t-other);
-    white-space: nowrap;
-    margin-top: 2px;
-}
-.archive-list .a-title { flex: 1 1 auto; font-size: 14px; min-width: 0; line-height: 1.55; }
-.archive-list .a-journal {
-    flex: 0 0 auto;
-    font-size: 12px;
-    color: var(--text-tertiary);
-    max-width: 220px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    margin-top: 2px;
-}
-.archive-list .a-actions {
-    flex: 0 0 auto;
-    font-size: 12px;
-    white-space: nowrap;
-    margin-top: 2px;
-}
-
-.archive-nav {
-    margin-top: 14px;
-    padding-top: 12px;
-    border-top: 1px solid var(--header-border);
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px 12px;
-    font-size: 13px;
-}
-
-.archive-nav-label {
-    color: var(--text-tertiary);
-    white-space: nowrap;
-}
-
-.archive-nav-days,
-.archive-nav-all {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-}
-
-.archive-nav a {
-    color: var(--header-accent);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 2px 10px;
-    font-variant-numeric: tabular-nums;
-    transition: var(--transition);
-}
-.archive-nav a:hover {
-    background: var(--primary-tint);
-    border-color: var(--primary-color);
-    text-decoration: none;
-}
-.archive-nav a.current {
-    background: var(--gradient-primary);
-    border-color: transparent;
-    color: #ffffff;
-    font-weight: 600;
-}
-
-.archive-more {
-    font: inherit;
-    font-size: 13px;
-    color: var(--header-accent);
-    background: transparent;
-    border: 1px dashed var(--border-strong);
-    border-radius: 999px;
-    padding: 2px 10px;
-    cursor: pointer;
-    transition: var(--transition);
-}
-.archive-more:hover { background: var(--primary-tint); border-color: var(--primary-color); }
-
-.archive-nav-all {
-    flex-basis: 100%;
-    margin-top: 4px;
-}
-
-/* hidden 必须显式压到 display:none —— 作者样式里的 display:flex 会覆盖
-   [hidden] 自带的 display:none，导致「收起」状态其实没藏住。 */
-.archive-nav-all[hidden] { display: none; }
-/* 展开时用 class 切换，比 hidden 属性更稳（display:flex 会覆盖 [hidden]） */
-.archive-nav.expanded .archive-nav-days { display: none; }
-
 /* ------------------------------------------------------------ 日期选择器 */
-
-.date-bar {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid var(--header-border);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 13px;
-}
-
-.date-bar-label { color: var(--text-tertiary); }
-
-.date-bar-hint { color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
 
 .date-select { position: relative; }
 
@@ -1177,7 +850,9 @@ main { padding: 26px 0 60px; }
 .date-panel {
     position: absolute;
     top: calc(100% + 6px);
-    left: 0;
+    /* 右锚定：按钮贴在顶栏右侧，left:0 向右展开会在 640–1250px 窗口溢出视口 */
+    left: auto;
+    right: 0;
     z-index: 120;
     width: 340px;
     max-height: 60vh;
@@ -1249,7 +924,8 @@ main { padding: 26px 0 60px; }
     text-decoration: none;
 }
 .date-cell.current {
-    background: var(--gradient-primary);
+    /* 选中态上是白色日期数字，用加深渐变保证 ≥ 4.5:1 */
+    background: var(--gradient-text);
     color: #ffffff;
     font-weight: 700;
     border-color: transparent;
@@ -1369,10 +1045,10 @@ main { padding: 26px 0 60px; }
     font-weight: 500;
 }
 
-/* 起止端点：与单日选中（.current）同一套渐变强调 */
+/* 起止端点：与单日选中（.current）同一套加深渐变强调（白字 ≥ 4.5:1） */
 .date-cell.range-start,
 .date-cell.range-end {
-    background: var(--gradient-primary);
+    background: var(--gradient-text);
     color: #ffffff; /* 渐变上的文字与 .date-cell.current 一致，不随主题翻转 */
     font-weight: 700;
     border-color: transparent;
@@ -1455,8 +1131,6 @@ main { padding: 26px 0 60px; }
     border-color: var(--primary-color);
     box-shadow: var(--shadow-btn);
 }
-/* 与统计 chip 同一行时垂直居中、字重一致 */
-.header-meta .theme-toggle { align-self: center; }
 .theme-toggle:focus-visible {
     outline: none;
     box-shadow: 0 0 0 3px var(--focus-ring);
@@ -1468,13 +1142,10 @@ main { padding: 26px 0 60px; }
 @media (max-width: 640px) {
     .wrap { padding: 0 14px; }
     .site-header { padding: 16px 0 12px; }
-    .site-header h1 { font-size: 19px; }
-    .paper-card { padding: 14px 15px 13px; }
     .paper-card:hover { transform: none; }
     .paper-title { font-size: 15.5px; }
     .paper-index { display: none; }
     .filter-label { display: none; }
-    .archive-list .a-journal { display: none; }
     .date-panel { width: min(340px, calc(100vw - 28px)); }
     main { padding: 18px 0 44px; }
 }
@@ -1488,8 +1159,13 @@ main { padding: 26px 0 60px; }
         animation-iteration-count: 1 !important;
         transition-duration: .001ms !important;
     }
+    /* 上面的全局规则会把加载 spinner 冻成静止圆环（0.001ms 转一次就停），
+       「正在加载」完全看不出来；放慢到 2s 一圈，保留加载语义又不快速闪烁 */
+    .loading-spinner {
+        animation-duration: 2s !important;
+        animation-iteration-count: infinite !important;
+    }
     .paper-card:hover,
-    .archive-list li:hover,
     .btn-link:hover { transform: none; }
 }
 
@@ -1522,18 +1198,38 @@ main { padding: 26px 0 60px; }
         -webkit-backdrop-filter: none;
         backdrop-filter: none;
     }
-    .site-header h1 {
+    /* 渐变底白字的元素在纸上会糊成浅块：退成黑字白底 */
+    .site-title {
         background: none;
-        -webkit-text-fill-color: currentColor;
+        -webkit-text-fill-color: initial;
         color: #000000;
     }
-    .filters, .header-nav, .date-bar, .theme-toggle { display: none; }
+    .paper-index,
+    .filter-btn.active,
+    .date-cell.current,
+    .date-cell.range-start,
+    .date-cell.range-end {
+        background: none;
+        color: #000000;
+        box-shadow: none;
+    }
+    .filters, .theme-toggle, .date-select { display: none; }
+    /* 打印恒为单列：两列网格在纸上会让长摘要被压得很窄 */
+    .paper-list { grid-template-columns: 1fr; }
     .paper-card {
         break-inside: avoid;
         box-shadow: none;
         transform: none;
+        /* content-visibility:auto 的屏外跳过在打印分页下可能丢卡片 */
+        content-visibility: visible;
     }
-    .abstract-block { display: block; }
+    /* 折叠块在打印前由 JS 的 beforeprint 强制展开（见 app.js initPrintExpand）；
+       这里再兜底一层，盖住 JS 没跑到的内核 */
+    .abstract-block:not([open]) > *:not(summary),
+    .ai-details:not([open]) > *:not(summary) {
+        display: block !important;
+        content-visibility: visible !important;
+    }
 }
 
 /* ==========================================================================
@@ -1568,10 +1264,6 @@ main { padding: 26px 0 60px; }
 
 .paper-card-content {
     padding: 12px 18px 16px;
-}
-
-.paper-card-content > .tag-row {
-    margin-bottom: 10px;
 }
 
 @media (max-width: 640px) {
@@ -1619,6 +1311,8 @@ main { padding: 26px 0 60px; }
 }
 
 .site-title {
+    /* 现在是 <h1>：压掉 UA 默认的标题外边距 */
+    margin: 0;
     font-size: 20px;
     font-weight: 700;
     letter-spacing: .2px;
@@ -1626,7 +1320,7 @@ main { padding: 26px 0 60px; }
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    color: var(--text-color);
+    color: var(--text); /* 不支持 background-clip 的旧内核回退 */
 }
 
 .header-left .subtitle {
@@ -1748,11 +1442,6 @@ main { padding: 26px 0 60px; }
 
 /* 折叠区展开后，段落左缘与一句话结论对齐，视觉不突兀 */
 .ai-details-body .ai-section p { margin-top: 4px; }
-
-@media (prefers-reduced-motion: reduce) {
-    .ai-details-summary::before { transition: none; }
-    .ai-details-body { animation: none; }
-}
 
 /* ==========================================================================
    移动端（<= 640px）
@@ -1893,13 +1582,15 @@ main { padding: 26px 0 60px; }
 </head>
 <body>
 
+<p class="sr-only" role="status" aria-live="polite" id="srStatus"></p>
+
 <header class="site-header">
     <div class="wrap header-top">
 
         <div class="header-left">
             <a class="site-logo" href="#" aria-label="心脏电生理每日论文检索">
                 <span class="logo-mark" aria-hidden="true">♥</span>
-                <span class="site-title">心脏电生理每日论文检索</span>
+                <h1 class="site-title">心脏电生理每日论文检索</h1>
             </a>
             <p class="subtitle">Cardiac Electrophysiology Daily · 按亚专业分组的文献速览</p>
         </div>
@@ -1943,72 +1634,72 @@ main { padding: 26px 0 60px; }
                             <div class="date-month-label">2026 年 10 月</div>
                             <div class="date-month-days">
                                 <button type="button" class="date-cell current"
-                                        data-day="2026-10-20" title="2026-10-20">20</button>
+                                        data-day="2026-10-20" aria-label="2026-10-20" title="2026-10-20">20</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-10-19" title="2026-10-19">19</button>
+                                        data-day="2026-10-19" aria-label="2026-10-19" title="2026-10-19">19</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-10-18" title="2026-10-18">18</button>
+                                        data-day="2026-10-18" aria-label="2026-10-18" title="2026-10-18">18</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-10-17" title="2026-10-17">17</button>
+                                        data-day="2026-10-17" aria-label="2026-10-17" title="2026-10-17">17</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-10-16" title="2026-10-16">16</button>
+                                        data-day="2026-10-16" aria-label="2026-10-16" title="2026-10-16">16</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-10-15" title="2026-10-15">15</button>
+                                        data-day="2026-10-15" aria-label="2026-10-15" title="2026-10-15">15</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-10-14" title="2026-10-14">14</button>
+                                        data-day="2026-10-14" aria-label="2026-10-14" title="2026-10-14">14</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-10-13" title="2026-10-13">13</button>
+                                        data-day="2026-10-13" aria-label="2026-10-13" title="2026-10-13">13</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-10-12" title="2026-10-12">12</button>
+                                        data-day="2026-10-12" aria-label="2026-10-12" title="2026-10-12">12</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-10-11" title="2026-10-11">11</button>
+                                        data-day="2026-10-11" aria-label="2026-10-11" title="2026-10-11">11</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-10-10" title="2026-10-10">10</button>
+                                        data-day="2026-10-10" aria-label="2026-10-10" title="2026-10-10">10</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-10-09" title="2026-10-09">09</button>
+                                        data-day="2026-10-09" aria-label="2026-10-09" title="2026-10-09">09</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-10-08" title="2026-10-08">08</button>
+                                        data-day="2026-10-08" aria-label="2026-10-08" title="2026-10-08">08</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-10-07" title="2026-10-07">07</button>
+                                        data-day="2026-10-07" aria-label="2026-10-07" title="2026-10-07">07</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-10-06" title="2026-10-06">06</button>
+                                        data-day="2026-10-06" aria-label="2026-10-06" title="2026-10-06">06</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-10-05" title="2026-10-05">05</button>
+                                        data-day="2026-10-05" aria-label="2026-10-05" title="2026-10-05">05</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-10-04" title="2026-10-04">04</button>
+                                        data-day="2026-10-04" aria-label="2026-10-04" title="2026-10-04">04</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-10-03" title="2026-10-03">03</button>
+                                        data-day="2026-10-03" aria-label="2026-10-03" title="2026-10-03">03</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-10-02" title="2026-10-02">02</button>
+                                        data-day="2026-10-02" aria-label="2026-10-02" title="2026-10-02">02</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-10-01" title="2026-10-01">01</button>
+                                        data-day="2026-10-01" aria-label="2026-10-01" title="2026-10-01">01</button>
                             </div>
                         </div>
                         <div class="date-month">
                             <div class="date-month-label">2026 年 9 月</div>
                             <div class="date-month-days">
                                 <button type="button" class="date-cell"
-                                        data-day="2026-09-30" title="2026-09-30">30</button>
+                                        data-day="2026-09-30" aria-label="2026-09-30" title="2026-09-30">30</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-09-29" title="2026-09-29">29</button>
+                                        data-day="2026-09-29" aria-label="2026-09-29" title="2026-09-29">29</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-09-28" title="2026-09-28">28</button>
+                                        data-day="2026-09-28" aria-label="2026-09-28" title="2026-09-28">28</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-09-27" title="2026-09-27">27</button>
+                                        data-day="2026-09-27" aria-label="2026-09-27" title="2026-09-27">27</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-09-26" title="2026-09-26">26</button>
+                                        data-day="2026-09-26" aria-label="2026-09-26" title="2026-09-26">26</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-09-25" title="2026-09-25">25</button>
+                                        data-day="2026-09-25" aria-label="2026-09-25" title="2026-09-25">25</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-09-24" title="2026-09-24">24</button>
+                                        data-day="2026-09-24" aria-label="2026-09-24" title="2026-09-24">24</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-09-23" title="2026-09-23">23</button>
+                                        data-day="2026-09-23" aria-label="2026-09-23" title="2026-09-23">23</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-09-22" title="2026-09-22">22</button>
+                                        data-day="2026-09-22" aria-label="2026-09-22" title="2026-09-22">22</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-09-21" title="2026-09-21">21</button>
+                                        data-day="2026-09-21" aria-label="2026-09-21" title="2026-09-21">21</button>
                                 <button type="button" class="date-cell"
-                                        data-day="2026-09-20" title="2026-09-20">20</button>
+                                        data-day="2026-09-20" aria-label="2026-09-20" title="2026-09-20">20</button>
                             </div>
                         </div>
                     </div>
@@ -2065,7 +1756,9 @@ main { padding: 26px 0 60px; }
 {
   "defaultDate": "2026-10-20",
   "days": ["2026-10-20", "2026-10-19", "2026-10-18", "2026-10-17", "2026-10-16", "2026-10-15", "2026-10-14", "2026-10-13", "2026-10-12", "2026-10-11", "2026-10-10", "2026-10-09", "2026-10-08", "2026-10-07", "2026-10-06", "2026-10-05", "2026-10-04", "2026-10-03", "2026-10-02", "2026-10-01", "2026-09-30", "2026-09-29", "2026-09-28", "2026-09-27", "2026-09-26", "2026-09-25", "2026-09-24", "2026-09-23", "2026-09-22", "2026-09-21", "2026-09-20"],
-  "language": "Chinese"
+  "language": "Chinese",
+  "topics": ["\u623f\u98a4\u4e0e\u6d88\u878d", "\u5ba4\u6027\u5fc3\u5f8b\u5931\u5e38", "\u5668\u68b0\u6cbb\u7597", "\u5f71\u50cf\u4e0e\u6807\u6d4b", "\u9057\u4f20\u4e0e\u57fa\u7840", "\u5176\u4ed6"],
+  "aiSections": [["tldr", "\u4e00\u53e5\u8bdd\u7ed3\u8bba"], ["motivation", "\u7814\u7a76\u52a8\u673a"], ["method", "\u65b9\u6cd5"], ["result", "\u7ed3\u679c"], ["conclusion", "\u7ed3\u8bba\u4e0e\u610f\u4e49"]]
 }
 </script>
 
@@ -2132,9 +1825,21 @@ main { padding: 26px 0 60px; }
         dateRangeBar: document.getElementById("dateRangeBar"),
         dateRangeHint: document.getElementById("dateRangeHint"),
         clearRange: document.getElementById("clearRange"),
+        srStatus: document.getElementById("srStatus"),
     };
 
-    var TOPIC_ORDER = ["房颤与消融", "室性心律失常", "器械治疗", "影像与标测", "遗传与基础", "其他"];
+    /* 状态播报：切日期 / 筛选结果变化时写入 aria-live 区域，通知屏幕阅读器。
+       先清空再写入，保证连续两次相同文本也会被重新播报。 */
+    function announce(text) {
+        if (!el.srStatus) { return; }
+        el.srStatus.textContent = "";
+        el.srStatus.textContent = String(text);
+    }
+
+    /* 主题顺序由构建端写进 site-config（数据源 render/build_html.py 的 TOPIC_ORDER），
+       前端不再自留一份，避免两份清单漂移；cfg 缺失时退回内置默认。 */
+    var TOPIC_ORDER = (Array.isArray(cfg.topics) && cfg.topics.length) ? cfg.topics :
+        ["房颤与消融", "室性心律失常", "器械治疗", "影像与标测", "遗传与基础", "其他"];
 
     /* ---------------------------------------------------------------- 工具 */
 
@@ -2146,11 +1851,12 @@ main { padding: 26px 0 60px; }
         return String(value).replace(/[&<>"']/g, function (ch) { return ESCAPE_HTML_MAP[ch]; });
     }
 
-    /* 链接同样要过一遍：只放行 http(s)，避免 javascript: 之类伪协议进入 href */
+    /* 链接同样要过一遍：只放行 http(s)/mailto，避免 javascript: 之类伪协议进入 href。
+       协议白名单与构建端 render/build_html.py 的 _SAFE_SCHEMES 保持一致。 */
     function safeUrl(url) {
         if (!url) { return ""; }
         var text = String(url).trim();
-        if (/^https?:\/\//i.test(text)) { return escapeHtml(text); }
+        if (/^(https?:\/\/|mailto:)/i.test(text)) { return escapeHtml(text); }
         return "";
     }
 
@@ -2461,7 +2167,9 @@ main { padding: 26px 0 60px; }
 
     function renderAI(ai) {
         if (!ai || !ai.tldr) { return ""; }
-        var sections = [
+        /* 五段标签来自 site-config（构建端 render/build_html.py 的 AI_SECTIONS），
+           cfg 缺失时退回内置默认 */
+        var sections = (Array.isArray(cfg.aiSections) && cfg.aiSections.length) ? cfg.aiSections : [
             ["tldr", "一句话结论"],
             ["motivation", "研究动机"],
             ["method", "方法"],
@@ -2723,6 +2431,8 @@ main { padding: 26px 0 60px; }
         } else if (emptyNote) {
             emptyNote.hidden = true;
         }
+        /* 有搜索词时播报剩余篇数，屏幕阅读器用户不必逐张数卡片 */
+        if (q) { announce("关键词筛选后剩余 " + visible + " 篇论文"); }
         syncJournalLabel();
     }
 
@@ -2811,13 +2521,60 @@ main { padding: 26px 0 60px; }
         return null;
     }
 
-    function closePanel() {
+    /* 网格漫游（roving tabindex）：面板里只有一格在 Tab 序列里（tabindex=0），
+       焦点落到哪格哪格进 Tab 序列；方向键在格子间移动（←/→ 前后一天，
+       ↑/↓ 前后一周（近似），Home/End 跳首尾），与 ARIA grid 模式一致。 */
+    function initCellGridNav() {
+        var cells = panelCells();
+        if (!cells.length) { return; }
+        var current = el.datePanel.querySelector(
+            ".date-cell.current, .date-cell.range-start, .date-cell.range-end"
+        ) || cells[0];
+        eachNode(cells, function (cell) {
+            cell.setAttribute("tabindex", cell === current ? "0" : "-1");
+        });
+        el.datePanel.addEventListener("focusin", function (event) {
+            var cell = event.target.closest ? event.target.closest(".date-cell") : null;
+            if (!cell) { return; }
+            eachNode(panelCells(), function (c) {
+                c.setAttribute("tabindex", c === cell ? "0" : "-1");
+            });
+        });
+        el.datePanel.addEventListener("keydown", function (event) {
+            var cell = event.target.closest ? event.target.closest(".date-cell") : null;
+            if (!cell) { return; }
+            var all = panelCells();
+            var index = Array.prototype.indexOf.call(all, cell);
+            if (index < 0) { return; }
+            var delta = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[event.key];
+            var next = -1;
+            if (delta) {
+                /* 月份各自成格、首日不对齐星期，±7 只是近似「上/下周」，越界夹在首尾 */
+                next = Math.min(Math.max(index + delta, 0), all.length - 1);
+            } else if (event.key === "Home") {
+                next = 0;
+            } else if (event.key === "End") {
+                next = all.length - 1;
+            } else {
+                return;
+            }
+            event.preventDefault();
+            if (next !== index) { all[next].focus(); }
+        });
+    }
+
+    /* restoreFocus=true 用于「用户在面板里完成操作」的关闭（选好日期、按 Esc）：
+       焦点还给触发按钮，键盘用户不会丢位置。document 全局点击关闭时不传，
+       避免鼠标点别处反而把焦点抢回顶栏。 */
+    function closePanel(restoreFocus) {
         if (!el.datePanel) { return; }
         el.datePanel.hidden = true;
         if (el.dateToggle) { el.dateToggle.setAttribute("aria-expanded", "false"); }
+        if (restoreFocus && el.dateToggle) { el.dateToggle.focus(); }
     }
 
-    /* 清掉面板里所有选中态（含悬停预览），后面的函数再按需重新加 */
+    /* 清掉面板里所有选中态（含悬停预览），后面的函数再按需重新加。
+       格子不是开关按钮：选中态用 aria-current="date" 表达，不用 aria-pressed。 */
     function clearCellMarks() {
         eachNode(panelCells(), function (cell) {
             cell.classList.remove("current");
@@ -2825,7 +2582,7 @@ main { padding: 26px 0 60px; }
             cell.classList.remove("range-start");
             cell.classList.remove("range-end");
             cell.classList.remove("preview");
-            cell.setAttribute("aria-pressed", "false");
+            cell.removeAttribute("aria-current");
         });
     }
 
@@ -2860,7 +2617,11 @@ main { padding: 26px 0 60px; }
                 cell.classList.add("current");
                 active = true;
             }
-            cell.setAttribute("aria-pressed", active ? "true" : "false");
+            if (active) {
+                cell.setAttribute("aria-current", "date");
+            } else {
+                cell.removeAttribute("aria-current");
+            }
         });
     }
 
@@ -2992,7 +2753,7 @@ main { padding: 26px 0 60px; }
         var cell = findCell(day);
         if (cell) {
             cell.classList.add("range-start");
-            cell.setAttribute("aria-pressed", "true");
+            cell.setAttribute("aria-current", "date");
         }
         if (el.clearRange) { el.clearRange.hidden = false; }
         setHint("起始 " + dayShort(day) + "，再点结束日");
@@ -3049,7 +2810,7 @@ main { padding: 26px 0 60px; }
             days = all.slice(0, n);
         }
         if (!days.length) { return; }
-        closePanel();
+        closePanel(true);
         switchRange(days[days.length - 1], days[0]);
     }
 
@@ -3088,6 +2849,7 @@ main { padding: 26px 0 60px; }
             renderTopicFilters(papers);
             renderJournalFilters(papers);
             renderPapers();
+            announce(day + "：" + papers.length + " 篇论文");
             if (options.scroll !== false) { scrollToTop(); }
         }).catch(function (err) {
             if (token !== loadToken) { return; }   // 同上：旧请求失败也不干扰新视图
@@ -3095,6 +2857,7 @@ main { padding: 26px 0 60px; }
                 '<div class="empty-state"><div class="icon">⚠️</div><h2>加载失败</h2>' +
                 "<p>" + escapeHtml(day) + " 的数据读取失败：" + escapeHtml(err.message) +
                 '。请检查该日期的数据文件是否已发布。</p></div>';
+            announce(day + " 的数据读取失败");
         });
     }
 
@@ -3176,6 +2939,8 @@ main { padding: 26px 0 60px; }
         Promise.all(loadDays(days)).then(function (results) {
             if (token !== loadToken) { return; }   // 慢请求后到：别覆盖新视图
             applyRangeResults(results);
+            announce(rangeLabel(state.startDay, state.endDay) +
+                "：" + state.papers.length + " 篇论文");
             if (options.scroll !== false) { scrollToTop(); }
         }).catch(function (err) {
             /* loadDays 每天各自 catch，不会整体拒绝；能走到这里的是
@@ -3186,6 +2951,7 @@ main { padding: 26px 0 60px; }
                 "<p>" + escapeHtml(rangeLabel(state.startDay, state.endDay)) +
                 " 的数据处理失败：" + escapeHtml(err && err.message ? err.message : String(err)) +
                 "。请稍后重试。</p></div>";
+            announce(rangeLabel(state.startDay, state.endDay) + " 的数据处理失败");
         });
     }
 
@@ -3226,10 +2992,16 @@ main { padding: 26px 0 60px; }
                 if (open) {
                     var cur = el.datePanel.querySelector(
                         ".date-cell.current, .date-cell.range-start, .date-cell.range-end"
-                    );
-                    if (cur && cur.scrollIntoView) { cur.scrollIntoView({ block: "nearest" }); }
+                    ) || panelCells()[0];
+                    if (cur) {
+                        if (cur.scrollIntoView) { cur.scrollIntoView({ block: "nearest" }); }
+                        /* 打开面板即聚焦当前选中格：键盘用户立刻能用方向键漫游，
+                           不必先 Tab 穿过大半个面板 */
+                        if (cur.focus) { cur.focus({ preventScroll: true }); }
+                    }
                 }
             });
+            initCellGridNav();
         }
         if (el.datePanel) {
             el.datePanel.addEventListener("click", function (event) {
@@ -3250,7 +3022,7 @@ main { padding: 26px 0 60px; }
                     var earlier = pendingStart <= day ? pendingStart : day;
                     var later = pendingStart <= day ? day : pendingStart;
                     pendingStart = null;
-                    closePanel();
+                    closePanel(true);
                     /* 起止点相同 = 用户只想看这一天：回到单日视图，
                        避免出现「1 天区间」这种既像单日又带区间徽标的中间态 */
                     if (earlier === later) {
@@ -3260,7 +3032,7 @@ main { padding: 26px 0 60px; }
                     switchRange(earlier, later);
                     return;
                 }
-                closePanel();
+                closePanel(true);
                 if (event.shiftKey && isDayString(state.day)) {
                     /* 单日模式下 Shift+点击 = 从当前日到点击日的区间 */
                     var from = state.day <= day ? state.day : day;
@@ -3296,15 +3068,14 @@ main { padding: 26px 0 60px; }
         });
         document.addEventListener("keydown", function (event) {
             if (event.key === "Escape" && el.datePanel && !el.datePanel.hidden) {
-                closePanel();
-                if (el.dateToggle) { el.dateToggle.focus(); }
+                closePanel(true);
             }
         });
         var latest = document.getElementById("jumpLatest");
         if (latest) {
             latest.addEventListener("click", function (event) {
                 event.stopPropagation();
-                closePanel();
+                closePanel(true);
                 var latestDay = (cfg.days || [])[0] || cfg.defaultDate;
                 if (latestDay) { switchDay(latestDay); }
             });
@@ -3349,14 +3120,22 @@ main { padding: 26px 0 60px; }
         if (!btn) { return; }
         var root = document.documentElement;
         var mql = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+        /* <html data-theme> 由页头内联脚本保证总有值（手动选择或跟随系统） */
         function current() {
-            var manual = root.getAttribute("data-theme");
-            if (manual === "dark" || manual === "light") { return manual; }
+            var attr = root.getAttribute("data-theme");
+            if (attr === "dark" || attr === "light") { return attr; }
             return (mql && mql.matches) ? "dark" : "light";
         }
+        /* 有没有手动选择过要看 localStorage：初始化脚本总是写 data-theme，
+           属性本身已不再区分手动/跟随 */
+        function isManual() {
+            try {
+                var saved = localStorage.getItem("ep-digest-theme");
+                return saved === "dark" || saved === "light";
+            } catch (e) { return false; }
+        }
         function label() {
-            var manual = root.getAttribute("data-theme");
-            var suffix = manual ? "" : "（跟随系统）";
+            var suffix = isManual() ? "" : "（跟随系统）";
             btn.textContent = (current() === "dark" ? "☀️ 浅色" : "🌙 深色") + suffix;
         }
         btn.addEventListener("click", function () {
@@ -3365,13 +3144,40 @@ main { padding: 26px 0 60px; }
             try { localStorage.setItem("ep-digest-theme", next); } catch (e) {}
             label();
         });
+        /* 未手动选择时跟随系统主题实时切换 */
+        if (mql && mql.addEventListener) {
+            mql.addEventListener("change", function (event) {
+                if (isManual()) { return; }
+                root.setAttribute("data-theme", event.matches ? "dark" : "light");
+                label();
+            });
+        }
         label();
+    }
+
+    /* 打印前强制展开所有折叠块（闭合的 <details> 只显示 summary，摘要/解读会丢），
+       打印后还原回用户原本的折叠状态 */
+    function initPrintExpand() {
+        if (!window.addEventListener) { return; }
+        window.addEventListener("beforeprint", function () {
+            document.querySelectorAll("details:not([open])").forEach(function (d) {
+                d.setAttribute("open", "");
+                d.setAttribute("data-print-opened", "");
+            });
+        });
+        window.addEventListener("afterprint", function () {
+            document.querySelectorAll("details[data-print-opened]").forEach(function (d) {
+                d.removeAttribute("open");
+                d.removeAttribute("data-print-opened");
+            });
+        });
     }
 
     function init() {
         initDatePicker();
         initFilters();
         initTheme();
+        initPrintExpand();
         /* logo = 回到最新一天。不加 handler 时 href="#" 会把地址栏里
            可分享的日期 hash 清掉（URL 与视图对不上） */
         var logo = document.querySelector(".site-logo");

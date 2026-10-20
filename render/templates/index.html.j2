@@ -32,14 +32,20 @@
 <meta name="description" content="心脏电生理每日论文检索">
 <title>心脏电生理日报</title>
 <script>
-/* 主题初始化：必须在样式生效前执行，避免深色用户看到白屏闪烁 */
+/* 主题初始化：必须在样式生效前执行，避免深色用户看到白屏闪烁。
+   总是写入 data-theme（没有手动选择时按系统偏好写），样式侧因此只需
+   :root 默认（浅色）+ :root[data-theme="dark"] 两份令牌，不再三处漂移。 */
 (function () {
+    var theme = '';
     try {
         var saved = localStorage.getItem('ep-digest-theme');
-        if (saved === 'dark' || saved === 'light') {
-            document.documentElement.setAttribute('data-theme', saved);
-        }
+        if (saved === 'dark' || saved === 'light') { theme = saved; }
     } catch (e) {}
+    if (!theme) {
+        var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        theme = dark ? 'dark' : 'light';
+    }
+    document.documentElement.setAttribute('data-theme', theme);
 })();
 </script>
 <style>
@@ -48,6 +54,9 @@
 </head>
 <body>
 
+{# 屏幕阅读器播报区：切换日期 / 筛选后的结果由 JS 写入（aria-live） #}
+<p class="sr-only" role="status" aria-live="polite" id="srStatus"></p>
+
 <header class="site-header">
     <div class="wrap header-top">
 
@@ -55,7 +64,7 @@
         <div class="header-left">
             <a class="site-logo" href="#" aria-label="心脏电生理每日论文检索">
                 <span class="logo-mark" aria-hidden="true">♥</span>
-                <span class="site-title">心脏电生理每日论文检索</span>
+                <h1 class="site-title">心脏电生理每日论文检索</h1>
             </a>
             <p class="subtitle">Cardiac Electrophysiology Daily · 按亚专业分组的文献速览</p>
         </div>
@@ -102,7 +111,7 @@
                             <div class="date-month-days">
                                 {% for day in group.days %}
                                 <button type="button" class="date-cell{% if day == default_date %} current{% endif %}"
-                                        data-day="{{ day }}" title="{{ day }}">{{ day[8:10] }}</button>
+                                        data-day="{{ day }}" aria-label="{{ day }}" title="{{ day }}">{{ day[8:10] }}</button>
                                 {% endfor %}
                             </div>
                         </div>
@@ -163,7 +172,9 @@
 {
   "defaultDate": {{ default_date | tojson }},
   "days": {{ days | tojson }},
-  "language": {{ language | tojson }}
+  "language": {{ language | tojson }},
+  "topics": {{ topics | tojson }},
+  "aiSections": {{ ai_sections | tojson }}
 }
 </script>
 
