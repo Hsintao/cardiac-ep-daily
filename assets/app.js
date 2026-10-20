@@ -29,10 +29,15 @@
         journal: "all",
         query: ""
     };
-    var cache = {};    // day -> papers[]，切换回来时不重复请求
+    var cache = {};    // day -> Promise 或 papers[]（在途请求也缓存，避免重复并发 fetch）
+    var cardIndex = [];    // 卡片检索索引 [{card, blob, topic, journal, group}]，替代 data-search 属性
     var pendingStart = null; // 区间模式里已点下的起始日，等待点结束日
+    var lastPreviewDay = null;  // 悬停预览去重：同一天反复 mouseover 不重算
     var loadToken = 0;       // 视图切换序号：慢请求回来时若已切走就丢弃，避免旧结果覆盖新视图
     var journalPanelGlobalBound = false; // 期刊浮层的全局事件只绑一次（重渲染会换元素）
+    var panelCellsCache = null;  // 日期面板格子构建后不再变，查一次缓存复用
+    var mqlNarrow = null;    // 窄屏媒体查询：按需创建一次后复用
+    var mqlShort = null;     // 矮屏媒体查询：同上
 
     var el = {
         container: document.getElementById("paperContainer"),
@@ -61,14 +66,12 @@
 
     /* ---------------------------------------------------------------- 工具 */
 
+    var ESCAPE_HTML_MAP = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+
     function escapeHtml(value) {
         if (value === null || value === undefined) { return ""; }
-        return String(value)
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#39;");
+        /* 单次正则 + 映射表：逐字符替换，比串 5 次 replace 快（大区间要走数万次） */
+        return String(value).replace(/[&<>"']/g, function (ch) { return ESCAPE_HTML_MAP[ch]; });
     }
 
     /* 链接同样要过一遍：只放行 http(s)，避免 javascript: 之类伪协议进入 href */
@@ -229,9 +232,13 @@
 
     /* ---------------------------------------------------------- 数据加载 */
 
+    /* 先缓存「在途 Promise」再等人：快速连点同一天（或预设区间与单日重叠）
+       时复用同一个请求，不会打出重复的并发 fetch；成功后换成结果数组，
+       失败则清掉缓存，下次重试还能再请求。 */
     function loadDay(day) {
-        if (cache[day]) { return Promise.resolve(cache[day]); }
-        return fetch(dataUrlFor(day), { cache: "no-cache" })
+        var hit = cache[day];
+        if (hit) { return Promise.resolve(hit); }
+        var pending = fetch(dataUrlFor(day), { cache: "no-cache" })
             .then(function (resp) {
                 if (!resp.ok) { throw new Error("HTTP " + resp.status); }
                 return resp.text();
@@ -255,6 +262,11 @@
                 cache[day] = papers;
                 return papers;
             });
+        cache[day] = pending;
+        pending.catch(function () {
+            if (cache[day] === pending) { delete cache[day]; }
+        });
+        return pending;
     }
 
     /* 并发加载多天：每天单独 .catch，单日失败只记在该日上，不拖垮整个区间 */
@@ -296,7 +308,9 @@
     }
 
     function renderTopicFilters(papers) {
-        var counts = {};
+        /* Object.create(null)：无原型键，数据来源的键名撞上
+           Object.prototype 成员（如 "constructor"）也不会读出奇怪的值 */
+        var counts = Object.create(null);
         papers.forEach(function (p) {
             var t = TOPIC_ORDER.indexOf(p.topic) >= 0 ? p.topic : "其他";
             counts[t] = (counts[t] || 0) + 1;
@@ -312,7 +326,9 @@
     }
 
     function renderJournalFilters(papers) {
-        var counts = {};
+        /* 期刊名来自数据：必须用无原型对象计数，否则名为 "constructor"
+           之类的期刊会让计数和排序读出 Object.prototype 成员 */
+        var counts = Object.create(null);
         papers.forEach(function (p) {
             var j = p.journal || "未知期刊";
             counts[j] = (counts[j] || 0) + 1;
@@ -383,7 +399,9 @@
         /* 一句话结论常驻展开（信息密度最高，值得直接看到）；
            其余四段（动机/方法/结果/结论）收进 <details>，默认折叠。
            两列布局下卡片本来就高，折叠后一屏能看更多篇。 */
-        var html = '<div class="ai-panel"><div class="ai-panel-head">● AI 中文解读</div>';
+        /* 标题圆点由 CSS 的 .ai-panel-head::before 提供，这里不再硬编码「●」，
+           否则深浅两个圆点并存 */
+        var html = '<div class="ai-panel"><div class="ai-panel-head">AI 中文解读</div>';
         var detailCount = 0;
         var detailHtml = "";
         sections.forEach(function (pair) {
@@ -408,9 +426,26 @@
         return html + "</div>";
     }
 
+    /* 关键词检索串：用原始字段拼 —— 完整作者名单（不是页面上截断 + 带 HTML
+       标记的那份显示文本），并带上 PMID / DOI / 主题 / 文献类型，卡片上看得见
+       的都应该搜得到。__day 也进检索串：区间视图里可按「2026-10-05」搜收录日。
+       这份文本只留在内存索引里（见 buildCardIndex），不再写进 data-search 属性，
+       避免同一段全文在 DOM 里再存一份。 */
+    function searchBlobFor(paper) {
+        var authors = Array.isArray(paper.authors) ? paper.authors : [];
+        var pubTypes = Array.isArray(paper.pub_types) ? paper.pub_types : [];
+        return [
+            paper.title, authors.join(" "), paper.summary, paper.summary_zh,
+            paper.journal, paper.pmid, paper.doi, paper.topic,
+            pubTypes.join(" "), paper.__day
+        ].join(" ").toLowerCase();
+    }
+
     function renderPaper(paper, index) {
-        var authors = paper.authors || [];
-        var authorText = authors.slice(0, 3).join("、");
+        /* authors 契约是数组，但异常数据可能是字符串或缺失，先兜底；
+           每位作者都必须过 escapeHtml —— 原始拼接会把数据里的标签带进 DOM */
+        var authors = Array.isArray(paper.authors) ? paper.authors : [];
+        var authorText = authors.slice(0, 3).map(function (name) { return escapeHtml(name); }).join("、");
         if (authors.length > 3) {
             authorText += '<span class="authors-more"> 等 ' + authors.length + " 位作者</span>";
         }
@@ -450,10 +485,6 @@
             if (pdfUrl) { links += '<a class="btn-link pdf" href="' + pdfUrl + '" target="_blank" rel="noopener noreferrer">PDF</a>'; }
         }
 
-        /* __day 也进检索串：区间视图里可以按「2026-10-05」这种收录日搜到卡片 */
-        var searchBlob = [paper.title, authorText, paper.summary, paper.summary_zh, paper.journal, paper.__day]
-            .join(" ").toLowerCase();
-
         /* 卡片结构对齐参考项目 daily-arXiv-ai-enhanced：
               paper-card
                 ├── paper-card-header   ← 标题 / 期刊·日期 / 标签
@@ -463,8 +494,7 @@
            ai-panel / paper-links 全部保留，供 assets/style.css 匹配。 */
         return '<article class="paper-card"' +
             ' data-topic="' + escapeHtml(paper.topic || "其他") + '"' +
-            ' data-journal="' + escapeHtml(paper.journal || "未知期刊") + '"' +
-            ' data-search="' + escapeHtml(searchBlob) + '">' +
+            ' data-journal="' + escapeHtml(paper.journal || "未知期刊") + '">' +
             '<div class="paper-card-header">' +
             '<div class="paper-head-row">' +
             '<span class="paper-index">' + index + "</span>" +
@@ -486,6 +516,7 @@
     function renderPapers() {
         var papers = state.papers;
         if (!papers.length) {
+            cardIndex = [];
             if (state.rangeView) {
                 el.container.innerHTML =
                     '<div class="empty-state"><div class="icon">🗂️</div>' +
@@ -500,56 +531,114 @@
                 " 这一天没有匹配到论文。周末与节假日尤其常见，可换一个日期查看。</p></div>";
             return;
         }
-        var groups = {};
+        var groups = Object.create(null);
         papers.forEach(function (p) {
             var t = TOPIC_ORDER.indexOf(p.topic) >= 0 ? p.topic : "其他";
             (groups[t] = groups[t] || []).push(p);
         });
-        var html = "";
+        /* 每个主题组一段 HTML；卡片的 DOM 顺序与 blobs 顺序一一对应
+           （组序 = TOPIC_ORDER，组内序 = papers 序），渲染完 zip 成检索索引。 */
+        var sections = [];
+        var blobs = [];
         var index = 0;
         TOPIC_ORDER.forEach(function (topic) {
             var list = groups[topic];
             if (!list || !list.length) { return; }
-            html += '<section class="topic-group" data-group-topic="' + escapeHtml(topic) + '">' +
+            var html = '<section class="topic-group" data-group-topic="' + escapeHtml(topic) + '">' +
                 '<h2 class="topic-heading"><span class="bar"></span><span>' + escapeHtml(topic) +
                 '</span><span class="topic-count">' + list.length + " 篇</span></h2>" +
                 '<div class="paper-list paper-container">';
             list.forEach(function (p) {
                 index += 1;
                 html += renderPaper(p, index);
+                blobs.push({
+                    blob: searchBlobFor(p),
+                    topic: p.topic || "其他",
+                    journal: p.journal || "未知期刊",
+                    group: topic
+                });
             });
             html += "</div></section>";
+            sections.push(html);
         });
-        el.container.innerHTML = html;
-        applyFilters();
-        bindJournalToggle();
+        renderSections(sections, blobs);
+    }
+
+    /* 大区间（上千篇、数 MB HTML）一次 innerHTML 会长时间阻塞主线程：
+       先同步挂上第一组让首屏立刻可见，其余组按 ~12ms 时间盒逐批追加。
+       期间用户切换视图（loadToken 变化）就放弃剩余追加，避免覆盖新视图。 */
+    function renderSections(sections, blobs) {
+        var token = loadToken;
+        el.container.innerHTML = sections[0];
+        var pos = 1;
+        function finish() {
+            buildCardIndex(blobs);
+            applyFilters();
+            bindJournalToggle();
+        }
+        if (sections.length === 1) {
+            finish();
+            return;
+        }
+        function step() {
+            if (token !== loadToken) { return; }
+            var deadline = Date.now() + 12;
+            while (pos < sections.length) {
+                el.container.insertAdjacentHTML("beforeend", sections[pos]);
+                pos += 1;
+                if (Date.now() >= deadline) { break; }
+            }
+            if (pos < sections.length) {
+                setTimeout(step, 0);
+            } else {
+                finish();
+            }
+        }
+        setTimeout(step, 0);
+    }
+
+    /* 检索 / 筛选用的内存索引：全文只留在 JS 堆里这一份，不再复制进
+       data-search 属性（否则同一段文本在 DOM 里存两份，筛选还要逐个
+       getAttribute 解码）。 */
+    function buildCardIndex(blobs) {
+        cardIndex = [];
+        var cards = el.container.querySelectorAll(".paper-card");
+        for (var i = 0; i < cards.length; i += 1) {
+            var meta = blobs[i] || { blob: "", topic: "", journal: "", group: "" };
+            cardIndex.push({
+                card: cards[i],
+                blob: meta.blob,
+                topic: meta.topic,
+                journal: meta.journal,
+                group: meta.group
+            });
+        }
     }
 
     /* ------------------------------------------------------------ 筛选 */
 
     function applyFilters() {
         var q = state.query.trim().toLowerCase();
-        var cards = el.container.querySelectorAll(".paper-card");
         var visible = 0;
-        Array.prototype.forEach.call(cards, function (card) {
-            var okTopic = state.topic === "all" || card.getAttribute("data-topic") === state.topic;
-            var okJournal = state.journal === "all" || card.getAttribute("data-journal") === state.journal;
-            var okQuery = !q || (card.getAttribute("data-search") || "").indexOf(q) >= 0;
-            var show = okTopic && okJournal && okQuery;
-            card.style.display = show ? "" : "none";
-            if (show) { visible += 1; }
+        var groupVisible = Object.create(null);
+        cardIndex.forEach(function (entry) {
+            var show =
+                (state.topic === "all" || entry.topic === state.topic) &&
+                (state.journal === "all" || entry.journal === state.journal) &&
+                (!q || entry.blob.indexOf(q) >= 0);
+            entry.card.style.display = show ? "" : "none";
+            if (show) {
+                visible += 1;
+                groupVisible[entry.group] = true;
+            }
         });
         // 整组都被筛掉时隐藏组标题，避免出现空标题
         var sections = el.container.querySelectorAll(".topic-group");
         Array.prototype.forEach.call(sections, function (section) {
-            var any = false;
-            Array.prototype.forEach.call(section.querySelectorAll(".paper-card"), function (c) {
-                if (c.style.display !== "none") { any = true; }
-            });
-            section.style.display = any ? "" : "none";
+            section.style.display = groupVisible[section.getAttribute("data-group-topic")] ? "" : "none";
         });
         var emptyNote = document.getElementById("filterEmptyNote");
-        if (visible === 0 && cards.length > 0) {
+        if (visible === 0 && cardIndex.length > 0) {
             if (!emptyNote) {
                 emptyNote = document.createElement("div");
                 emptyNote.id = "filterEmptyNote";
@@ -568,14 +657,16 @@
     /* 期刊过滤器的辅助文案：选中的期刊常被收进浮层里（浮层关掉后就看不到了），
        所以在「期刊」标签上补一个当前筛选提示，避免用户以为筛选没生效。
        手机端 / 矮屏是横向滑动平铺，选中的 chip 本身可见，就不占标签空间了。 */
+    function isCompactLayout() {
+        if (!window.matchMedia) { return false; }
+        if (!mqlNarrow) { mqlNarrow = window.matchMedia("(max-width: 640px)"); }
+        if (!mqlShort) { mqlShort = window.matchMedia("(max-height: 620px) and (min-width: 641px)"); }
+        return mqlNarrow.matches || mqlShort.matches;
+    }
+
     function syncJournalLabel() {
         if (!el.journalFilterLabel) { return; }
-        var compact = false;
-        if (window.matchMedia) {
-            compact = window.matchMedia("(max-width: 640px)").matches ||
-                window.matchMedia("(max-height: 620px) and (min-width: 641px)").matches;
-        }
-        var active = state.journal !== "all" && !compact;
+        var active = state.journal !== "all" && !isCompactLayout();
         el.journalFilterLabel.textContent = active ? "期刊：" + state.journal : "期刊";
         el.journalFilterLabel.title = active ? state.journal : "";
         el.journalFilterLabel.classList.toggle("filter-label-active", active);
@@ -632,8 +723,12 @@
     }
 
     function panelCells() {
-        if (!el.datePanel) { return []; }
-        return el.datePanel.querySelectorAll(".date-cell");
+        /* 面板格子是构建时静态渲染的，永不重建：查一次后缓存复用，
+           否则每次悬停预览 / 高亮刷新都重新 querySelectorAll */
+        if (!panelCellsCache && el.datePanel) {
+            panelCellsCache = el.datePanel.querySelectorAll(".date-cell");
+        }
+        return panelCellsCache || [];
     }
 
     function findCell(day) {
@@ -735,15 +830,53 @@
         if (el.dateToggleCount) { el.dateToggleCount.hidden = true; }
     }
 
+    /* 写地址栏 hash：用 location.hash 赋值（产生历史记录，前进/后退可用）。
+       赋值会触发 hashchange；onHashChange 里按 state 去重，自己写回的
+       那次会被识别为「已是当前视图」而忽略，不会二次加载。 */
     function updateHash() {
-        if (!(window.history && window.history.replaceState)) { return; }
-        if (state.mode === "range" && isDayString(state.startDay) && isDayString(state.endDay)) {
-            window.history.replaceState(null, "", "#" + state.startDay + "~" + state.endDay);
+        var next = "";
+        if (state.rangeView && isDayString(state.startDay) && isDayString(state.endDay)) {
+            next = "#" + state.startDay + "~" + state.endDay;
+        } else if (state.day) {
+            next = "#" + state.day;
+        }
+        if (!next || location.hash === next) { return; }
+        location.hash = next;
+    }
+
+    /* 浏览器前进/后退、手工改地址栏：把 hash 还原成对应视图。
+       与当前视图一致的 hash（自己写回的那次）直接忽略。 */
+    function onHashChange() {
+        var parsed = parseHash(location.hash);
+        if (!parsed) {
+            /* hash 为空（回到「无 hash」的初始历史条目，或被手工清空）：
+               地址栏没有日期信息了，视图回到默认最新一天，保持 URL 与视图一致 */
+            var fallback = cfg.defaultDate;
+            if (fallback && (state.rangeView || state.day !== fallback)) {
+                switchDay(fallback, { updateHash: false });
+            }
             return;
         }
-        if (state.day) {
-            window.history.replaceState(null, "", "#" + state.day);
+        var knownDays = cfg.days || [];
+        if (parsed.mode === "range") {
+            if (state.rangeView && state.startDay === parsed.start && state.endDay === parsed.end) {
+                return;
+            }
+            if (daysBetween(parsed.start, parsed.end, knownDays).length) {
+                switchRange(parsed.start, parsed.end, { updateHash: false });
+            }
+            return;
         }
+        if (!state.rangeView && state.day === parsed.day) { return; }
+        if (knownDays.indexOf(parsed.day) >= 0) {
+            switchDay(parsed.day, { updateHash: false });
+        }
+    }
+
+    /* 切换日期/区间后回到顶部：长列表里原地替换内容，不停留在
+       之前滚到的中部位置，否则容易误判「没切换成功」 */
+    function scrollToTop() {
+        if (window.scrollTo) { window.scrollTo(0, 0); }
     }
 
     function setHint(text) {
@@ -782,6 +915,7 @@
 
     function setPendingStart(day) {
         pendingStart = day;
+        lastPreviewDay = null;
         clearCellMarks();
         var cell = findCell(day);
         if (cell) {
@@ -832,10 +966,16 @@
         setDefaultHint();
     }
 
-    function applyPreset(count) {
-        var n = parseInt(count, 10);
-        if (!n || n < 1) { return; }
-        var days = (cfg.days || []).slice(0, n);
+    function applyPreset(preset) {
+        var all = cfg.days || [];
+        var days;
+        if (preset === "all") {
+            days = all.slice();
+        } else {
+            var n = parseInt(preset, 10);
+            if (!n || n < 1) { return; }
+            days = all.slice(0, n);
+        }
         if (!days.length) { return; }
         closePanel();
         switchRange(days[days.length - 1], days[0]);
@@ -868,6 +1008,7 @@
         el.container.innerHTML =
             '<div class="loading-state"><div class="loading-spinner"></div><p>正在加载 ' +
             escapeHtml(day) + " 的论文…</p></div>";
+        cardIndex = [];
         loadDay(day).then(function (papers) {
             if (token !== loadToken) { return; }   // 已经切到别的视图，丢弃旧结果
             state.papers = papers;
@@ -875,6 +1016,7 @@
             renderTopicFilters(papers);
             renderJournalFilters(papers);
             renderPapers();
+            if (options.scroll !== false) { scrollToTop(); }
         }).catch(function (err) {
             if (token !== loadToken) { return; }   // 同上：旧请求失败也不干扰新视图
             el.container.innerHTML =
@@ -902,10 +1044,7 @@
                 return;
             }
             item.papers.forEach(function (paper) {
-                var copy = {};
-                Object.keys(paper).forEach(function (key) { copy[key] = paper[key]; });
-                copy.__day = item.day;
-                merged.push(copy);
+                merged.push(Object.assign({}, paper, { __day: item.day }));
             });
         });
         /* results 顺序 = state.days 的顺序（日期倒序、最新在前），
@@ -961,9 +1100,20 @@
             '<div class="loading-state"><div class="loading-spinner"></div><p>正在加载 ' +
             escapeHtml(rangeLabel(state.startDay, state.endDay)) +
             "（" + days.length + " 天）的论文…</p></div>";
+        cardIndex = [];
         Promise.all(loadDays(days)).then(function (results) {
             if (token !== loadToken) { return; }   // 慢请求后到：别覆盖新视图
             applyRangeResults(results);
+            if (options.scroll !== false) { scrollToTop(); }
+        }).catch(function (err) {
+            /* loadDays 每天各自 catch，不会整体拒绝；能走到这里的是
+               applyRangeResults 等渲染阶段的异常 —— 不兜底就会永久停在加载态 */
+            if (token !== loadToken) { return; }
+            el.container.innerHTML =
+                '<div class="empty-state"><div class="icon">⚠️</div><h2>加载失败</h2>' +
+                "<p>" + escapeHtml(rangeLabel(state.startDay, state.endDay)) +
+                " 的数据处理失败：" + escapeHtml(err && err.message ? err.message : String(err)) +
+                "。请稍后重试。</p></div>";
         });
     }
 
@@ -1057,10 +1207,14 @@
                 var cell = event.target.closest ? event.target.closest(".date-cell") : null;
                 if (!cell) { return; }
                 var day = cell.getAttribute("data-day");
-                if (isDayString(day)) { setPreview(day); }
+                /* 同一格子上反复 mouseover 不重算（每次都要清/刷一整段格子的类名） */
+                if (!isDayString(day) || day === lastPreviewDay) { return; }
+                lastPreviewDay = day;
+                setPreview(day);
             });
             el.datePanel.addEventListener("mouseleave", function () {
                 if (!pendingStart) { return; }
+                lastPreviewDay = null;
                 clearPreview();
                 setDefaultHint();
             });
@@ -1079,7 +1233,8 @@
             latest.addEventListener("click", function (event) {
                 event.stopPropagation();
                 closePanel();
-                switchDay(cfg.days[0]);
+                var latestDay = (cfg.days || [])[0] || cfg.defaultDate;
+                if (latestDay) { switchDay(latestDay); }
             });
         }
         bindModeButtons();
@@ -1108,9 +1263,12 @@
             applyFilters();
             closeJournalPanel();   // 选完就收起浮层，正文立刻可见
         });
+        /* 150ms 防抖：大区间上千张卡片时，逐键触发全量筛选会连续重排 */
+        var searchTimer = null;
         el.search.addEventListener("input", function () {
             state.query = el.search.value;
-            applyFilters();
+            if (searchTimer) { clearTimeout(searchTimer); }
+            searchTimer = setTimeout(applyFilters, 150);
         });
     }
 
@@ -1142,19 +1300,32 @@
         initDatePicker();
         initFilters();
         initTheme();
-        /* 支持 #YYYY-MM-DD 直达单日、#YYYY-MM-DD~YYYY-MM-DD 直达区间（可分享、刷新不丢） */
+        /* logo = 回到最新一天。不加 handler 时 href="#" 会把地址栏里
+           可分享的日期 hash 清掉（URL 与视图对不上） */
+        var logo = document.querySelector(".site-logo");
+        if (logo) {
+            logo.addEventListener("click", function (event) {
+                event.preventDefault();
+                var latestDay = (cfg.days || [])[0] || cfg.defaultDate;
+                if (latestDay) { switchDay(latestDay); }
+            });
+        }
+        /* 前进/后退、手工改地址栏时把 hash 还原成视图 */
+        window.addEventListener("hashchange", onHashChange);
+        /* 支持 #YYYY-MM-DD 直达单日、#YYYY-MM-DD~YYYY-MM-DD 直达区间（可分享、刷新不丢）。
+           首次加载不滚动：让浏览器自己的滚动恢复（刷新场景）生效 */
         var parsed = parseHash(location.hash);
         var knownDays = cfg.days || [];
         if (parsed && parsed.mode === "range" &&
                 daysBetween(parsed.start, parsed.end, knownDays).length) {
-            switchRange(parsed.start, parsed.end, { updateHash: false });
+            switchRange(parsed.start, parsed.end, { updateHash: false, scroll: false });
             return;
         }
         if (parsed && parsed.mode === "single" && knownDays.indexOf(parsed.day) >= 0) {
-            switchDay(parsed.day, { updateHash: false });
+            switchDay(parsed.day, { updateHash: false, scroll: false });
             return;
         }
-        switchDay(cfg.defaultDate, { updateHash: false });
+        switchDay(cfg.defaultDate, { updateHash: false, scroll: false });
     }
 
     if (document.readyState === "loading") {

@@ -636,6 +636,10 @@ main { padding: 26px 0 60px; }
     padding: 18px 20px 16px;
     box-shadow: var(--shadow-sm);
     transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+    /* 大区间上千张卡片：跳过屏外卡片的布局/绘制，首屏只渲染可见部分。
+       contain-intrinsic-size 给未渲染卡片一个估算高度，避免滚动条跳动。 */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 320px;
 }
 .paper-card:hover {
     box-shadow: var(--shadow-md);
@@ -868,7 +872,9 @@ main { padding: 26px 0 60px; }
     letter-spacing: .4px;
     line-height: 1.7;
 }
-.ai-label.tldr       { background: var(--ai-tldr-bg); color: var(--ai-tldr-fg); }
+/* 注意：tldr 的药丸样式由上面的 .ai-tldr .ai-label 定义（半透明白底）。
+   这里不再写 .ai-label.tldr —— 同特异性下后写的规则会赢，之前的
+   「.ai-label.tldr = 渐变底」曾把白药丸覆盖掉，导致药丸与面板底色糊在一起。 */
 .ai-label.motivation { background: var(--ai-motiv-bg); color: var(--ai-motiv-fg); }
 .ai-label.method     { background: var(--ai-method-bg); color: var(--ai-method-fg); }
 .ai-label.result     { background: var(--ai-result-bg); color: var(--ai-result-fg); }

@@ -264,6 +264,74 @@ class TestFrontendAbstracts:
         assert "<details" not in html
 
 
+@_jscore
+class TestFrontendRenderPaper:
+    """renderPaper / searchBlobFor 的 node 行为测试（XSS 回归 + 检索索引契约）。
+
+    renderPaper 曾是唯一没有单测的渲染函数，也是唯一一处把未转义文本
+    （authors）直接拼进 HTML 的地方 —— 这里把它固化成回归测试。
+    """
+
+    @staticmethod
+    def _run(paper: dict) -> dict:
+        src = (BASE_DIR / "assets" / "app.js").read_text(encoding="utf-8")
+        tools = src.split(
+            "/* ---------------------------------------------------------------- 工具 */"
+        )[1].split(
+            "/* ---------------------------------------------------------- 数据加载 */"
+        )[0]
+        abstracts = src.split(
+            "/* ---------------------------------------------------------- 摘要区 */"
+        )[1].split(
+            "/* ---------------------------------------------------------- AI 解读 */"
+        )[0]
+        # AI 解读小节 -> renderPapers 之前：renderAI / searchBlobFor / renderPaper。
+        # 用函数名锚点切，避免依赖小节注释的破折号数量。
+        render, sep, _ = src.split(
+            "/* ---------------------------------------------------------- AI 解读 */"
+        )[1].partition("\n    function renderPapers")
+        assert sep, "assets/app.js 缺少 function renderPapers"
+        code = (
+            # renderPaper 只读 state.rangeView；其余渲染函数在本测试里不会被调用
+            "var state = { rangeView: false };\n"
+            + tools + abstracts + render
+            + "\nvar paper = " + json.dumps(paper, ensure_ascii=False) + ";\n"
+            + "process.stdout.write(JSON.stringify({"
+              "html: renderPaper(paper, 1), blob: searchBlobFor(paper)}));\n"
+        )
+        result = subprocess.run(
+            [NODE, "-e", code], capture_output=True, text=True, timeout=30
+        )
+        assert result.returncode == 0, result.stderr
+        return json.loads(result.stdout)
+
+    def test_authors_are_escaped(self):
+        """authors 原始拼接曾是注入口子：恶意作者名不能变成标签。"""
+        out = self._run(make_paper(authors=["<img src=x onerror=alert(1)>", "Li Ming"]))
+        assert "<img" not in out["html"]
+        assert "&lt;img" in out["html"]
+
+    def test_authors_escaped_with_more_span(self):
+        out = self._run(make_paper(authors=["<script>alert(1)</script>", "b", "c", "d"]))
+        assert "<script>" not in out["html"]
+        assert "authors-more" in out["html"]   # 超 3 位作者的折叠提示仍在
+
+    def test_authors_non_array_does_not_crash(self):
+        """异常数据（authors 是字符串）静默兜底，不渲染作者行也不抛错。"""
+        out = self._run(make_paper(authors="Zhang Wei"))
+        assert 'class="paper-authors"' not in out["html"]
+
+    def test_search_blob_uses_raw_fields(self):
+        """检索串必须含完整作者名单 / PMID / DOI，且不含 HTML 标记。"""
+        paper = make_paper(authors=["A", "B", "C", "Fourth Author"])
+        blob = self._run(paper)["blob"]
+        assert "fourth author" in blob          # 第 4 位之后的作者也搜得到
+        assert paper["pmid"] in blob
+        assert paper["doi"] in blob
+        assert "authors-more" not in blob       # 不含页面标记，搜 "span" 不会假阳性
+        assert "&quot;" not in blob
+
+
 class TestNormalizePaper:
     def test_summary_zh_passthrough(self):
         normalized = build_html.normalize_paper(

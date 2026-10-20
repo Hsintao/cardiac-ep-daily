@@ -219,10 +219,12 @@ class TestTemplateContract:
         _assert_class(tpl, "date-range-clear")
 
     def test_quick_presets(self):
-        """快捷区间：data-preset="7" / data-preset="14"。"""
+        """快捷区间：data-preset="7" / "14" / "30" / "all"。"""
         tpl = self._tpl()
         assert re.search(r'data-preset="7"', tpl), '缺少 data-preset="7"'
         assert re.search(r'data-preset="14"', tpl), '缺少 data-preset="14"'
+        assert re.search(r'data-preset="30"', tpl), '缺少 data-preset="30"'
+        assert re.search(r'data-preset="all"', tpl), '缺少 data-preset="all"'
         _assert_class(tpl, "date-range-preset")
 
     def test_chip_days_present(self):
