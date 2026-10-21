@@ -241,6 +241,10 @@ https://<你的用户名>.github.io/<仓库名>/feed.xml
 
 （本仓库即 `https://hsintao.github.io/cardiac-ep-daily/feed.xml`）
 
+> ⚠️ **国内直连 GitHub Pages 不稳定时**，改用 jsDelivr 镜像地址：
+> `https://cdn.jsdelivr.net/gh/<你的用户名>/<仓库名>@data/feed.xml`
+> 内容完全一样（jsDelivr 直接代理 data 分支），workflow 每次推送后会自动刷新其缓存。
+
 - **每天一个条目**：标题是「日期 + 篇数」，正文按亚专业分组列出每篇论文的标题、期刊和 AI 一句话结论，点链接跳转到 PubMed / DOI，或回到日报页面看完整五段式解读。
 - feed 里保留最近 **30 天**的条目；`index.html` 的 `<head>` 里有 `application/rss+xml` 自动发现标签，很多阅读器直接填站点地址也能识别。
 - 本地运行时 `./run.sh` 会自动生成 `feed.xml`，链接地址从 `git remote origin` 推导，也可用环境变量 `SITE_URL` 显式指定。

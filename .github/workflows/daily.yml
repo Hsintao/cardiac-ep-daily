@@ -296,6 +296,15 @@ jobs:
           echo "❌ 3 次尝试后推送仍失败"
           exit 1
 
+      # ------------------------------------------------------------------
+      # 10. 刷新 jsDelivr 缓存（国内镜像订阅地址用；失败不影响主流程）
+      #     jsDelivr 对分支文件默认缓存 12h，feed 一天一更，推送后主动刷新。
+      # ------------------------------------------------------------------
+      - name: 刷新 jsDelivr 缓存
+        if: success()
+        run: |
+          curl -s --max-time 20 "https://purge.jsdelivr.net/gh/${{ github.repository }}@data/feed.xml" || true
+
       - name: 汇总
         if: always()
         run: |
