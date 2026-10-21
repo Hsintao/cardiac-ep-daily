@@ -2,7 +2,7 @@
 #
 # 心脏电生理每日论文检索 —— 本地一键运行
 #
-# 流程：采集（daily_ep.collect）→ AI 中文解读 + 摘要翻译（ai/enhance.py）→ 渲染（render.build_html）
+# 流程：采集（daily_ep.collect）→ AI 中文解读 + 摘要翻译（ai/enhance.py）→ 渲染（render.build_html）→ RSS（render.build_rss）
 # 完全不依赖 GitHub，产出可直接双击打开的 index.html。
 #
 # 用法：
@@ -160,7 +160,7 @@ mkdir -p "${DATA_DIR}" "${ASSETS_DIR}"
 # 1. 采集
 # ---------------------------------------------------------------------------
 echo ""
-echo "▶ [1/3] 采集论文（最近 ${DAYS} 天）"
+echo "▶ [1/4] 采集论文（最近 ${DAYS} 天）"
 
 # 今日/目标文件已存在时先删除再重新生成。
 # 直接覆盖会因 collect 的追加语义产生重复记录（同一篇出现两次）。
@@ -193,7 +193,7 @@ fi
 # 2. AI 增强
 # ---------------------------------------------------------------------------
 echo ""
-echo "▶ [2/3] AI 中文解读 + 摘要翻译"
+echo "▶ [2/4] AI 中文解读 + 摘要翻译"
 
 # 上一次运行留下的 AI 产物先删掉：不删的话 enhance 可能复用过期的解读，
 # 与刚重新采集的元数据对不上。
@@ -224,7 +224,7 @@ echo "✅ AI 步骤完成：data/${RUN_DATE}_AI_enhanced_${LANGUAGE}.jsonl"
 # 3. 渲染
 # ---------------------------------------------------------------------------
 echo ""
-echo "▶ [3/3] 渲染 HTML"
+echo "▶ [3/4] 渲染 HTML"
 # 单页架构：扫描 data/ 下所有日期生成站点壳，前端按需 fetch 各日 JSONL
 "${PYTHON_BIN}" -m render.build_html --data-dir "${DATA_DIR}" --out "${OUT_HTML}"
 
@@ -234,6 +234,29 @@ if [ ! -f "${OUT_HTML}" ]; then
 fi
 echo "✅ 渲染完成：index.html"
 
+# ---------------------------------------------------------------------------
+# 4. RSS 订阅源
+# ---------------------------------------------------------------------------
+echo ""
+echo "▶ [4/4] 生成 RSS 订阅源"
+
+# SITE_URL 决定 feed 里的链接。未显式给出时从 git remote 推导 Pages 地址
+# （https://github.com/user/repo.git → https://user.github.io/repo）；
+# 推导不出来就用相对路径生成，本地预览可用、阅读器里打不开。
+SITE_URL="${SITE_URL:-}"
+if [ -z "${SITE_URL}" ] && command -v git >/dev/null 2>&1; then
+  ORIGIN_URL="$(git remote get-url origin 2>/dev/null || true)"
+  case "${ORIGIN_URL}" in
+    *github.com[:/]*)
+      REPO_PATH="${ORIGIN_URL#*github.com[:/]}"
+      REPO_PATH="${REPO_PATH%.git}"
+      SITE_URL="https://${REPO_PATH%%/*}.github.io/${REPO_PATH#*/}"
+      ;;
+  esac
+fi
+"${PYTHON_BIN}" -m render.build_rss --data-dir "${DATA_DIR}" --out "${SCRIPT_DIR}/feed.xml" --base-url "${SITE_URL}"
+echo "✅ RSS 完成：feed.xml（base_url=${SITE_URL:-相对路径}）"
+
 # 重建数据清单，和 workflow 里做的是同一件事（本地方便查阅）
 ls "${DATA_DIR}"/*.jsonl 2>/dev/null | sed 's|.*/data/||' | sort > "${ASSETS_DIR}/file-list.txt" || true
 
@@ -242,6 +265,7 @@ echo "=========================================================="
 echo " ✅ 全部完成"
 echo "    论文数   : ${COUNT}"
 echo "    页面     : ${OUT_HTML}"
+echo "    RSS      : ${SCRIPT_DIR}/feed.xml"
 echo "    原始数据 : ${RAW_FILE}"
 echo "    打开方式 : 双击 index.html，或 open \"${OUT_HTML}\""
 echo "=========================================================="

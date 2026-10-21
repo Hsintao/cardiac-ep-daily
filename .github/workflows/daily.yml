@@ -211,6 +211,16 @@ jobs:
           python -m render.build_html --data-dir data --out index.html --default-date "${today}"
 
       # ------------------------------------------------------------------
+      # 6b. 生成 RSS 订阅源（feed.xml，随 data 分支发布到 Pages）
+      #     base_url 必须是 Pages 的绝对地址：阅读器在站外打开链接。
+      # ------------------------------------------------------------------
+      - name: 生成 RSS 订阅源
+        run: |
+          set -euo pipefail
+          SITE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+          python -m render.build_rss --data-dir data --out feed.xml --base-url "${SITE_URL}"
+
+      # ------------------------------------------------------------------
       # 7. 重建 assets/file-list.txt
       #    必须在 data 分支的工作树上做：此时 data/ 含有全部历史文件。
       #    若在 main 检出上生成，列表只会有当天文件，会把站点日期选择器
@@ -244,7 +254,8 @@ jobs:
           # index.html 也要提交：页面是**完全静态**的（数据在构建时内联），
           # 浏览器不 fetch JSONL。若只推数据不推页面，Pages 上的首页会永远是空的。
           # 归档页同理 —— 缺了它，历史日期的链接会 404。
-          git add data/*.jsonl assets/file-list.txt index.html
+          # feed.xml 同理：RSS 阅读器直接拉这个文件，缺了订阅就 404。
+          git add data/*.jsonl assets/file-list.txt index.html feed.xml
 
           echo "即将提交 / staged:"
           git diff --staged --name-only

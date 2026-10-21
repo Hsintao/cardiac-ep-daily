@@ -10,6 +10,7 @@
 
 - [它做什么](#它做什么)
 - [相关性过滤](#相关性过滤)
+- [RSS 订阅](#rss-订阅)
 - [快速开始（本地运行）](#快速开始本地运行)
 - [部署到 GitHub（每天自动跑）](#部署到-github每天自动跑)
 - [仓库结构](#仓库结构)
@@ -32,9 +33,9 @@ PubMed / Europe PMC / Crossref / OpenAlex / medRxiv
         │  ② AI 中文解读 + 摘要翻译（ai/enhance.py，DeepSeek）
         ▼
    data/YYYY-MM-DD_AI_enhanced_Chinese.jsonl
-        │  ③ 渲染（render/build_html.py）
+        │  ③ 渲染（render/build_html.py + render/build_rss.py）
         ▼
-   index.html                     单页站点（前端按日期 fetch 数据）
+   index.html + feed.xml          单页站点（前端按日期 fetch 数据）+ RSS 订阅源
 ```
 
 抓取范围由 `config.yaml` 控制：**9 本 EP 核心期刊的期刊白名单 + 22 个临床主题词**，覆盖房颤与消融、室性心律失常、器械治疗、影像与标测、遗传与基础五个亚专业。
@@ -227,6 +228,22 @@ PubMed / Europe PMC / Crossref / OpenAlex / medRxiv
 3. 逐条看 `丢弃明细` 的分数和原因 —— 如果被丢的都是真电生理论文，那就是阈值偏严，调到 `0.25`
 
 想完全关掉过滤做对照，把 `relevance.enabled` 设为 `false` 跑一次即可。
+
+---
+
+## RSS 订阅
+
+仓库每天都会生成一个 RSS 2.0 订阅源 `feed.xml`，随 `data` 分支一起发布到 GitHub Pages。在手机上的任意 RSS 阅读器（Reeder、Feedly、Inoreader、NetNewsWire 等）里订阅：
+
+```
+https://<你的用户名>.github.io/<仓库名>/feed.xml
+```
+
+（本仓库即 `https://hsintao.github.io/cardiac-ep-daily/feed.xml`）
+
+- **每天一个条目**：标题是「日期 + 篇数」，正文按亚专业分组列出每篇论文的标题、期刊和 AI 一句话结论，点链接跳转到 PubMed / DOI，或回到日报页面看完整五段式解读。
+- feed 里保留最近 **30 天**的条目；`index.html` 的 `<head>` 里有 `application/rss+xml` 自动发现标签，很多阅读器直接填站点地址也能识别。
+- 本地运行时 `./run.sh` 会自动生成 `feed.xml`，链接地址从 `git remote origin` 推导，也可用环境变量 `SITE_URL` 显式指定。
 
 ---
 
@@ -453,7 +470,7 @@ https://raw.githubusercontent.com/<你的用户名>/<仓库名>/data/assets/file
 ```
 .
 ├── .github/workflows/
-│   ├── daily.yml              # 每天定时：采集 → AI → 渲染 → 推送 data 分支
+│   ├── daily.yml              # 每天定时：采集 → AI → 渲染 + RSS → 推送 data 分支
 │   └── backfill.yml           # 手动补跑历史日期的 AI 解读
 ├── daily_ep/                  # 采集层
 │   ├── schema.py              #   Paper 记录定义（采集/AI/渲染的唯一契约）
@@ -472,7 +489,8 @@ https://raw.githubusercontent.com/<你的用户名>/<仓库名>/data/assets/file
 │   ├── runtime.py             #   DeepSeek 客户端构造与重试
 │   └── prompts/               #   system/user.txt（解读）+ translate_system/user.txt（翻译）
 ├── render/
-│   ├── build_html.py          # 渲染 CLI
+│   ├── build_html.py          # 渲染 CLI（页面壳）
+│   ├── build_rss.py           # RSS 订阅源 CLI（feed.xml）
 │   └── templates/             # Jinja2 模板（自包含样式，无 CDN）
 ├── tests/                     # pytest 单测（不打网络）
 ├── config.yaml                # ⭐ 检索范围：期刊白名单 / 主题词 / 亚专业规则
@@ -480,7 +498,8 @@ https://raw.githubusercontent.com/<你的用户名>/<仓库名>/data/assets/file
 ├── pyproject.toml             # 依赖声明
 ├── data/                      # 本地运行产物（git 忽略；云端在 data 分支）
 ├── assets/file-list.txt       # 数据清单（由 run.sh / workflow 重建）
-└── index.html                 # 运行后生成
+├── index.html                 # 运行后生成
+└── feed.xml                   # 运行后生成（RSS 订阅源）
 ```
 
 ### 双分支设计
