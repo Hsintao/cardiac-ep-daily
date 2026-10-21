@@ -32,6 +32,11 @@ USER_AGENT = "daily-ep-paper-fetcher/1.0 (https://github.com/daily-ep; mailto:{e
 # 视为可重试的 HTTP 状态码：限流 + 服务端错误
 RETRYABLE_STATUS = {408, 425, 429, 500, 502, 503, 504}
 
+#: 采纳服务端 Retry-After 的上限（秒）。超过说明对方是让「改天再来」
+#: （OpenAlex 匿名额度耗尽会返回 ~20h 的 Retry-After），真睡那么久会把
+#: 整个任务卡死；此时重试无意义，直接判失败，由调用方跳过该源继续。
+MAX_RETRY_AFTER = 300.0
+
 
 class HttpError(RuntimeError):
     """HTTP 请求最终失败（已重试耗尽）。"""
@@ -176,12 +181,20 @@ class HttpClient:
 
         如果服务端给了 ``Retry-After`` 就听它的（NCBI 限流时会明确告知），
         取两者较大值，避免「自以为退避够了」继续撞限流。
+        但 Retry-After 超过 MAX_RETRY_AFTER 时直接抛 HttpError 放弃：
+        那是「改天再来」的意思，睡下去只会卡死任务（实测 OpenAlex 给过 ~20h）。
         """
         if attempt >= self.max_retries:
             return
         delay = min(self.max_backoff, self.backoff_base * (2**attempt))
         retry_after = _parse_retry_after(headers)
         if retry_after is not None:
+            if retry_after > MAX_RETRY_AFTER:
+                raise HttpError(
+                    f"服务端要求 {retry_after:.0f}s 后重试，超过采纳上限 "
+                    f"{MAX_RETRY_AFTER:.0f}s，放弃重试: {url}",
+                    url=url,
+                )
             delay = max(delay, retry_after)
         delay += random.uniform(0, 0.25)  # 抖动，避免多进程同时重试
         logger.warning(
