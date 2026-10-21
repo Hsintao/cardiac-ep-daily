@@ -1308,6 +1308,10 @@ main { padding: 26px 0 60px; }
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
+    /* 窄屏放不下时 .header-top 会换行，控件组会落到标题下方那一行的**左端**；
+       贴右（auto 外边距吸收该行剩余空间）后，控件组始终是顶栏右缘，
+       日期面板的右锚点才不会失去右侧空间（见下方 ≤900px 的定位参照说明）。 */
+    margin-left: auto;
 }
 
 .date-toggle-icon { font-size: 13px; line-height: 1; }
@@ -1347,6 +1351,23 @@ main { padding: 26px 0 60px; }
     .header-top { gap: 12px; }
     .header-left .subtitle { margin-left: 0; }
     .site-title { font-size: 17px; }
+}
+
+/* 日期面板的定位参照上提到「整个控件组」，而不是日期按钮本身。
+   --------------------------------------------------------------------------
+   根因：`.date-panel` 原来以 `.date-select`（日期按钮，position:relative）
+   为参照、`right:0` 右对齐。顶栏放不下时 `.date-select` 会随控件组换行到
+   标题下方，而它并不是最右侧元素（右边还有主题按钮），右锚点因此落在屏幕
+   中间偏左：340px 宽的面板整体向左溢出视口，手机上只看得见最右边一两列
+   日期 —— 这就是「日期选择显示不全」。
+   实测会换行的宽度：≤500px（手机）、641~767px（平板/窄窗口）。
+
+   修法：让面板以 `.header-right`（控件组，始终贴顶栏右缘）为参照，
+   `right:0` 就永远落在内容区右缘，任意宽度都不会横向溢出。
+   900px 以上顶栏一定放得下（余量 >130px），保持原来的按钮右锚定不变。 */
+@media (max-width: 900px) {
+    .header-right { position: relative; }
+    .date-select { position: static; }
 }
 
 /* ---------------------------------------------------------------- 补充结构 */
