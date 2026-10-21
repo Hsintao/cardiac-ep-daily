@@ -5,8 +5,15 @@
     <link>https://hsintao.github.io/cardiac-ep-daily</link>
     <description>每天自动聚合心脏电生理（EP）领域最新文献，附 AI 中文解读。</description>
     <language>zh-cn</language>
-    <lastBuildDate>Wed, 21 Oct 2026 12:25:09 +0800</lastBuildDate>
+    <lastBuildDate>Wed, 21 Oct 2026 12:45:47 +0800</lastBuildDate>
     <atom:link href="https://hsintao.github.io/cardiac-ep-daily/feed.xml" rel="self" type="application/rss+xml" />
+    <image>
+      <url>https://hsintao.github.io/cardiac-ep-daily/assets/feed-icon.png</url>
+      <title>心脏电生理每日论文检索</title>
+      <link>https://hsintao.github.io/cardiac-ep-daily</link>
+      <width>144</width>
+      <height>123</height>
+    </image>
     <item>
       <title>2026-10-20 心脏电生理日报（12 篇）</title>
       <link>https://hsintao.github.io/cardiac-ep-daily/#2026-10-20</link>

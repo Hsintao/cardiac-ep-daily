@@ -255,7 +255,8 @@ jobs:
           # 浏览器不 fetch JSONL。若只推数据不推页面，Pages 上的首页会永远是空的。
           # 归档页同理 —— 缺了它，历史日期的链接会 404。
           # feed.xml 同理：RSS 阅读器直接拉这个文件，缺了订阅就 404。
-          git add data/*.jsonl assets/file-list.txt index.html feed.xml
+          # assets/feed-icon.png 是 RSS 频道头像兼网页 favicon。
+          git add data/*.jsonl assets/file-list.txt assets/feed-icon.png index.html feed.xml
 
           echo "即将提交 / staged:"
           git diff --staged --name-only

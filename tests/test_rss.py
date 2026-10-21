@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import json
+import struct
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -103,6 +104,24 @@ class TestChannel:
         assert self_link is not None
         assert self_link.attrib["href"] == f"{BASE_URL}/feed.xml"
         assert self_link.attrib["rel"] == "self"
+
+    def test_channel_image_when_icon_exists(self, tmp_path):
+        """图标文件存在时写入 <image>，尺寸从 PNG 头读取。"""
+        icon = tmp_path / "icon.png"
+        # 最小合法 PNG 头：8 字节签名 + 8 字节（长度+IHDR）+ 宽高
+        icon.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 8 + struct.pack(">II", 144, 123))
+        root = build(tmp_path, {"2026-10-19": [make_paper()]}, icon=str(icon))
+        image = root.find("channel").find("image")
+        assert image is not None
+        assert image.find("url").text == f"{BASE_URL}/{icon}"
+        assert image.find("title").text == build_rss.FEED_TITLE
+        assert image.find("width").text == "144"
+        assert image.find("height").text == "123"
+
+    def test_channel_image_skipped_when_icon_missing(self, tmp_path):
+        """图标文件不存在时跳过 <image>：宁可没有，也不能给阅读器一个 404。"""
+        root = build(tmp_path, {"2026-10-19": [make_paper()]}, icon=str(tmp_path / "nope.png"))
+        assert root.find("channel").find("image") is None
 
 
 # ---------------------------------------------------------------------------

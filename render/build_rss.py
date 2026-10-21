@@ -45,6 +45,24 @@ _ITEM_HOUR = 6
 # 其他协议一律不出现在阅读器里（与页面同一白名单，safe_url 直接复用）。
 _DOI_PREFIX = "https://doi.org/"
 
+# 频道头像的默认位置：main 分支的 assets/feed-icon.png，workflow 会把它
+# 一起提交到 data 分支，Pages 上即可用 {base}/assets/feed-icon.png 访问。
+DEFAULT_ICON = "assets/feed-icon.png"
+
+
+def _png_size(path: Path) -> Optional[tuple[int, int]]:
+    """从 PNG 文件头读 (宽, 高)，读不到返回 None（不引入 Pillow 依赖）。"""
+    import struct
+
+    try:
+        with path.open("rb") as fh:
+            head = fh.read(24)
+        if head[:8] == b"\x89PNG\r\n\x1a\n":
+            return struct.unpack(">II", head[16:24])
+    except OSError:
+        pass
+    return None
+
 
 # ---------------------------------------------------------------------------
 # 数据
@@ -152,12 +170,16 @@ def build_feed(
     *,
     base_url: str = "",
     max_days: int = 30,
+    icon: str = DEFAULT_ICON,
     generated_at: Optional[datetime] = None,
 ) -> Dict[str, str]:
     """生成 RSS 2.0 订阅源，返回 {"feed": 输出路径}。
 
     base_url 去掉末尾斜杠后作为站点根地址；为空时链接退化为相对路径
     （仅本地预览可用，阅读器里打不开，会打警告）。
+
+    icon 是频道头像（RSS <image>）：本地文件存在才写入，否则跳过 ——
+    宁可没有头像，也不能给阅读器一个 404 的图片地址。
     """
     data_dir = Path(data_dir)
     days = _load_days(data_dir, max_days)
@@ -184,6 +206,20 @@ def build_feed(
             "{http://www.w3.org/2005/Atom}link",
             {"href": f"{base}/feed.xml", "rel": "self", "type": "application/rss+xml"},
         )
+
+    icon_path = Path(icon) if icon else None
+    if icon_path and icon_path.is_file():
+        image = ET.SubElement(channel, "image")
+        ET.SubElement(image, "url").text = f"{base}/{icon}" if base else icon
+        ET.SubElement(image, "title").text = FEED_TITLE
+        ET.SubElement(image, "link").text = base or "/"
+        size = _png_size(icon_path)
+        if size:
+            # RSS 2.0 规范：宽 ≤144、高 ≤400；超出的阅读器会自行缩放
+            ET.SubElement(image, "width").text = str(min(size[0], 144))
+            ET.SubElement(image, "height").text = str(min(size[1], 400))
+    elif icon:
+        print(f"[rss] ⚠️ 找不到频道头像 {icon}，跳过 <image> 元素", file=sys.stderr)
 
     for day, papers in days:
         item = ET.SubElement(channel, "item")
@@ -227,6 +263,10 @@ def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         "--days", type=int, default=30,
         help="feed 中最多保留最近几天（默认 30）",
     )
+    parser.add_argument(
+        "--icon", default=os.environ.get("FEED_ICON", DEFAULT_ICON),
+        help=f"频道头像（RSS <image>，默认 {DEFAULT_ICON}；文件不存在则跳过）",
+    )
     return parser.parse_args(argv)
 
 
@@ -236,7 +276,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if not data_dir.is_dir():
         print(f"[rss] 找不到数据目录：{data_dir}", file=sys.stderr)
         return 2
-    build_feed(data_dir, args.out, base_url=args.base_url, max_days=args.days)
+    build_feed(data_dir, args.out, base_url=args.base_url, max_days=args.days, icon=args.icon)
     return 0
 
 
