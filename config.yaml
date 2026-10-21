@@ -93,6 +93,13 @@ topics:
   - "atrioventricular node"
   - "electrocardiogram"
   - "cardiac electrophysiology"
+  # 2026-10-21 应要求放宽到心衰/心律失常/心血管疾病/心血管代谢。
+  # 这些是宽泛词，召回大增；非白名单期刊的噪声仍由 relevance 加权评分把关，
+  # 但「与电生理无关的纯心衰/代谢论文」会被过滤（hf_only 等负信号仍在生效）。
+  - "heart failure"
+  - "arrhythmia"
+  - "cardiovascular disease"
+  - "cardiometabolic"
 
 # ---------------------------------------------------------------------------
 # 亚专业标签映射
@@ -150,6 +157,11 @@ topic_rules:
     # 不写裸 "pacing"：英文 pacing 也指「踱步」，会误伤质性研究/病例报告
     - "cardiac pacing"
     - "pacing system"
+  心力衰竭与代谢:
+    - "heart failure"
+    - "cardiac failure"
+    - "cardiometabolic"
+    - "cardiovascular disease"
   影像与标测:
     - "electroanatomic mapping"
     - "intracardiac echocardiograph"
