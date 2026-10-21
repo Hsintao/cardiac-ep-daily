@@ -58,16 +58,20 @@ jobs:
       - name: 从 main 叠加代码
         run: |
           git fetch origin main --depth 1
+          # 只列出 main 上**确实存在**的路径：git checkout 遇到不存在的 pathspec 会
+          # 直接失败（error: pathspec ... did not match any file(s)），整步退出。
           git checkout FETCH_HEAD -- \
             pyproject.toml \
             config.yaml \
             daily_ep \
             ai \
             render \
-            templates \
-            prompts
+            assets \
+            tests \
+            run.sh \
+            README.md
           echo "已从 main 取回代码 / code overlaid from main"
-          ls -d daily_ep ai render pyproject.toml
+          ls -d daily_ep ai render assets config.yaml pyproject.toml
 
       - name: 安装 Python
         uses: actions/setup-python@v5
