@@ -14,6 +14,7 @@ dependencies = [
 # AI 增强层（ai/enhance.py）需要。无 Key 时可用 --no-ai 完全跳过。
 ai = [
     "openai>=1.40.0",
+    "httpx>=0.27.0",
 ]
 dev = [
     "pytest>=8.0.0",
