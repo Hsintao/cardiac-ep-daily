@@ -1,6 +1,6 @@
 # 🫀 心脏电生理每日论文检索
 
-每天自动从 PubMed / Europe PMC 抓取**心脏电生理（EP）**领域的最新文献，用 DeepSeek 生成中文五段式解读、并把英文摘要翻译成中文，渲染成一个可以直接打开的静态日报页面。
+每天自动从 PubMed / Europe PMC / Crossref / OpenAlex / medRxiv 抓取**心脏电生理（EP）**领域的最新文献，用 DeepSeek 生成中文五段式解读、并把英文摘要翻译成中文，渲染成一个可以直接打开的静态日报页面。
 
 **零服务器**：全部跑在 GitHub Actions 上，页面托管在 GitHub Pages，数据放在独立的 `data` 分支，前端通过 `raw.githubusercontent.com` 直读 —— 不需要买服务器，也不需要域名。
 
@@ -21,7 +21,7 @@
 ## 它做什么
 
 ```
-PubMed / Europe PMC
+PubMed / Europe PMC / Crossref / OpenAlex / medRxiv
         │  ① 采集（daily_ep）
         │     ↳ 去重
         │     ↳ 非研究性文献过滤（pub_types）：勘误/撤稿通知在这里被丢弃
@@ -312,7 +312,8 @@ python -m render.build_html \
 | `MODEL_NAME` | `deepseek-flash` | ⚠️ 不要用 `deepseek-chat`，那已不是现行模型名 |
 | `LANGUAGE` | `Chinese` | 决定 AI 产物文件名后缀 |
 | `NCBI_API_KEY` | 无 | 可选。填了 PubMed 速率从 3 次/秒 提到 10 次/秒 |
-| `NCBI_EMAIL` | 无 | 可选。NCBI 要求带上联系方式，建议填 |
+| `NCBI_EMAIL` | 无 | 可选。NCBI 要求带上联系方式，建议填；同时用作 Crossref/OpenAlex 的 polite pool 标识 |
+| `OPENALEX_API_KEY` | 无 | OpenAlex 数据源**强烈建议**。无 key 时与整个 IP 共享 \$0.10/天匿名额度，耗尽后整天 429；免费 key 有独立 \$1/天额度，在 https://openalex.org/settings/api 申请 |
 
 ---
 
@@ -463,7 +464,7 @@ https://raw.githubusercontent.com/<你的用户名>/<仓库名>/data/assets/file
 │   ├── http.py                #   带重试退避的 HTTP 客户端
 │   ├── dedup.py               #   DOI → PMID → 标题指纹 跨源去重
 │   ├── collect.py             #   CLI 入口
-│   └── sources/               #   pubmed.py / europepmc.py
+│   └── sources/               #   pubmed.py / europepmc.py / crossref.py / openalex.py / medrxiv.py
 ├── ai/
 │   ├── enhance.py             # AI 中文解读 + 摘要翻译 CLI（DeepSeek）
 │   ├── structure.py           #   输出结构校验
@@ -507,6 +508,17 @@ https://raw.githubusercontent.com/<你的用户名>/<仓库名>/data/assets/file
 | `lookback_days` | 除今天外再回溯几天 |
 | `max_papers` | 单日上限，防止极端日期生成过大页面 |
 | `sources` | 数据源开关与优先级 |
+| `journal_issn` | 期刊白名单 → ISSN 映射（Crossref/OpenAlex 按 ISSN 精确查期刊） |
+
+五个数据源的分工（失败互相隔离，去重按优先级保留元数据更全的一条）：
+
+| 源 | 日期维度 | 定位 |
+|---|---|---|
+| PubMed | 入库日 `edat` | 主源：标引全、有出版类型 |
+| Europe PMC | 首次出版日 | 补 PubMed 入库延迟 + OA PDF |
+| Crossref | 出版日 | 抢出版社上线即注册的 online-first，按 ISSN 查白名单期刊 |
+| OpenAlex | 出版日 | 免费全覆盖库，主题词搜 title+abstract，兜住非 PubMed 收录期刊 |
+| medRxiv | 投稿日 | EP 预印本（Cardiovascular Medicine 分区） |
 
 > ⚠️ **两个不要改回去的参数（都有实测依据）**：
 > 1. `date_field: edat` —— 实测 EP 期刊近 2 天 `[dp]` 命中 **0** 篇、`[edat]` 命中 **16** 篇。`[dp]` 是印刷日期，在版文章常被标成未来日期，用它做日报会漏掉当天全部内容。

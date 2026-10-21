@@ -45,12 +45,16 @@ class Config:
     # ---- 亚专业标签：标签名 -> 命中该标签的主题词（小写子串匹配）----
     topic_rules: Dict[str, List[str]] = field(default_factory=dict)
 
+    # ---- 期刊 ISSN：期刊白名单名 -> ISSN（Crossref/OpenAlex 按 ISSN 精确查期刊）----
+    journal_issn: Dict[str, str] = field(default_factory=dict)
+
     # ---- 数据源 ----
     sources: Dict[str, SourceConfig] = field(default_factory=dict)
 
     # ---- 网络 ----
     ncbi_email: str = ""
     ncbi_api_key: str = ""
+    openalex_api_key: str = ""
     timeout: int = 30
     max_retries: int = 3
 
@@ -76,9 +80,11 @@ class Config:
             journals=list(raw.get("journals") or []),
             topics=list(raw.get("topics") or []),
             topic_rules={k: list(v) for k, v in (raw.get("topic_rules") or {}).items()},
+            journal_issn={str(k): str(v) for k, v in (raw.get("journal_issn") or {}).items()},
             sources=sources,
             ncbi_email=raw.get("ncbi_email", "") or os.environ.get("NCBI_EMAIL", ""),
             ncbi_api_key=os.environ.get("NCBI_API_KEY", ""),
+            openalex_api_key=os.environ.get("OPENALEX_API_KEY", ""),
             timeout=int(raw.get("timeout", 30)),
             max_retries=int(raw.get("max_retries", 3)),
             max_papers=int(raw.get("max_papers", 200)),
@@ -96,7 +102,7 @@ class Config:
     def enabled_sources(self) -> List[str]:
         """按 priority 升序返回启用的源名。未在配置里声明的源默认启用。"""
         if not self.sources:
-            return ["pubmed", "europepmc"]
+            return ["pubmed", "europepmc", "crossref", "openalex"]
         items = [(name, sc) for name, sc in self.sources.items() if sc.enabled]
         items.sort(key=lambda kv: kv[1].priority)
         return [name for name, _ in items]

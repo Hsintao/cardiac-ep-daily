@@ -115,6 +115,7 @@ jobs:
         env:
           NCBI_API_KEY: ${{ secrets.NCBI_API_KEY }}
           NCBI_EMAIL: ${{ vars.EMAIL }}
+          OPENALEX_API_KEY: ${{ secrets.OPENALEX_API_KEY }}
         run: |
           set -euo pipefail
           TODAY=$(date -u "+%Y-%m-%d")

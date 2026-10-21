@@ -9,12 +9,15 @@ from __future__ import annotations
 
 from typing import Callable, Dict
 
-from . import europepmc, pubmed
+from . import crossref, europepmc, medrxiv, openalex, pubmed
 
 #: 源名 -> fetch 函数
 SOURCES: Dict[str, Callable] = {
     "pubmed": pubmed.fetch,
     "europepmc": europepmc.fetch,
+    "crossref": crossref.fetch,
+    "openalex": openalex.fetch,
+    "medrxiv": medrxiv.fetch,
 }
 
-__all__ = ["SOURCES", "pubmed", "europepmc"]
+__all__ = ["SOURCES", "pubmed", "europepmc", "crossref", "openalex", "medrxiv"]

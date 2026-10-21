@@ -42,6 +42,22 @@ journals:
   - "Indian Pacing Electrophysiol J"
 
 # ---------------------------------------------------------------------------
+# 期刊 ISSN：key 必须与上面的 journals 完全一致。
+# Crossref / OpenAlex 按 ISSN 精确查期刊（刊名检索歧义大），没有 ISSN 条目的
+# 期刊在这两个源里会被跳过（日志里会提示）。
+# ---------------------------------------------------------------------------
+journal_issn:
+  "Heart Rhythm": "1547-5271"
+  "JACC Clin Electrophysiol": "2405-5018"
+  "Europace": "1099-5129"
+  "Circ Arrhythm Electrophysiol": "1941-3149"
+  "J Cardiovasc Electrophysiol": "1045-3873"
+  "Pacing Clin Electrophysiol": "0147-8389"
+  "Heart Rhythm O2": "2666-5018"
+  "J Interv Card Electrophysiol": "1383-875X"
+  "Indian Pacing Electrophysiol J": "0972-6292"
+
+# ---------------------------------------------------------------------------
 # 主题词：在标题/摘要中检索（[tiab]）
 # 选词原则：用临床术语而非解剖学宽泛词（如 "heart" 会引入大量无关文献）
 #
@@ -220,10 +236,21 @@ sources:
   europepmc:
     enabled: true
     priority: 20
-  # 预印本：命中率不稳定，默认关闭，需要时打开
+  # Crossref：出版商一上线就有元数据，比 PubMed 入库早几天到几周，
+  # 补上「online first 尚未被 PubMed 收录」的时间窗。按 journal_issn 查白名单期刊。
+  crossref:
+    enabled: true
+    priority: 25
+  # OpenAlex：免费全覆盖库，主题词搜 title+abstract，兜住非 PubMed 收录期刊。
+  # ⚠️ 需要免费 API key（OPENALEX_API_KEY 环境变量）：无 key 时与整个 IP
+  # 共享 $0.10/天匿名额度，很容易耗尽后整天 429。申请：https://openalex.org/settings/api
+  openalex:
+    enabled: true
+    priority: 35
+  # 预印本：medRxiv 心血管区活跃，去重优先级最低（正式发表版本优先保留）
   medrxiv:
-    enabled: false
-    priority: 30
+    enabled: true
+    priority: 45
   biorxiv:
     enabled: false
-    priority: 30
+    priority: 45
