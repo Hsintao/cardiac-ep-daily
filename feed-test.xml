@@ -1,0 +1,23 @@
+<?xml version='1.0' encoding='utf-8'?>
+<rss version="2.0">
+  <channel>
+    <title>语鲸连接测试</title>
+    <link>https://hsintao.github.io/cardiac-ep-daily</link>
+    <description>这是一个测试订阅源，用来排查语鲸能否抓取 jsDelivr 上的 feed</description>
+    <language>zh-cn</language>
+    <item>
+      <title>测试条目 1：如果你能看到这条，说明语鲸能正常抓取 jsDelivr 上的 RSS</title>
+      <link>https://pubmed.ncbi.nlm.nih.gov/</link>
+      <guid isPermaLink="false">test-1</guid>
+      <pubDate>Tue, 21 Oct 2026 06:00:00 +0800</pubDate>
+      <description>测试内容：语鲸 - jsDelivr 链路正常。</description>
+    </item>
+    <item>
+      <title>测试条目 2</title>
+      <link>https://pubmed.ncbi.nlm.nih.gov/</link>
+      <guid isPermaLink="false">test-2</guid>
+      <pubDate>Mon, 20 Oct 2026 06:00:00 +0800</pubDate>
+      <description>第二条测试内容。</description>
+    </item>
+  </channel>
+</rss>
