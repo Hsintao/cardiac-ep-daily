@@ -1624,7 +1624,7 @@ main { padding: 26px 0 60px; }
                         aria-haspopup="dialog" aria-expanded="false" aria-controls="datePanel"
                         title="选择单日，或切换到「区间」选取一段日期">
                     <span class="date-toggle-icon" aria-hidden="true">📅</span>
-                    <span class="date-toggle-text" id="dateToggleText">2026-10-21</span>
+                    <span class="date-toggle-text" id="dateToggleText">2026-10-22</span>
                     <span class="date-toggle-count" id="dateToggleCount" hidden></span>
                     <span class="date-toggle-caret" aria-hidden="true">▾</span>
                 </button>
@@ -1657,6 +1657,8 @@ main { padding: 26px 0 60px; }
                             <div class="date-month-label">2026 年 10 月</div>
                             <div class="date-month-days">
                                 <button type="button" class="date-cell current"
+                                        data-day="2026-10-22" aria-label="2026-10-22" title="2026-10-22">22</button>
+                                <button type="button" class="date-cell"
                                         data-day="2026-10-21" aria-label="2026-10-21" title="2026-10-21">21</button>
                                 <button type="button" class="date-cell"
                                         data-day="2026-10-20" aria-label="2026-10-20" title="2026-10-20">20</button>
@@ -1766,7 +1768,7 @@ main { padding: 26px 0 60px; }
     <div class="wrap" id="paperContainer">
         <div class="loading-state" id="loadingState">
             <div class="loading-spinner"></div>
-            <p>正在加载 2026-10-21 的论文…</p>
+            <p>正在加载 2026-10-22 的论文…</p>
         </div>
     </div>
 </main>
@@ -1779,8 +1781,8 @@ main { padding: 26px 0 60px; }
 
 <script id="site-config" type="application/json">
 {
-  "defaultDate": "2026-10-21",
-  "days": ["2026-10-21", "2026-10-20", "2026-10-19", "2026-10-18", "2026-10-17", "2026-10-16", "2026-10-15", "2026-10-14", "2026-10-13", "2026-10-12", "2026-10-11", "2026-10-10", "2026-10-09", "2026-10-08", "2026-10-07", "2026-10-06", "2026-10-05", "2026-10-04", "2026-10-03", "2026-10-02", "2026-10-01", "2026-09-30", "2026-09-29", "2026-09-28", "2026-09-27", "2026-09-26", "2026-09-25", "2026-09-24", "2026-09-23", "2026-09-22", "2026-09-21", "2026-09-20"],
+  "defaultDate": "2026-10-22",
+  "days": ["2026-10-22", "2026-10-21", "2026-10-20", "2026-10-19", "2026-10-18", "2026-10-17", "2026-10-16", "2026-10-15", "2026-10-14", "2026-10-13", "2026-10-12", "2026-10-11", "2026-10-10", "2026-10-09", "2026-10-08", "2026-10-07", "2026-10-06", "2026-10-05", "2026-10-04", "2026-10-03", "2026-10-02", "2026-10-01", "2026-09-30", "2026-09-29", "2026-09-28", "2026-09-27", "2026-09-26", "2026-09-25", "2026-09-24", "2026-09-23", "2026-09-22", "2026-09-21", "2026-09-20"],
   "language": "Chinese",
   "topics": ["\u623f\u98a4\u4e0e\u6d88\u878d", "\u5ba4\u6027\u5fc3\u5f8b\u5931\u5e38", "\u5668\u68b0\u6cbb\u7597", "\u5fc3\u529b\u8870\u7aed\u4e0e\u4ee3\u8c22", "\u5f71\u50cf\u4e0e\u6807\u6d4b", "\u9057\u4f20\u4e0e\u57fa\u7840", "\u5176\u4ed6"],
   "aiSections": [["tldr", "\u4e00\u53e5\u8bdd\u7ed3\u8bba"], ["motivation", "\u7814\u7a76\u52a8\u673a"], ["method", "\u65b9\u6cd5"], ["result", "\u7ed3\u679c"], ["conclusion", "\u7ed3\u8bba\u4e0e\u610f\u4e49"]]
